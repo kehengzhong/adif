@@ -109,11 +109,12 @@ adif库开发的另外两个开源项目
 
 ### ePump项目
 
-依赖于 adif 项目提供的基础数据结构和算法库，作者开发并开源了ePump项目， 这是是一个事件驱动event-driven框架。该架构管理各类通信设备的非阻塞 socket fd 和定时器，当设备状态 ready 或定时器 timeout 时，产生相应的事件，通过多线程模型来处理事件，事件处理采用异步回调机制。 与 libevent 不一样的是 ePump 集成了多线程的管理，提供傻瓜式的调用接口，并融合了当今流行的几种通信和线程架构模型，是一个轻量级、高性能的 event-driven 开发架构，利用 ePump，入门级程序员也能轻易地开发出商业级的高性能服务器系统。
+依赖于 adif 项目提供的基础数据结构和算法库，作者开发并开源了 ePump 项目。ePump 是一个基于I/O事件通知、非阻塞通信、多路复用、多线程等机制开发的事件驱动模型的 C 语言应用开发框架，利用该框架可以很容易地开发出高性能、大并发连接的服务器程序。ePump 框架负责管理和监控处于非阻塞模式的文件描述符和定时器，根据其状态变化产生相应的事件，并调度派发到相应线程的事件队列中，这些线程通过调用该事件关联的回调函数（Callback）来处理事件。ePump 框架封装和提供了各种通信和应用接口，并融合了当今流行的通信和线程架构模型，是一个轻量级、高性能的 event-driven 开发架构，利用 ePump，入门级程序员也能轻易地开发出商业级的高性能服务器系统。
+
 
 ### eJet Web服务器项目
 
-基于 adif 库和 ePump 框架开发的另外一个开源项目是 eJet Web 服务器，eJet Web 服务器项目是利用 adif 库和 ePump 框架开发的轻量级、高性能 Web 服务器，系统大量运用 Zero-Copy 技术，支持 HTTP/1.1、HTTPS 的全部功能，提供虚拟主机、URI rewrite>、Script脚本、Cookie处理、TLS/SSL、自动Redirect、Cache本地存储、日志文件等功能，是静态文件访问、下载、以及PHP承载的理想平台，并对超大文件的上传发布提供高效支撑。此外，还支持 Proxy、 正向代理、反向代理、 TLS/SSL、FastCGI、 uWSGI、本地 Cache 存储管理、CDN节点服务等高级功能。eJet系统可以作为Web服务器承载 PHP 应用、Python 应用，同时利用缓存和 Proxy 功>能，可以轻易地配置为 CDN 分发系统的重要分发节点。
+基于 adif 库和 ePump 框架开发的另外一个开源项目是 eJet Web 服务器，eJet Web 服务器项目是利用 adif 库和 ePump 框架开发的轻量级、高性能 Web 服务器，系统大量运用 Zero-Copy 技术，支持 HTTP/1.1、HTTPS 的全部功能，提供虚拟主机、URI rewrite>、Script脚本、变量、Cookie处理、TLS/SSL、自动Redirect、Cache本地存储、日志文件等功能，是静态文件访问、下载、以及PHP承载的理想平台，并对超大文件的上传发布提供高效支撑。此外，还支持 Proxy、 正向代理、反向代理、 TLS/SSL、FastCGI、 uWSGI、本地 Cache 存储管理、CDN节点服务等高级功能。eJet系统可以作为Web服务器承载 PHP 应用、Python 应用，同时利用缓存和 Proxy 功>能，可以轻易地配置为 CDN 分发系统的重要分发节点。
 
 
 ***
