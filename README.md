@@ -114,7 +114,7 @@ adif库开发的另外两个开源项目
 
 ### eJet Web服务器项目
 
-基于 adif 库和 ePump 框架开发的另外一个开源项目是 eJet Web 服务器，eJet Web 服务器项目是利用 adif 库和 ePump 框架开发的轻量级、高性能 Web 服务器，系统大量运用 Zero-Copy 技术，支持 HTTP/1.1、HTTPS 的全部功能，提供虚拟主机、URI rewrite>、Script脚本、变量、Cookie处理、TLS/SSL、自动Redirect、Cache本地存储、日志文件等功能，是静态文件访问、下载、以及PHP承载的理想平台，并对超大文件的上传发布提供高效支撑。此外，还支持 Proxy、 正向代理、反向代理、 TLS/SSL、FastCGI、 uWSGI、本地 Cache 存储管理、CDN节点服务等高级功能。eJet系统可以作为Web服务器承载 PHP 应用、Python 应用，同时利用缓存和 Proxy 功>能，可以轻易地配置为 CDN 分发系统的重要分发节点。
+基于 adif 库和 ePump 框架开发的另外一个开源项目是 eJet Web 服务器，eJet Web 服务器项目是利用 adif 库和 ePump 框架开发的轻量级、高性能 Web 服务器，系统大量运用 Zero-Copy 技术，支持 HTTP/1.1、HTTPS 的全部功能，提供虚拟主机、URI rewrite>、Script脚本、变量、Cookie处理、TLS/SSL、自动Redirect、Cache本地存储、日志文件等功能，是静态文件访问、下载、以及PHP承载的理想平台，并对超大文件的上传发布提供高效支撑。此外，还支持 Proxy、 正向代理、反向代理、 TLS/SSL、FastCGI、 uWSGI、本地 Cache 存储管理、CDN节点服务等高级功能。eJet系统可以作为Web服务器承载 PHP 应用、Python 应用，同时利用缓存和 Proxy 功能，可以轻易地配置为 CDN 分发系统的重要分发节点。
 
 
 ***
