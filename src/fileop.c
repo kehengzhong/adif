@@ -1,6 +1,6 @@
-/*  
+/*
  * Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+ * All rights reserved. See MIT LICENSE for redistribution.
  */
 
 #include "btype.h"
@@ -36,7 +36,6 @@ int filefd_read (int fd, void * pbuf, int size)
     if (size < 0) return -3;
  
     for (len = 0; len < size; ) {
-
         ret = read(fd, pbuf+len, size-len);
         if (ret < 0) {
             if (errno == EINTR || errno == EAGAIN) {
@@ -65,7 +64,6 @@ int filefd_write (int fd, void * pbuf, int size)
     if (size < 0) return -3;
  
     for (len = 0; len < size; ) {
-
         ret = write(fd, pbuf + len, size - len);
         if (ret < 0) {
             if (errno == EINTR || errno == EAGAIN) {
@@ -74,7 +72,6 @@ int filefd_write (int fd, void * pbuf, int size)
             }
             return -100;
         }
-
         len += ret;
     }
  
@@ -255,6 +252,7 @@ long file_read (FILE * fp, void * buf, long readlen)
 }
 
 
+
 long file_write (FILE * fp, void * buf, long writelen)
 {
     size_t i, iRet = 0;
@@ -267,7 +265,6 @@ long file_write (FILE * fp, void * buf, long writelen)
         iRet = fwrite(buf+i, 1, writelen-i, fp);
         i += iRet;
     }
-
     fflush(fp);
 
     return (long)i;
@@ -298,7 +295,6 @@ int file_valid (FILE * fp)
 #ifdef UNIX
     struct stat st;
 #endif
-
 #ifdef _WIN32
     struct _stat st;
 #endif
@@ -311,7 +307,6 @@ int file_valid (FILE * fp)
     if (fstat(fileno(fp), &st) != 0) return 0;
     if (S_ISREG(st.st_mode)) return 1;
 #endif
-
 #ifdef _WIN32
     if (_fstat(fileno(fp), &st) != 0) return 0;
     if (!(_S_IFDIR & st.st_mode)) return 1;
@@ -326,7 +321,6 @@ int64 file_size (char * file)
 #ifdef UNIX
     struct stat fs;
 #endif
-
 #ifdef _WIN32
     struct _stat fs;
     HANDLE       hFile = NULL;
@@ -415,7 +409,6 @@ int file_is_regular (char * file)
 #ifdef UNIX
     struct stat fs;
 #endif
-
 #ifdef _WIN32
     struct _stat fs;
 #endif
@@ -428,7 +421,6 @@ int file_is_regular (char * file)
     }
     if (!S_ISREG(fs.st_mode)) return 0;
 #endif
-
 #ifdef _WIN32 
     if (_stat(file, &fs)== -1) {
         if (errno == ENOENT) return 0;
@@ -444,7 +436,6 @@ int file_is_dir (char * file)
 #ifdef UNIX
     struct stat fs; 
 #endif
-
 #ifdef _WIN32 
     struct _stat fs;  
 #endif
@@ -457,7 +448,6 @@ int file_is_dir (char * file)
     } 
     if (S_ISDIR(fs.st_mode)) return 1;
 #endif
-
 #ifdef _WIN32
     if (_stat(file, &fs)== -1) {
         if (errno == ENOENT) return 0;
@@ -475,7 +465,6 @@ int64 file_attr (char * file, long * inode, int64 * size, time_t * atime, time_t
 #ifdef UNIX
     struct stat fs;
 #endif
-
 #ifdef _WIN32
     struct _stat fs;
 #endif
@@ -489,7 +478,6 @@ int64 file_attr (char * file, long * inode, int64 * size, time_t * atime, time_t
     fsize = fs.st_size;
     if (size) *size = fsize;
 #endif
-
 #ifdef _WIN32
     if (_stat(file, &fs)== -1) {
         return -2;
@@ -520,7 +508,6 @@ int file_dir_create (char * path, int hasfilename)
 #ifdef UNIX
     piter = strrchr(p, '/');
 #endif
-
 #ifdef _WIN32
     piter = strrchr(p, '\\');
 #endif
@@ -533,7 +520,6 @@ int file_dir_create (char * path, int hasfilename)
         if (!file_exist(subpath)) {
             file_dir_create(subpath, 0);
         }
-
         if (subpath) kfree(subpath);
     }
 
@@ -541,7 +527,6 @@ int file_dir_create (char * path, int hasfilename)
     #ifdef UNIX
         mkdir(p, 0755);
     #endif
-
     #ifdef _WIN32
         _mkdir(p);
     #endif
@@ -582,7 +567,6 @@ int file_rollover (char * fname, int line)
 
         fprintf(tmpfp, "%s", buf);
     }
-
     fclose(fp);
     fclose(tmpfp);
 
@@ -671,7 +655,6 @@ int file_copy (char * srcfile, off_t offset, size_t length, char * dstfile, int6
 
     close(fdin);
     close(fdout);
-
 #else
     fpin = fopen(srcfile, "rb+");
     if (!fpin) return -200;
@@ -744,7 +727,6 @@ int file_copy2fp (char * srcfile, off_t offset, size_t length, FILE * fpout, int
     filefd_copy(fdin, offset, length, fileno(fpout), actnum);
 
     close(fdin);
-
 #else
     fpin = fopen(srcfile, "rb+");
     if (!fpin) return -200;
@@ -808,7 +790,6 @@ int file_conv_charset (char * srcchst, char * dstchst, char * srcfile, char * ds
         else {
             readlen = size;
         }
-
         readlen = file_read(fpin, inbuf+inlen, readlen);
         size -= readlen;
 
@@ -824,7 +805,8 @@ iconv_again:
             if (errno == E2BIG) {
                 /* The output buffer has no more room
                  * for the next converted character */
-                fclose(fpin); fclose(fpout);
+                fclose(fpin);
+                fclose(fpout);
                 iconv_close(hconv);
                 return acclen; //return actual converted bytes in orignal stream
 
@@ -840,6 +822,7 @@ iconv_again:
                     inlen--; outlen--;
                     goto iconv_again;
                 }
+
             } else break;
         }
 
@@ -864,7 +847,7 @@ int WinPath2UnixPath (char * path, int len)
     if (len < 0) len = (int)strlen(path);
     if (len <= 0) return -2;
 
-    for (i=0; i<len; i++) {
+    for (i = 0; i < len; i++) {
         if (path[i] == '\\') path[i] = '/';
     }
     return i;
@@ -879,7 +862,7 @@ int UnixPath2WinPath (char * path, int len)
     if (len < 0) len = (int)strlen(path);
     if (len <= 0) return -2;
 
-    for (i=0; i<len; i++) {
+    for (i = 0; i < len; i++) {
         if (path[i] == '/') path[i] = '\\';
     }
     return i;
@@ -921,6 +904,26 @@ char * file_basename (char * file)
     return poct+1;
 }
 
+int file_abspath (char * file, char * path, int pathlen)
+{
+    char   fpath[1024];
+    char * p = NULL;
+    int    len = 0;
+
+    file_get_absolute_path(file, fpath, sizeof(fpath)-1);
+
+    len = strlen(fpath);
+    p = rskipTo(fpath + len - 1, len, "/\\", 2);
+    if (p && p >= fpath) {
+        if (path && pathlen > 0)
+            str_secpy(path, pathlen, fpath, p - fpath + 1);
+        return p - fpath + 1;
+    }
+
+    return -100;
+}
+
+
 int file_get_absolute_path (char * relative, char * abs, int abslen)
 {
     char   fpath[512];
@@ -928,7 +931,7 @@ int file_get_absolute_path (char * relative, char * abs, int abslen)
     char   curpath[512];
     char   destpath[512];
     char * p = NULL;
-    int     len = 0;
+    int    len = 0;
 
     if (!abs || abslen <= 0) return -2;
 
@@ -971,7 +974,7 @@ int file_get_absolute_path (char * relative, char * abs, int abslen)
 #ifdef _WIN32
     GetCurrentDirectory(sizeof(curpath)-1, curpath);
     if (relative) {
-        if (is_regular_file(relative)) {
+        if (file_is_regular(relative)) {
             p = strrchr(relative, '/'); 
             if (p) { 
                 strncpy(file, p+1, sizeof(file)-1);
@@ -1041,7 +1044,9 @@ int file_munmap (void * pmap, size_t maplen)
     return munmap(pmap, maplen);
 }
 
+
 #endif
+
 
 typedef struct file_buf_s {
     char        * fname;
@@ -1437,3 +1442,5 @@ long fbuf_skip_esc_to (void * vfb, long pos, int skiplimit, void * vpat, int pat
 
     return pos + i;
 }
+
+

@@ -2369,6 +2369,7 @@ int frame_uri_decode (frame_p frm, void * psrc, int size)
             }
 
             len++;
+            if (ch == '+') ch = ' ';
             frame_put_last(frm, ch);
             break;
  

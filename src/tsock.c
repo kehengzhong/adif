@@ -1,6 +1,6 @@
-/*  
+/*
  * Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+ * All rights reserved. See MIT LICENSE for redistribution.
  */
 
 #include "btype.h"

@@ -1,6 +1,6 @@
-/*  
+/*
  * Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+ * All rights reserved. See MIT LICENSE for redistribution.
  */
 
 #include "btype.h"
@@ -185,6 +185,7 @@ void chunk_zero (void * vck)
     ck->procnotifypara = NULL;
 }
 
+ 
 int64 chunk_size (void * vck, int httpchunk)
 {
     chunk_t  * ck = (chunk_t *)vck;
@@ -374,7 +375,6 @@ int chunk_attr (void * vck, int index, int * cktype, int64 * plen)
 
     if (cktype) *cktype = ent->cktype;
     if (plen) *plen = ent->length;
-
     return 0;
 }
 
@@ -1918,7 +1918,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
         }
     } //end while 
 
-    if (httpchunk) {
+    if (httpchunk && ck->chunkendsize > 0 && readpos + 5 >= ck->chunkendsize) {
         if (readpos < accentlen + 5) { //0\r\n\r\n
             if (pvec->vectype != 0 && pvec->vectype != 1)
                 return (int)pvec->size;
@@ -2350,6 +2350,7 @@ int chunk_char (void * vck, int64 pos, ckpos_vec_t * pvec, int * pind)
     return -200;
 }
  
+
 int64 chunk_skip_to (void * vck, int64 pos, int64 skiplimit, void * vpat, int patlen)
 {
     chunk_t  * ck = (chunk_t *)vck;
@@ -2736,8 +2737,7 @@ void chunk_print (void * vck, FILE * fp)
 
     num = arr_num(ck->entity_list);
 
-    sprintf(buf, "----------chunk=%p-----------\n", ck);
-
+    sprintf(buf, "----------------chunk=%p-----------------\n", ck);
     sprintf(buf+strlen(buf), "size=%lld rmentlen=%lld endsize=%lld chunksize=%lld"
                              " rmchunklen=%lld chunkendsize=%lld\n",
             ck->size, ck->rmentlen, ck->endsize, ck->chunksize, ck->rmchunklen, ck->chunkendsize);
@@ -2784,8 +2784,7 @@ void chunk_print (void * vck, FILE * fp)
         }
         fprintf(fp, buf);
     }
-
-    fprintf(fp, "------------------end chunk---------------\n");
+    fprintf(fp, "------------------------end chunk---------------------\n");
     fflush(fp);
 }
 

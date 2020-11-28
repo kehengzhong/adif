@@ -1,6 +1,6 @@
-/*  
+/*
  * Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+ * All rights reserved. See MIT LICENSE for redistribution.
  */
 
 #include "btype.h"
@@ -245,6 +245,17 @@ int kvpair_clean (void * vobj)
     ht_free_all(obj->objtab, kvpair_item_free);
 
     kfree(obj);
+    return 0;
+}
+
+int kvpair_zero (void * vobj)
+{
+    KVPairObj * obj = (KVPairObj *)vobj;
+ 
+    if (!obj) return -1;
+ 
+    ht_free_member(obj->objtab, kvpair_item_free);
+ 
     return 0;
 }
 

@@ -54,6 +54,7 @@ int UnixPath2WinPath (char * path, int len);
 
 char * file_extname (char * file);
 char * file_basename (char * file);
+int file_abspath (char * file, char * path, int pathlen);
 
 int file_get_absolute_path (char * relative, char * abs, int abslen);
 
@@ -87,6 +88,7 @@ long fbuf_skip_esc_to   (void * vfb, long pos, int skiplimit, void * pat, int pa
 #ifdef __cplusplus
 }
 #endif 
+
 
 #endif
 

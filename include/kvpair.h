@@ -38,6 +38,7 @@ typedef struct kvpair_obj {
 
 void * kvpair_init  (int htsize, char * sepa, char * kvsep);
 int    kvpair_clean (void * vobj);
+int    kvpair_zero  (void * vobj);
 
 int    kvpair_valuenum (void * vobj, void * key, int keylen);
 

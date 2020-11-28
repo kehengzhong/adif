@@ -159,7 +159,7 @@ void * json_strip_dup (void * psrc, size_t size);
       ESCAPE_MEMCACHED      5
       ESCAPE_MAIL_AUTH      6 */
 int uri_encode (void * psrc, size_t size, void * pdst, size_t dstlen, int type);
-int uri_decode (void * psrc, size_t size, void * pdst, size_t dstlen);
+int uri_decode (void * psrc, int size, void * pdst, int dstlen);
 
 int html_escape (void * psrc, size_t size, void * pdst, size_t dstlen);
 

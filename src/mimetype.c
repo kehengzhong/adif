@@ -1180,23 +1180,6 @@ static int mime_item_cmp_mimetype (void * a, void * b)
     return strcasecmp(item->mime, mtype);
 }
 
-
-static ulong string_hash_func (void * key)
-{
-    char      * p = (char *)key;
-    static ulong  hunit_mask = ~0U << 26;
-    ulong        ret = 0;
-
-    if (!p) return 0;
-
-    while (p && *p != '\0') {
-        ret = (ret & hunit_mask) ^ (ret << 6) ^ (adf_tolower(*p));
-        p++;
-    }
-
-    return ret;
-}
-
 static ulong mimeid_hash_func (void * key)
 {
     uint32 mimeid = *(uint32 *)key;
@@ -1220,15 +1203,13 @@ void * mime_type_init ()
     g_mimemgmt_init = 1;
 
     mgmt->mime_tab = ht_only_new(1200, mime_item_cmp_extname);
-    ht_set_hash_func(mgmt->mime_tab, string_hash_func);
 
     mgmt->mimeid_tab = ht_only_new(1100, mime_item_cmp_mimeid);
     ht_set_hash_func(mgmt->mimeid_tab, mimeid_hash_func);
 
     mgmt->mimetype_tab = ht_only_new(1200, mime_item_cmp_mimetype);
-    ht_set_hash_func(mgmt->mimetype_tab, string_hash_func);
 
-    for (i=0; i<MIMENUM; i++) {
+    for (i = 0; i < MIMENUM; i++) {
         item = &g_mime[i];
 
         if (ht_get(mgmt->mime_tab, item->extname) == NULL)
@@ -1239,9 +1220,10 @@ void * mime_type_init ()
         if (ht_get(mgmt->mimetype_tab, item->mime) == NULL)
             ht_set(mgmt->mimetype_tab, item->mime, item);
     }
-    
+
     return mgmt;
 }
+
 
 int mime_type_clean (void * vmgmt)
 {
@@ -1249,11 +1231,10 @@ int mime_type_clean (void * vmgmt)
 
     if (!mgmt) return -1;
 
-    if (g_mimemgmt_init == 0 || g_mimemgmt == NULL)
-        return 0;
-
-    g_mimemgmt = NULL;
-    g_mimemgmt_init = 0;
+    if (g_mimemgmt == mgmt) {
+        g_mimemgmt = NULL;
+        g_mimemgmt_init = 0;
+    }
 
     ht_free(mgmt->mime_tab);
     ht_free(mgmt->mimeid_tab);
@@ -1263,6 +1244,89 @@ int mime_type_clean (void * vmgmt)
     return 0;
 }
  
+void * mime_type_alloc (int tabsize)
+{
+    MimeMgmt * mgmt = NULL;
+ 
+    mgmt = kzalloc(sizeof(*mgmt));
+    if (!mgmt) return NULL;
+ 
+    if (tabsize < 200) tabsize = 200;
+
+    mgmt->mime_tab = ht_only_new(tabsize, mime_item_cmp_extname);
+ 
+    mgmt->mimeid_tab = ht_only_new(tabsize, mime_item_cmp_mimeid);
+    ht_set_hash_func(mgmt->mimeid_tab, mimeid_hash_func);
+ 
+    mgmt->mimetype_tab = ht_only_new(tabsize, mime_item_cmp_mimetype);
+
+    return mgmt;
+}
+
+void mime_type_free (void * vmgmt)
+{
+    MimeMgmt * mgmt = (MimeMgmt *)vmgmt;
+    MimeItem * item = NULL;
+    int        i, num;
+
+    if (!mgmt) return;
+
+    num = ht_num(mgmt->mimeid_tab);
+
+    for (i = 0; i < num; i++) {
+        item = ht_value(mgmt->mimeid_tab, i);
+        if (!item) continue;
+
+        kfree(item);
+    }
+    ht_free(mgmt->mimeid_tab);
+
+    ht_free(mgmt->mime_tab);
+    ht_free(mgmt->mimetype_tab);
+
+    kfree(mgmt);
+}
+
+int mime_type_add (void * vmgmt, char * mime, char * ext, uint32 mimeid, uint32 appid)
+{
+    MimeMgmt * mgmt = (MimeMgmt *)vmgmt;
+    MimeItem * item = NULL;
+    uint8      setflag = 0;
+
+    if (!mgmt) return -1;
+
+    if (!mime || strlen(mime) <= 0) return -2;
+    if (!ext || strlen(ext) <= 0) return -3;
+
+    item = kzalloc(sizeof(*item));
+    if (!item) return -100;
+
+    str_secpy(item->mime, sizeof(item->mime)-1, mime, strlen(mime));
+    str_secpy(item->extname, sizeof(item->extname)-1, ext, strlen(ext));
+    item->mimeid = mimeid;
+    item->appid = appid;
+    
+    if (ht_get(mgmt->mimetype_tab, mime) == NULL) {
+        ht_set(mgmt->mimetype_tab, item->mime, item);
+        setflag |= 0x01;
+    }
+
+    if (ht_get(mgmt->mime_tab, ext) == NULL) {
+        ht_set(mgmt->mime_tab, item->extname, item);
+        setflag |= 0x02;
+    }
+
+    if (mimeid > 0 && ht_get(mgmt->mimeid_tab, &mimeid) == NULL) {
+        ht_set(mgmt->mimeid_tab, &mimeid, item);
+        setflag |= 0x04;
+    }
+
+    if (setflag == 0)
+        kfree(item);
+
+    return 0;
+}
+
 int mime_type_get_by_extname (void * vmgmt, char * ext, char ** pmime, uint32 * mimeid, uint32 * appid)
 {
     MimeMgmt * mgmt = (MimeMgmt *)vmgmt;
@@ -1282,7 +1346,6 @@ int mime_type_get_by_extname (void * vmgmt, char * ext, char ** pmime, uint32 * 
     if (*p == '.') item = ht_get(mgmt->mime_tab, p);
     if (!item) return -100;
     
-
     if (pmime) *pmime = item->mime;
     if (mimeid) *mimeid = item->mimeid;
     if (appid) *appid = item->appid;
@@ -1312,6 +1375,7 @@ int mime_type_get_by_mimeid (void * vmgmt, uint32 mimeid, char ** pmime, char **
     
     return 0;
 }
+
 
 int mime_type_get_by_mime (void * vmgmt, char * mime, char ** pext, uint32 * mimeid, uint32 * appid)
 {

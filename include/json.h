@@ -61,6 +61,10 @@ typedef struct json_obj {
  
 } JsonObj;
 
+/* sptype: separator type
+    0-->  { "key":"value", "name":"data"}
+    1-->  { "key"="value"; "name"="data"}
+ */
 void * json_init  (int sptype, int cmtflag);
 int    json_clean (void * vobj);
 

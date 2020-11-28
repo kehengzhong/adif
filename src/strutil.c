@@ -1,6 +1,6 @@
-/*  
+/*
  * Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+ * All rights reserved. See MIT LICENSE for redistribution.
  */
 
 #include "btype.h"
@@ -2284,7 +2284,7 @@ int uri_encode (void * psrc, size_t size, void * pdst, size_t dstlen, int type)
     return n;
 }
  
-int uri_decode (void * psrc, size_t size, void * pdst, size_t dstlen)
+int uri_decode (void * psrc, int size, void * pdst, int dstlen)
 {
     uint8  * s = (uint8 *)psrc;
     uint8  * d = (uint8 *)pdst;
@@ -2295,6 +2295,10 @@ int uri_decode (void * psrc, size_t size, void * pdst, size_t dstlen)
         sw_quoted,
         sw_quoted_second
     } state;
+ 
+    if (!psrc) return 0;
+    if (size < 0) size = str_len(psrc);
+    if (size == 0) return 0;
  
     state = 0;
     decoded = 0;
@@ -2313,7 +2317,8 @@ int uri_decode (void * psrc, size_t size, void * pdst, size_t dstlen)
             len++;
             if (len > dstlen) break;
 
-            *d++ = ch;
+            if (ch == '+') *d++ = ' ';
+            else *d++ = ch;
 
             break;
  
@@ -2376,9 +2381,10 @@ int uri_decode (void * psrc, size_t size, void * pdst, size_t dstlen)
         }
     }
  
+    *d = '\0';
+
     return len; 
 }
- 
  
 int html_escape (void * psrc, size_t size, void * pdst, size_t dstlen)
 {
@@ -2538,6 +2544,8 @@ int string_tokenize (void * p, int len, void * pat, int seplen, void ** plist, i
     return num;
 }
 
+
+
 /* randstr: contain the result random string
  * size:    destinated random string length
  * type=0:  only generate Alphabet string
@@ -2600,6 +2608,9 @@ int GetRandStr (void * rstr, int size, int type)
  
     return size;
 }
+
+
+
 
 
 #ifdef UNIX

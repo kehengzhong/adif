@@ -12,7 +12,6 @@
 extern "C" {
 #endif
 
-
 typedef int (HashTabCmp) (void * a, void * b);
 typedef void (HashTabFree) (void * a);
 typedef ulong (HashFunc) (void * key);
@@ -23,7 +22,6 @@ typedef struct hash_node {
     int   count;
     void * dptr;
 } hashnode_t;
-
 
 typedef struct HashTab_ {
 
@@ -53,13 +51,12 @@ ulong string_hash (void * key, int keylen, ulong seed);
 uint32 murmur_hash2    (void * key, int len, uint32 seed);
 uint64 murmur_hash2_64 (void * key, int len, uint64 seed);
 
-
 /* create an instance of HASH TABLE. first find a prime number near to the 
  * given number. set the comparing function. allocate hash nodes of the prime
  * number. set the default hash function provided by system. if succeeded, 
- * the instance of hashtab_t return.  else, NULL returned. 
+ * the instance of HASH TABLE return.  else, NULL returned. 
  * the comparing function will execute comparing operation between the 
- * instance and the key.*/
+ * instance that hash node points to and the key.*/
 hashtab_t * ht_new (int num, HashTabCmp * cmp);
 
 /* there is no linear list existing in hashtab_t via this API */
@@ -70,8 +67,9 @@ void ht_set_generic_hash (hashtab_t * ht);
 /* set the hash function as the user-defined function. */
 void ht_set_hash_func (hashtab_t * ht, HashFunc * hashfunc);
 
-/* release the resource of the hash table instance. if the value numbers of 
- * the same hash value is greater than 1, then the array instance will be
+
+/* release the space of the hash table instance. if the value numbers of 
+ * the same hash value is greater than 1, then the stack instance will be
  * released. release the hash node list and release the hash table inst. */
 void ht_free (hashtab_t * ht);
 
@@ -100,14 +98,12 @@ int ht_sort (hashtab_t * ht, HashTabCmp * cmp);
  * be from 0 to the total number minor 1. */
 void * ht_value (hashtab_t * ht, int index);
 
-
 /* set a hash value for a key. */
 int ht_set (hashtab_t * ht, void * key, void * value);
 
 /* traverse all the hash value and pass the value to the caller-provided
  * routine. */
 void ht_traverse (hashtab_t * ht, void * usrInfo, void (*check)(void *, void *));
-
 
 /* delete the value corresponding to the key. */
 void * ht_delete (hashtab_t * ht, void * key);
