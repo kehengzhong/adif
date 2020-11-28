@@ -541,7 +541,7 @@ int64 chunk_read (void * vck, void * pbuf, int64 offset, int64 length, int httpc
         }
     }
 
-    if (httpchunk) {
+    if (httpchunk && ck->chunkendsize > 0 && readpos + 5 >= ck->chunkendsize) {
         if (readpos < accentlen + 5) { //0\r\n\r\n
             curpos = readpos - accentlen;
             curlen = 5 - curpos;
@@ -737,7 +737,7 @@ int64 chunk_read_ptr (void * vck, int64 offset, int64 length, void ** ppbyte, in
         }
     }
  
-    if (httpchunk) {
+    if (httpchunk && ck->chunkendsize > 0 && readpos + 5 >= ck->chunkendsize) {
         if (readpos < accentlen + 5) { //0\r\n\r\n
             curpos = readpos - accentlen;
             curlen = 5 - curpos;
@@ -917,7 +917,7 @@ int64 chunk_readto_frame (void * vck, frame_p frm, int64 offset, int64 length, i
         }
     }
 
-    if (httpchunk) {
+    if (httpchunk && ck->chunkendsize > 0 && readpos + 5 >= ck->chunkendsize) {
         if (readpos < accentlen + 5) { //0\r\n\r\n
             curpos = readpos - accentlen;
             curlen = 5 - curpos;
@@ -1101,7 +1101,7 @@ int64 chunk_readto_file (void * vck, int fd, int64 offset, int64 length, int htt
         }
     }
 
-    if (httpchunk) {
+    if (httpchunk && ck->chunkendsize > 0 && readpos + 5 >= ck->chunkendsize) {
         if (readpos < accentlen + 5) { //0\r\n\r\n
             curpos = readpos - accentlen;
             curlen = 5 - curpos;
