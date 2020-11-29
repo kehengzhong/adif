@@ -6,7 +6,7 @@
 #include "service.h"
 #include "frame.h"
 
-#ifdef WINDOWS
+#ifdef _WIN32
 #include <windows.h>
 #include <windef.h>
 #include <lmcons.h>
@@ -280,7 +280,7 @@ int runas(char * user)
 #endif  //end ifdef UNIX
 
 
-#ifdef WINDOWS
+#ifdef _WIN32
 
 #define DFP_GET_VERSION        0x00074080 
 #define DFP_SEND_DRIVE_COMMAND 0x0007c084 

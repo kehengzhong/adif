@@ -674,152 +674,157 @@ int sock_option_set (SOCKET fd, sockopt_t * opt)
 
     if (!opt) return -2;
 
-    if ((opt->mask & SOM_REUSEADDR) && 
-        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, 
-                   (const void *)&opt->reuseaddr, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_REUSEADDR) {
+        opt->reuseaddr_ret = 
+                setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, 
+                           (const void *)&opt->reuseaddr, sizeof(int));
+        if (opt->reuseaddr_ret != 0)
+            perror("REUSEADDR");
     }
 
 #ifdef SO_REUSEPORT
-    if ((opt->mask & SOM_REUSEPORT) && 
-        setsockopt(fd, SOL_SOCKET, SO_REUSEPORT,
-                   (const void *)&opt->reuseport, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_REUSEPORT) {
+        opt->reuseport_ret = 
+            setsockopt(fd, SOL_SOCKET, SO_REUSEPORT,
+                       (const void *)&opt->reuseport, sizeof(int));
+        if (opt->reuseport_ret != 0)
+            perror("REUSEPORT");
     }
 #endif
 
-    if ((opt->mask & SOM_KEEPALIVE) &&
-        setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE,
-                   (const void *)&opt->keepalive, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_KEEPALIVE) {
+        opt->keepalive_ret = 
+            setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE,
+                       (const void *)&opt->keepalive, sizeof(int));
+        if (opt->keepalive_ret != 0)
+            perror("KEEPALIVE");
     }
 
-    if ((opt->mask & SOM_IPV6ONLY) &&
-        setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY,
-                   (const void *)&opt->ipv6only, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_IPV6ONLY) {
+        opt->ipv6only_ret = 
+            setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY,
+                       (const void *)&opt->ipv6only, sizeof(int));
     }
 
-    if ((opt->mask & SOM_RCVBUF) && 
-        setsockopt(fd, SOL_SOCKET, SO_RCVBUF,
-                   (const void *)&opt->rcvbuf, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_RCVBUF) {
+        opt->rcvbuf_ret = 
+            setsockopt(fd, SOL_SOCKET, SO_RCVBUF,
+                       (const void *)&opt->rcvbuf, sizeof(int));
     }
 
-    if ((opt->mask & SOM_SNDBUF) && 
-        setsockopt(fd, SOL_SOCKET, SO_RCVBUF,
-                   (const void *)&opt->sndbuf, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_SNDBUF) {
+        opt->sndbuf_ret = 
+            setsockopt(fd, SOL_SOCKET, SO_RCVBUF,
+                       (const void *)&opt->sndbuf, sizeof(int));
     }
 
     if ((opt->mask & SOM_RCVTIMEO) && opt->rcvtimeo > 0) {
         tv.tv_sec = opt->rcvtimeo / 1000;
         tv.tv_usec = opt->rcvtimeo % 1000;
-        if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO,
-                   (const void *)&tv, sizeof(struct timeval)) < 0)
-        {
-        }
+
+        opt->rcvtimeo_ret = 
+            setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO,
+                       (const void *)&tv, sizeof(struct timeval));
     }
 
     if ((opt->mask & SOM_SNDTIMEO) && opt->sndtimeo > 0) {
         tv.tv_sec = opt->sndtimeo / 1000;
         tv.tv_usec = opt->sndtimeo % 1000;
-        if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO,
-                   (const void *)&tv, sizeof(struct timeval)) < 0)
-        {
-        }
+
+        opt->sndtimeo_ret =
+            setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO,
+                       (const void *)&tv, sizeof(struct timeval));
     }
 
 #ifdef TCP_KEEPIDLE
-    if ((opt->mask & SOM_TCPKEEPIDLE) && 
-        setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE,
-                   (const void *)&opt->keepidle, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_TCPKEEPIDLE) {
+        opt->keepidle_ret = 
+            setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE,
+                       (const void *)&opt->keepidle, sizeof(int));
     }
 #endif
 
 #ifdef TCP_KEEPINTVL
-    if ((opt->mask & SOM_TCPKEEPINTVL) && 
-        setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL,
-                   (const void *)&opt->keepintvl, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_TCPKEEPINTVL) {
+        opt->keepintvl_ret = 
+            setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL,
+                       (const void *)&opt->keepintvl, sizeof(int));
     }
 #endif
 
 #ifdef TCP_KEEPCNT
-    if ((opt->mask & SOM_TCPKEEPCNT) && 
-        setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT,
-                   (const void *)&opt->keepcnt, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_TCPKEEPCNT) {
+        opt->keepcnt_ret = 
+            setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT,
+                       (const void *)&opt->keepcnt, sizeof(int));
     }
 #endif
 
 #ifdef SO_SETFIB
-    if ((opt->mask & SOM_SETFIB) && 
-        setsockopt(fd, SOL_SOCKET, SO_SETFIB,
-                   (const void *)&opt->setfib, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_SETFIB) {
+        opt->setfib_ret = 
+            setsockopt(fd, SOL_SOCKET, SO_SETFIB,
+                   (const void *)&opt->setfib, sizeof(int));
     }
 #endif
 
 #ifdef TCP_FASTOPEN
-    if ((opt->mask & SOM_TCPFASTOPEN) && 
-        setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN,
-                   (const void *)&opt->fastopen, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_TCPFASTOPEN) {
+        opt->fastopen_ret = 
+            setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN,
+                       (const void *)&opt->fastopen, sizeof(int));
     }
 #endif
 
-    if ((opt->mask & SOM_TCPNODELAY) && 
-        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY,
-                   (const void *)&opt->nodelay, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_TCPNODELAY) {
+        opt->nodelay_ret = 
+            setsockopt(fd, IPPROTO_TCP, TCP_NODELAY,
+                       (const void *)&opt->nodelay, sizeof(int));
     }
 
 #ifdef TCP_NOPUSH
-    if ((opt->mask & SOM_TCPNOPUSH) && 
-        setsockopt(fd, IPPROTO_TCP, TCP_NOPUSH,
-                   (const void *)&opt->nopush, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_TCPNOPUSH) {
+        opt->nopush_ret = 
+            setsockopt(fd, IPPROTO_TCP, TCP_NOPUSH,
+                       (const void *)&opt->nopush, sizeof(int));
     }
 #endif
 
 #ifdef SO_ACCEPTFILTER
-    if ((opt->mask & SOM_ACCEPTFILTER) && 
-        opt->af != NULL &&
-        setsockopt(fd, SOL_SOCKET, SO_ACCEPTFILTER,
-                   (const void *)opt->af, sizeof(struct accept_filter_arg)) < 0)
-    {
+    if ((opt->mask & SOM_ACCEPTFILTER) && opt->af != NULL) {
+        opt->af_ret = 
+            setsockopt(fd, SOL_SOCKET, SO_ACCEPTFILTER,
+                       (const void *)opt->af, sizeof(struct accept_filter_arg));
     }
 #endif
 
 #ifdef TCP_DEFER_ACCEPT
-    if ((opt->mask & SOM_TCPDEFERACCEPT) && 
-        setsockopt(fd, IPPROTO_TCP, TCP_DEFER_ACCEPT,
-                   (const void *)&opt->defer_accept, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_TCPDEFERACCEPT) {
+        opt->defer_accept_ret = 
+            setsockopt(fd, IPPROTO_TCP, TCP_DEFER_ACCEPT,
+                       (const void *)&opt->defer_accept, sizeof(int));
     }
 #endif
 
 #ifdef IP_RECVDSTADDR
-    if ((opt->mask & SOM_IPRECVDSTADDR) && 
-        setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR,
-                   (const void *)&opt->recv_dst_addr, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_IPRECVDSTADDR) {
+        opt->recv_dst_addr_ret = 
+            setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR,
+                       (const void *)&opt->recv_dst_addr, sizeof(int));
     }
 #endif
 
-    if ((opt->mask & SOM_IPPKTINFO) && 
-        setsockopt(fd, IPPROTO_IP, IP_PKTINFO,
-                   (const void *)&opt->ip_pktinfo, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_IPPKTINFO) {
+        opt->ip_pktinfo_ret = 
+            setsockopt(fd, IPPROTO_IP, IP_PKTINFO,
+                       (const void *)&opt->ip_pktinfo, sizeof(int));
     }
 
 #ifdef IPV6_RECVPKTINFO
-    if ((opt->mask & SOM_IPV6RECVPKTINFO) && 
-        setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO,
-                   (const void *)&opt->ipv6_recv_pktinfo, sizeof(int)) < 0)
-    {
+    if (opt->mask & SOM_IPV6RECVPKTINFO) {
+        opt->ipv6_recv_pktinfo_ret = 
+            setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO,
+                       (const void *)&opt->ipv6_recv_pktinfo, sizeof(int));
     }
 #endif
 
@@ -916,7 +921,7 @@ void addrinfo_print (struct addrinfo * rp)
     }
 
     sprintf(buf+strlen(buf), " SockLen: %d  AI_Flags: %d", rp->ai_addrlen, rp->ai_flags);
-    printf("\n%s\n\n", buf);
+    printf("%s\n", buf);
 }
 
 SOCKET tcp_listen (char * localip, int port, void * psockopt)
@@ -975,16 +980,17 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt)
             if (sockopt->mask & SOM_BACKLOG)
                 backlog = sockopt->backlog;
             sock_option_set(listenfd, sockopt);
+
         } else { //set the default options
             one = 1;
             ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (void *)&one, sizeof(int));
-            if (ret != 0) perror("REUSEADDR:");
+            if (ret != 0) perror("TCPListen REUSEADDR");
 #ifdef SO_REUSEPORT
             ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEPORT, (void *)&one, sizeof(int));
-            if (ret != 0) perror("REUSEPORT:");
+            if (ret != 0) perror("TCPListen REUSEPORT");
 #endif
             ret = setsockopt(listenfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&one, sizeof(int));
-            if (ret != 0) perror("KEEPALIVE:");
+            if (ret != 0) perror("TCPListen KEEPALIVE");
         }
 
         if (bind(listenfd, rp->ai_addr, rp->ai_addrlen) != 0) {
@@ -1730,14 +1736,16 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
 }
 
 
-SOCKET udp_listen (char * localip, int port)
+SOCKET udp_listen (char * localip, int port, void * psockopt)
 {
     struct addrinfo    hints;
     struct addrinfo  * result;
     struct addrinfo  * rp;
+    sockopt_t        * sockopt = NULL;
     SOCKET             aifd = INVALID_SOCKET;
     char               buf[128];
     SOCKET             listenfd = INVALID_SOCKET;
+    int                one, ret;
  
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;       /* Allow IPv4 or IPv6 */
@@ -1753,6 +1761,8 @@ SOCKET udp_listen (char * localip, int port)
 
     sprintf(buf, "%d", port);
  
+    sockopt = (sockopt_t *)psockopt;
+
     aifd = getaddrinfo(localip, buf, &hints, &result);
     if (aifd != 0)  return -100;
  
@@ -1761,11 +1771,26 @@ SOCKET udp_listen (char * localip, int port)
         if (listenfd == INVALID_SOCKET)
             continue;
  
-         if (bind(listenfd, rp->ai_addr, rp->ai_addrlen) != 0) {
-             closesocket(listenfd);
-             continue;
-         }
-         break;
+        if (sockopt) {
+            sock_option_set(listenfd, sockopt);
+ 
+        } else { //set the default options
+            one = 1;
+            ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (void *)&one, sizeof(int));
+            if (ret != 0) perror("UDPListen REUSEADDR");
+#ifdef SO_REUSEPORT
+            ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEPORT, (void *)&one, sizeof(int));
+            if (ret != 0) perror("UDPListen REUSEPORT");
+#endif
+            ret = setsockopt(listenfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&one, sizeof(int));
+            if (ret != 0) perror("UDPListen KEEPALIVE");
+        }
+
+        if (bind(listenfd, rp->ai_addr, rp->ai_addrlen) != 0) {
+            closesocket(listenfd);
+            continue;
+        }
+        break;
     }
     freeaddrinfo(result);
 

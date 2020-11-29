@@ -156,63 +156,90 @@ extern "C" {
 
 typedef struct SockOption_ {
     uint32  mask;
-
-    int     backlog;   //listen backlog, TCP connection buffer for 3-way handshake finishing
-
+ 
+    //listen backlog, TCP connection buffer for 3-way handshake finishing
+    int     backlog;
+ 
     //setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void *)&val, sizeof(int))
     int    reuseaddr;
+    int    reuseaddr_ret;
+ 
     //setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, (const void *)&val, sizeof(int))
     int    reuseport;
-
+    int    reuseport_ret;
+ 
     //setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (const void *)&val, sizeof(int))
     int    keepalive;
-
+    int    keepalive_ret;
+ 
     //setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, (const void *)&val, sizeof(int))
     int    ipv6only;  //only for AF_INET6
-
-
+    int    ipv6only_ret;
+ 
     //setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const void *)&val, sizeof(int))
     int  rcvbuf;
+    int  rcvbuf_ret;
+ 
     //setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const void *)&val, sizeof(int))
     int  sndbuf;
-
+    int  sndbuf_ret;
+ 
     //setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const void *)&val, sizeof(struct timeval))
     int  rcvtimeo;
+    int  rcvtimeo_ret;
+ 
     //setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const void *)&val, sizeof(struct timeval))
     int  sndtimeo;
-
+    int  sndtimeo_ret;
+ 
     //setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, (const void *)&val, sizeof(int))
     int  keepidle;
+    int  keepidle_ret;
+ 
     //setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, (const void *)&val, sizeof(int))
     int  keepintvl;
+    int  keepintvl_ret;
+ 
     //setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, (const void *)&val, sizeof(int))
     int  keepcnt;
-
+    int  keepcnt_ret;
+ 
     //setsockopt(fd, SOL_SOCKET, SO_SETFIB, (const void *)&val, sizeof(int))
     int  setfib;
-
+    int  setfib_ret;
+ 
     //setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN, (const void *)&val, sizeof(int))
     int  fastopen;
+    int  fastopen_ret;
+ 
     //setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (const void *)&val, sizeof(int))
     int  nodelay;
+    int  nodelay_ret;
+ 
     //setsockopt(fd, IPPROTO_TCP, TCP_NOPUSH, (const void *)&val, sizeof(int))
     int  nopush;
-
+    int  nopush_ret;
+ 
     //setsockopt(fd, SOL_SOCKET, SO_ACCEPTFILTER, af, sizeof(struct accept_filter_arg))
     struct accept_filter_arg * af;
-
+    int  af_ret;
+ 
     //setsockopt(fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, (const void *)&val, sizeof(int))
     int  defer_accept;
-
+    int  defer_accept_ret;
+ 
     //setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, (const void *)&val, sizeof(int))
     int  recv_dst_addr;
-
+    int  recv_dst_addr_ret;
+ 
     //setsockopt(fd, IPPROTO_IP, IP_PKTINFO, (const void *)&val, sizeof(int))
     int  ip_pktinfo;  //only SOCK_DGRAM
-
+    int  ip_pktinfo_ret;
+ 
     //setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, (const void *)&val, sizeof(int))
     int  ipv6_recv_pktinfo;  //only SOCK_DGRAM
-
+    int  ipv6_recv_pktinfo_ret;
+ 
 } sockopt_t;
 
 
@@ -292,7 +319,7 @@ int tcp_nb_send (SOCKET fd, void * sendbuf, int towrite, int * actnum);
 int tcp_writev  (SOCKET fd, void * iov, int iovcnt, int * actnum, int * perr);
 int tcp_sendfile (SOCKET fd, int srcfd, int64 offset, int64 size, int * actnum, int * perr);
 
-SOCKET udp_listen (char * localip, int port);
+SOCKET udp_listen (char * localip, int port, void * psockopt);
 
 
 #define ADDR_TYPE_UNKNOWN   0
