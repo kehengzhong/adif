@@ -140,7 +140,7 @@ adif库开发的另外两个开源项目
 关于作者 老柯 (laoke)
 ------
 
-有大量Linux等系统上的应用平台和通信系统开发经历，是资深程序员、工程师，发邮件kehengzhong@hotmail.com可以找到作者，或者通过QQ号码571527或微信号beijingkehz给作者留言。
+有大量Linux等系统上的应用平台和通信系统开发经历，是资深程序员、工程师，发邮件kehengzhong@hotmail.com可以找到作者，或者通过QQ号码[571527](http://wpa.qq.com/msgrd?V=1&Uin=571527&Site=github.com&Menu=yes)或微信号[beijingkehz](http://wx.qq.com/)给作者留言。
 
 adif项目是作者三个关联开源项目的第一个项目，作为基础数据结构和算法库，是大量软件系统开发过程中积累提炼出来的，为其他项目提供底层开发支撑。本项目的很多代码早在上世纪九十年代末就已经开发完成，一直沿用至今，并在项目开发过程中不断优化和完善。
 
