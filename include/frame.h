@@ -145,6 +145,8 @@ int     frame_json_unescape (void * psrc, size_t size, frame_p dstfrm);
 int     frame_uri_encode (frame_p frm, void * psrc, int size, uint32 * escvec);
 int     frame_uri_decode (frame_p frm, void * psrc, int size);
 
+int     frame_html_escape (void * psrc, int len, frame_p dstfrm);
+
 int     frame_bit_set (frame_p frm, int bitpos, int val);
 int     frame_bit_get (frame_p frm, int bitpos);
 
