@@ -2422,6 +2422,91 @@ int frame_uri_decode (frame_p frm, void * psrc, int size)
     return len;
 }
 
+int frame_html_escape (void * psrc, int len, frame_p dstfrm)
+{
+    uint8   * src = (uint8 *)psrc;
+    uint8     ch;
+    int       i = 0, num = 0, totalnum = 0;
+    uint8     dstbuf[4096];
+ 
+    if (!src) return 0;  
+    if (len < 0) len = str_len(src);  
+    if (len <= 0) return 0; 
+ 
+    if (dstfrm == NULL) {
+        while (len > 0) {
+            ch = *src++;
+ 
+            switch (ch) {
+            case '<':
+                num += sizeof("&lt;") - 2;
+                break;
+ 
+            case '>':
+                num += sizeof("&gt;") - 2;
+                break;
+ 
+            case '&':
+                num += sizeof("&amp;") - 2;
+                break;
+ 
+            case '"':
+                num += sizeof("&quot;") - 2;
+                break;
+            }
+ 
+            num++;
+            len--;
+        }
+ 
+        return num;
+    }
+ 
+    for (i = 0, num = 0; i < len; i++) {
+        ch = src[i];
+ 
+        switch (ch) {
+        case '<':
+            dstbuf[num++] = '&'; dstbuf[num++] = 'l';
+            dstbuf[num++] = 't'; dstbuf[num++] = ';';
+            break;
+ 
+        case '>':
+            dstbuf[num++] = '&'; dstbuf[num++] = 'g';
+            dstbuf[num++] = 't'; dstbuf[num++] = ';';
+            break;
+ 
+        case '&':
+            dstbuf[num++] = '&'; dstbuf[num++] = 'a';
+            dstbuf[num++] = 'm'; dstbuf[num++] = 'p';
+            dstbuf[num++] = ';';
+            break;
+ 
+        case '"':
+            dstbuf[num++] = '&'; dstbuf[num++] = 'q';
+            dstbuf[num++] = 'u'; dstbuf[num++] = 'o';
+            dstbuf[num++] = 't'; dstbuf[num++] = ';';
+            break;
+ 
+        default:
+            dstbuf[num++] = ch;
+            break;
+        }
+ 
+        if (num >= sizeof(dstbuf) - 8) {
+            frame_put_nlast(dstfrm, dstbuf, num);
+            totalnum += num;
+            num = 0;
+        }
+    }
+ 
+    if (num > 0)
+        frame_put_nlast(dstfrm, dstbuf, num);
+ 
+    totalnum += num;
+    return totalnum;
+}
+
 int frame_bit_set (frame_p frm, int bitpos, int value)
 {
     int len, loc;
