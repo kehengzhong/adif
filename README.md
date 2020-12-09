@@ -1,3 +1,10 @@
+## adif - a C-Library of Commonly Used Data-structures and Algorithms
+
+*adif is a library of commonly-used data-structures and algorithms developed by C language. As the fundamental of application development, it provedes the convenience for writing high-performance programs, greatly shortens the development cycle of software projects, improves the efficiency of engineering development, and ensures the reliability and stability of software system.*
+
+*用标准c语言开发的常用数据结构和算法基础库，作为应用程序开发接口基础库，为编写高性能程序提供便利，可极大地缩短软件项目的开发周期，提升工程开发效率，并确保软件系统运行的可靠性、稳定性。*
+
+
 ## 目录
 * [adif是什么？](#adif是什么)
 * [adif数据结构和算法库](#adif数据结构和算法库)
@@ -24,7 +31,6 @@ adif 是用标准 c 语言开发的常用数据结构和算法基础库，是 Application Development I
 众所周知，基于c语言开发的程序系统，其运行效率极其高效，跨平台跨OS操作系统兼容性极强，c语言是最接近操作系统内核和硬件指令集的高级编程语言，所以，开发OS系统、嵌入式系统、各类应用架构和基础平台、通信协议栈、大并发通信服务器、存储系统、流媒体系统、音视频编解码系统等等对性能有苛刻需求的系统，一般都采用c语言来开发。c语言从诞生至今几十年来，一直是各类商业级高性能业务开发的首选语言，历久弥新。正是c语言编程特点中极强的灵活性、高兼容性、运行高效性，无论高级语言如何发展、如何推陈出新、变化无穷，但使用c语言做高层应用、底层系统开发等前景依然广阔.
 
 c语言开发门槛相对较高，编程人员除了对c语言语法熟悉外，还得掌握计算机组成原理、OS运行原理、数字逻辑、基础数据结构和算法等等，这就把很多爱好编程艺术的开发人员挡在门口。成熟稳定、实用性强的c语言基础库是c语言程序员越过编程门槛、享受高效编程乐趣的必备工具，而基于c语言的数据结构和算法库也陆续推出来不少，可能是脱离于实际应用开发、或者过于庞大，或者过于学院派，而很少能被广泛使用。
-
 
 adif库是在开发各类应用系统的过程中积累下来的基础数据结构和算法库，经过大量的提炼优化和测试。初级编程人员可以使用adif来学习、体验c语言编程的乐趣，快速越过高性能编程的壁垒门槛；可以给高级c语言开发人员开发高性能程序提供成熟稳定的基础设施库，敏捷开发快速迭代，极大提升开发效率。
 
