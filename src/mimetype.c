@@ -15,6 +15,7 @@ typedef struct MimeMgmt_ {
     hashtab_t          * mime_tab;      //key is extname
     hashtab_t          * mimeid_tab;    //key is mimeid 
     hashtab_t          * mimetype_tab;  //key is mime type
+    arr_t              * mime_list;
 
 } MimeMgmt;
 
@@ -1260,6 +1261,8 @@ void * mime_type_alloc (int tabsize)
  
     mgmt->mimetype_tab = ht_only_new(tabsize, mime_item_cmp_mimetype);
 
+    mgmt->mime_list = arr_new(4);
+
     return mgmt;
 }
 
@@ -1271,18 +1274,19 @@ void mime_type_free (void * vmgmt)
 
     if (!mgmt) return;
 
-    num = ht_num(mgmt->mimeid_tab);
-
+    num = arr_num(mgmt->mime_list);
+ 
     for (i = 0; i < num; i++) {
-        item = ht_value(mgmt->mimeid_tab, i);
+        item = arr_value(mgmt->mime_list, i);
         if (!item) continue;
-
+ 
         kfree(item);
     }
-    ht_free(mgmt->mimeid_tab);
+    arr_free(mgmt->mime_list);
 
-    ht_free(mgmt->mime_tab);
     ht_free(mgmt->mimetype_tab);
+    ht_free(mgmt->mime_tab);
+    ht_free(mgmt->mimeid_tab);
 
     kfree(mgmt);
 }
@@ -1321,8 +1325,11 @@ int mime_type_add (void * vmgmt, char * mime, char * ext, uint32 mimeid, uint32 
         setflag |= 0x04;
     }
 
-    if (setflag == 0)
+    if (setflag == 0) {
         kfree(item);
+    } else {
+        arr_push(mgmt->mime_list, item);
+    }
 
     return 0;
 }

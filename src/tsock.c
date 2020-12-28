@@ -1619,7 +1619,7 @@ int tcp_writev (SOCKET fd, void * piov, int iovcnt, int * actnum, int * perr)
         sentnum += ret;
         if (actnum) *actnum += ret;
     
-        for(wlen = ret; ind < iovcnt && wlen >= iov[ind].iov_len; ind++)
+        for (wlen = ret; ind < iovcnt && wlen >= iov[ind].iov_len; ind++)
             wlen -= iov[ind].iov_len;
     
         if (ind >= iovcnt) break;
