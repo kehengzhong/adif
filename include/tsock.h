@@ -282,7 +282,7 @@ void   sock_addr_ntop (struct sockaddr * sa, char * buf);
 uint16 sock_addr_port (struct sockaddr * sa);
 
 /* parset string into sockaddr based on the format of IPv4 or IPv6  */
-int sock_addr_parse (char * text, int len, ep_sockaddr_t * addr);
+int sock_addr_parse (char * text, int len, int port, ep_sockaddr_t * addr);
 
 /* proto options including: 
      IPPROTO_IP(0), IPPROTO_TCP(6), IPPROTO_UDP(17),
@@ -305,19 +305,22 @@ int sock_nopush_unset (SOCKET fd);
 
 
 SOCKET tcp_listen       (char * localip, int port, void * psockopt);
+
 SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, int * succ);
 SOCKET tcp_connect      (char * host, int port, char * lip, int lport);
+SOCKET tcp_ep_connect   (ep_sockaddr_t * addr, int nblk, char * lip, int lport, void * popt, int * succ);
 SOCKET tcp_nb_connect   (char * host, int port, char * lip, int lport, int * consucc);
+
 int    tcp_connected    (SOCKET fd);
 
-int tcp_recv    (SOCKET fd, void * rcvbuf, int toread, long waitms, int * actrcvnum);
-int tcp_send    (SOCKET fd, void * sendbuf, int towrite, long waitms, int * actsndnum);
+int    tcp_recv    (SOCKET fd, void * rcvbuf, int toread, long waitms, int * actrcvnum);
+int    tcp_send    (SOCKET fd, void * sendbuf, int towrite, long waitms, int * actsndnum);
 
-int tcp_nb_recv (SOCKET fd, void * rcvbuf, int bufsize, int * actrcvnum);
-int tcp_nb_send (SOCKET fd, void * sendbuf, int towrite, int * actnum);
+int    tcp_nb_recv (SOCKET fd, void * rcvbuf, int bufsize, int * actrcvnum);
+int    tcp_nb_send (SOCKET fd, void * sendbuf, int towrite, int * actnum);
 
-int tcp_writev  (SOCKET fd, void * iov, int iovcnt, int * actnum, int * perr);
-int tcp_sendfile (SOCKET fd, int srcfd, int64 offset, int64 size, int * actnum, int * perr);
+int    tcp_writev   (SOCKET fd, void * iov, int iovcnt, int * actnum, int * perr);
+int    tcp_sendfile (SOCKET fd, int srcfd, int64 offset, int64 size, int * actnum, int * perr);
 
 SOCKET udp_listen (char * localip, int port, void * psockopt);
 

@@ -57,7 +57,10 @@ typedef struct HDiskInfo_ {
 extern "C" {
 #endif
 
+int get_cpu_num ();
+
 void  sys_cpuid (uint32 i, uint32 * buf);
+
 int   read_harddisk_info (HDiskInfo * pinfo);
 
 #ifdef UNIX

@@ -42,6 +42,8 @@ int     frame_size (frame_p frm);
 #define frame_bgn(frm) ((frm) ? (frm)->data + (frm)->start : (void *)frm)
 #define frame_end(frm) ((frm) ? (frm)->data + (frm)->start + (frm)->len : (void *)frm)
 
+#define frameAt(frm, pos) ((frm) ? ((frm)->data[(frm)->start + pos] : -1)
+
 #define frameS(frm)  frame_string(frm)
 char  * frame_string (frame_p frm);
 void    frame_strip  (frame_p frm);
