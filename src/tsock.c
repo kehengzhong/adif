@@ -508,34 +508,35 @@ int sock_inet6_addr_parse (char * p, int len, char * addr, int * retlen)
     return -200;
 }
 
-int sock_addr_parse (char * text, int len, ep_sockaddr_t * addr)
+int sock_addr_parse (char * text, int len, int port, ep_sockaddr_t * addr)
 {
-    int    ret = 0;
-
     if (!text) return -1;
     if (len < 0) len = strlen(text);
     if (len <= 0) return -2;
 
     if (!addr) return -3;
 
-    /* try first to parse the string as the inet4 IPv4 */
-    ret = sock_inet_addr_parse(text, len, (uint32 *)&addr->u.addr4.sin_addr.s_addr, NULL);
+    memset(addr, 0, sizeof(*addr));
 
-    if (ret > 0) {
+    /* try first to parse the string as the inet4 IPv4 */
+    if (sock_inet_addr_parse(text, len, (uint32 *)&addr->u.addr4.sin_addr.s_addr, NULL) > 0) {
         addr->u.addr4.sin_family = AF_INET;
         addr->socklen = sizeof(struct sockaddr_in);
         addr->family = AF_INET;
+        addr->u.addr4.sin_port = htons((uint16)port);
+        return 1;
+    }
 
-    } else if (sock_inet6_addr_parse(text, len, (char *)addr->u.addr6.sin6_addr.s6_addr, NULL) > 0) {
+    /* try to parse the string as the inet6 IPv6 */
+    if (sock_inet6_addr_parse(text, len, (char *)addr->u.addr6.sin6_addr.s6_addr, NULL) > 0) {
         addr->u.addr6.sin6_family = AF_INET6;
         addr->socklen = sizeof(struct sockaddr_in6);
         addr->family = AF_INET6;
-
-    } else {
-        return -100;
+        addr->u.addr6.sin6_port = htons((uint16)port);
+        return 1;
     }
 
-    return 0;
+    return -100;
 }
 
 
@@ -563,8 +564,8 @@ int checkcopy (ep_sockaddr_t * iter, struct addrinfo * rp)
 int sock_addr_acquire (ep_sockaddr_t * addr, char * host, int port, int socktype)
 {
     struct addrinfo    hints;
-    struct addrinfo  * result;
-    struct addrinfo  * rp;
+    struct addrinfo  * result = NULL;
+    struct addrinfo  * rp = NULL;
     char               buf[16];
     int                num = 0;
     ep_sockaddr_t    * iter = NULL;
@@ -572,6 +573,10 @@ int sock_addr_acquire (ep_sockaddr_t * addr, char * host, int port, int socktype
     int                dup = 0;
 
     if (!addr) return -1;
+
+    if (sock_addr_parse(host, -1, port, addr) > 0) {
+        return 1;
+    }
 
     sprintf(buf, "%d", port);
 
@@ -585,18 +590,8 @@ int sock_addr_acquire (ep_sockaddr_t * addr, char * host, int port, int socktype
     hints.ai_flags = 0;
 
     if (getaddrinfo(host, buf, &hints, &result) != 0) {
-        if (sock_addr_parse(host, -1, addr) < 0) return -100;
-
-        switch (addr->u.addr.sa_family) {
-        case AF_INET:
-            addr->u.addr4.sin_port = htons((uint16)port);
-            return 1;
-        case AF_INET6:
-            addr->u.addr6.sin6_port = htons((uint16)port);
-            return 1;
-        default:
-            return -102;
-        }
+        if (result) freeaddrinfo(result);
+        return -100;
     }
 
     for (num = 0, rp = result; rp != NULL; rp = rp->ai_next) {
@@ -641,7 +636,7 @@ int sock_addr_get (char * dst, int dstlen, int port, int socktype,
                    char *ip, int * pport, ep_sockaddr_t * paddr)
 {
     ep_sockaddr_t  addr;
-    char           host[256];
+    char           host[1024];
     int ret = 0;
 
     memset(&addr, 0, sizeof(addr));
@@ -927,8 +922,8 @@ void addrinfo_print (struct addrinfo * rp)
 SOCKET tcp_listen (char * localip, int port, void * psockopt)
 {
     struct addrinfo    hints;
-    struct addrinfo  * result;
-    struct addrinfo  * rp;
+    struct addrinfo  * result = NULL;
+    struct addrinfo  * rp = NULL;
     SOCKET             aifd = INVALID_SOCKET;
     char               buf[128];
 
@@ -956,6 +951,7 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt)
 
     aifd = getaddrinfo(localip, buf, &hints, &result);
     if (aifd != 0) {
+        if (result) freeaddrinfo(result);
         tolog(1, "getaddrinfo: %s:%s return %d\n", localip, buf, aifd);
         return -100;
     }
@@ -1022,8 +1018,8 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt)
 SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, int * succ)
 {
     struct addrinfo    hints;
-    struct addrinfo  * result;
-    struct addrinfo  * rp;
+    struct addrinfo  * result = NULL;
+    struct addrinfo  * rp = NULL;
     SOCKET             aifd = INVALID_SOCKET;
     char               buf[128];
  
@@ -1044,6 +1040,7 @@ SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lpor
  
     aifd = getaddrinfo(host, buf, &hints, &result);
     if (aifd != 0) {
+        if (result) freeaddrinfo(result);
         tolog(1, "tcp_connect: getaddrinfo: %s:%s return %d\n", host, buf, aifd);
         return -100;
     }
@@ -1065,7 +1062,7 @@ SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lpor
  
         if (nonblk) sock_nonblock_set(confd, 1);
 
-        if (lip || lport > 0) {
+        if ((lip && strlen(lip) > 0) || lport > 0) {
             memset(&addr, 0, sizeof(addr));
             one = sock_addr_acquire(&addr, lip, lport, SOCK_STREAM);
             if (one <= 0 || bind(confd, (struct sockaddr *)&addr.u.addr, addr.socklen) != 0) {
@@ -1116,6 +1113,70 @@ SOCKET tcp_connect (char * host, int port, char * lip, int lport)
 SOCKET tcp_nb_connect (char * host, int port, char * lip, int lport, int * consucc)
 {
     return tcp_connect_full(host, port, 1, lip, lport, consucc);
+}
+
+SOCKET tcp_ep_connect (ep_sockaddr_t * addr, int nblk, char * lip, int lport, void * popt, int * succ)
+{
+    ep_sockaddr_t   sock;
+    sockopt_t     * opt = (sockopt_t *)popt;
+    SOCKET          confd = INVALID_SOCKET;
+    int             ret, one = 0;
+
+    if (!addr) return confd;
+
+    confd = socket(addr->family, addr->socktype, IPPROTO_TCP);
+    if (confd == INVALID_SOCKET)
+        return confd;
+
+    if (opt) {
+        sock_option_set(confd, opt);
+
+    } else { //set the default options
+        one = 1;
+        ret = setsockopt(confd, SOL_SOCKET, SO_REUSEADDR, (void *)&one, sizeof(int));
+        if (ret != 0) perror("TCPConnect REUSEADDR");
+    #ifdef SO_REUSEPORT
+        ret = setsockopt(confd, SOL_SOCKET, SO_REUSEPORT, (void *)&one, sizeof(int));
+        if (ret != 0) perror("TCPConnect REUSEPORT");
+    #endif
+        ret = setsockopt(confd, SOL_SOCKET, SO_KEEPALIVE, (void *)&one, sizeof(int));
+        if (ret != 0) perror("TCPConnect KEEPALIVE");
+    }
+
+    if (nblk) sock_nonblock_set(confd, 1);
+
+    if ((lip && strlen(lip) > 0) || lport > 0) {
+        memset(&sock, 0, sizeof(sock));
+        one = sock_addr_acquire(&sock, lip, lport, SOCK_STREAM);
+        if (one <= 0 || bind(confd, (struct sockaddr *)&sock.u.addr, sock.socklen) != 0) {
+            if (one > 1) sock_addr_freenext(&sock);
+            closesocket(confd);
+            confd = -1;
+            return confd;
+        }
+    }
+ 
+    if (connect(confd, &addr->u.addr, addr->socklen) == 0) {
+        if (succ) *succ = 1;
+    } else {
+        if (succ) *succ = 0;
+#ifdef UNIX
+        if (errno != 0  && errno != EINPROGRESS && errno != EALREADY && errno != EWOULDBLOCK) {
+            closesocket(confd);
+            confd = -1;
+            return confd;
+        }
+#endif
+#ifdef _WIN32
+        if (WSAGetLastError() != WSAEWOULDBLOCK) {
+            closesocket(confd);
+            confd = INVALID_SOCKET;
+            return confd;
+        }
+#endif
+    }
+
+    return confd;
 }
 
 int tcp_connected (SOCKET fd)
@@ -1739,8 +1800,8 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
 SOCKET udp_listen (char * localip, int port, void * psockopt)
 {
     struct addrinfo    hints;
-    struct addrinfo  * result;
-    struct addrinfo  * rp;
+    struct addrinfo  * result = NULL;
+    struct addrinfo  * rp = NULL;
     sockopt_t        * sockopt = NULL;
     SOCKET             aifd = INVALID_SOCKET;
     char               buf[128];
@@ -1764,7 +1825,10 @@ SOCKET udp_listen (char * localip, int port, void * psockopt)
     sockopt = (sockopt_t *)psockopt;
 
     aifd = getaddrinfo(localip, buf, &hints, &result);
-    if (aifd != 0)  return -100;
+    if (aifd != 0) {
+        if (result) freeaddrinfo(result);
+        return -100;
+    }
  
     for (rp = result; rp != NULL; rp = rp->ai_next) {
         listenfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
