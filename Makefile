@@ -24,15 +24,15 @@ inc = $(ROOT)/include
 obj = $(ROOT)/obj
 dst = $(ROOT)/lib
 
-bin = $(dst)/$(PKG_A_LIB)
-sobin = $(dst)/$(PKG_SO_LIB)
+alib = $(dst)/$(PKG_A_LIB)
+solib = $(dst)/$(PKG_SO_LIB)
 
 #################################################################
 #  Customization of shared object library (SO)
 
 PKG_VER_MAJOR = 2
 PKG_VER_MINOR = 6
-PKG_VER_RELEASE = 16
+PKG_VER_RELEASE = 18
 PKG_VER = $(PKG_VER_MAJOR).$(PKG_VER_MINOR).$(PKG_VER_RELEASE)
 
 PKG_VERSO_LIB = $(PKG_SO_LIB).$(PKG_VER)
@@ -139,9 +139,9 @@ objs = $(patsubst $(adif_src)/%.c,$(obj)/%.o,$(sources))
 
 .PHONY: all clean debug show cleanlib
 
-all: $(bin) $(sobin)
-so: $(sobin)
-debug: $(bin) $(sobin)
+all: $(alib) $(solib)
+so: $(solib)
+debug: $(alib) $(solib)
 clean: 
 	$(RM) $(objs)
 	$(RM) -r $(obj)
@@ -151,7 +151,7 @@ cleanlib:
 	@cd $(dst) && $(RM) $(PKG_SONAME_LIB)
 	@cd $(dst) && $(RM) $(PKG_VERSO_LIB)
 show:
-	@echo $(bin)
+	@echo $(alib)
 	ls $(objs)
 
 dist: $(cnfs) $(sources)
@@ -159,7 +159,7 @@ dist: $(cnfs) $(sources)
 	    $(PKGPATH)/include $(PKGPATH)/lib $(PKGPATH)/Makefile $(PKGPATH)/README.md \
 	    $(PKGPATH)/LICENSE
 
-install: $(bin) $(sobin)
+install: $(alib) $(solib)
 	mkdir -p $(INSTALL_INC_PATH) $(INSTALL_LIB_PATH)
 	install -s $(dst)/$(PKG_A_LIB) $(INSTALL_LIB_PATH)
 	cp -af $(dst)/$(PKG_VERSO_LIB) $(INSTALL_LIB_PATH)
@@ -193,12 +193,12 @@ uninstall:
 #  CSRC = $(filter %.c,$(files))
 
 
-$(sobin): $(objs) 
+$(solib): $(objs) 
 	$(SOLINK) $(dst)/$(PKG_VERSO_LIB) $? 
 	@cd $(dst) && $(RM) $(PKG_SONAME_LIB) && ln -s $(PKG_VERSO_LIB) $(PKG_SONAME_LIB)
 	@cd $(dst) && $(RM) $(PKG_SO_LIB) && ln -s $(PKG_SONAME_LIB) $(PKG_SO_LIB)
      
-$(bin): $(objs) 
+$(alib): $(objs) 
 	$(AR) $(ARFLAGS) $@ $?
 	$(RANLIB) $(RANLIBFLAGS) $@
 
