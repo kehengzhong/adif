@@ -51,6 +51,9 @@ ulong string_hash (void * key, int keylen, ulong seed);
 uint32 murmur_hash2    (void * key, int len, uint32 seed);
 uint64 murmur_hash2_64 (void * key, int len, uint64 seed);
 
+ulong ckstr_generic_hash (void * vkey);
+ulong ckstr_string_hash (void * vkey);
+
 /* create an instance of HASH TABLE. first find a prime number near to the 
  * given number. set the comparing function. allocate hash nodes of the prime
  * number. set the default hash function provided by system. if succeeded, 
