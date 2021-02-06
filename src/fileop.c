@@ -8,6 +8,7 @@
 #include "strutil.h"
 #include "memory.h"
 #include "filecache.h"
+#include "mimetype.h"
 
 #ifdef UNIX
 #include <iconv.h>
@@ -1002,6 +1003,34 @@ int file_get_absolute_path (char * relative, char * abs, int abslen)
 #endif
 
     return len;
+}
+
+int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid, uint32 * appid)
+{
+    FILE   * fp = NULL;
+    char     mime[128];
+    char   * p = NULL;
+    char   * poct = NULL;
+    char     cmd[256];
+ 
+    if (pmime) strcpy(pmime, "application/octet-stream");
+    if (mimeid) *mimeid = 30440;
+    if (appid) *appid = 30440;
+ 
+    if (!file_is_regular(fname)) return -100;
+ 
+    sprintf(cmd, "file -bi %s", fname);
+    memset(mime, 0, sizeof(mime));
+    fp = popen(cmd, "r");
+    if (fp && !feof(fp)) fgets(mime, sizeof(mime)-1, fp);
+    if (fp) pclose(fp);
+ 
+    p = str_trim(mime);
+    if (pmime) strcpy(pmime, p);
+    poct = skipTo(p, strlen(p), ",; \t", 4);
+    if (poct) *poct = '\0';
+ 
+    return mime_type_get_by_mime(mimemgmt, p, NULL, mimeid, appid);
 }
 
 #ifdef UNIX

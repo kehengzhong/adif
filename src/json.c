@@ -657,7 +657,7 @@ int json_get_value (void * vobj, void * key, int keylen, int index, void ** pval
     return item->valnum;
 }
  
-int json_getP (void * vobj, void * key, int keylen, int index, void ** pval, int * vallen)
+int json_getP (void * vobj, void * key, int keylen, int index, void * pval, int * vallen)
 {
     void      * p = NULL;
     int         len = 0;
@@ -666,17 +666,17 @@ int json_getP (void * vobj, void * key, int keylen, int index, void ** pval, int
     ret = json_get_value(vobj, key, keylen, index, &p, &len, NULL);
     if (ret <= 0) {
         if (vallen) *vallen = 0;
-        if (pval) *pval = NULL;
+        if (pval) memcpy(pval, &p, sizeof(p));
         return ret;
     }
  
     if (vallen) *vallen = len;
-    if (pval) *pval = p;
+    if (pval) memcpy(pval, &p, sizeof(p));
  
     return ret;
 }
 
-int json_get (void * vobj, void * key, int keylen, int index, void * val, int * vallen)
+int json_get (void * vobj, void * key, int keylen, int index, void * val, int vallen)
 {
     void      * p = NULL;
     int         len = 0;
@@ -684,18 +684,12 @@ int json_get (void * vobj, void * key, int keylen, int index, void * val, int * 
  
     ret = json_get_value(vobj, key, keylen, index, &p, &len, NULL);
     if (ret <= 0) {
-        if (vallen) *vallen = 0;
         return ret;
     }
 
     if (p && val) {
-        if (vallen && *vallen < len)
-            memcpy(val, p, *vallen);
-        else
-            memcpy(val, p, len); 
+        str_secpy(val, vallen, p, len);
     }
- 
-    if (vallen) *vallen = len;
  
     return ret;
 }

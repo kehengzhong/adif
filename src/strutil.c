@@ -613,7 +613,7 @@ int str_hextou (void * p, int len, uint32 * pval)
    Saturday, 30-Jun-2007 02:11:10 GMT  <=== subfmt=0 fmt=0 RFC1036 updated from RFC850
    Jan 20 2010 11:10:27                <=== subfmt=1 fmt=0 */
 
-int str_gmt2time (void * p, int timelen, time_t * ptm)
+time_t str_gmt2time (void * p, int timelen, time_t * ptm)
 {
     char      * ptime = (char *)p;
     time_t      tick = 0;
@@ -631,9 +631,9 @@ int str_gmt2time (void * p, int timelen, time_t * ptm)
     uint8       fmt = 0;
     uint8       subfmt = 0;
  
-    if (!ptime) return -1;
+    if (!ptime) return 0;
     if (timelen < 0) timelen = str_len(ptime);
-    if (timelen <= 0) return -2;
+    if (timelen <= 0) return 0;
  
     time(&tick);
     ts = *localtime(&tick);
@@ -651,22 +651,22 @@ int str_gmt2time (void * p, int timelen, time_t * ptm)
                 ts.tm_wday = i; break;
             }
         }
-
+ 
         if (i < 7) { //matched Weekday
             pbgn = skipTo(pbgn, pend-pbgn, ", \t", 3);
             if (pbgn >= pend) return 0;
-
+ 
             pbgn = skipOver(pbgn, pend-pbgn, ", \t", 3);
             if (pbgn >= pend) return 0;
-
+ 
             for (val = 0, i = 0; pbgn && pbgn < pend && isdigit(*pbgn) && i < 2; pbgn++, i++) {
                 val *= 10; val += *pbgn - '0';
             }
             ts.tm_mday = val;
-
+ 
             pbgn = skipOver(pbgn, pend-pbgn, " \t-", 3);
             if (pbgn >= pend) return 0;
-
+ 
             subfmt = 0;
         } else {
             subfmt = 1;
@@ -683,7 +683,7 @@ int str_gmt2time (void * p, int timelen, time_t * ptm)
         if (subfmt == 1) {
             pbgn = skipOver(pbgn, pend-pbgn, " \t-", 3);
             if (pbgn >= pend) return 0;
-
+ 
             for (val=0,i=0; pbgn && pbgn < pend && isdigit(*pbgn) && i<4; pbgn++, i++) {
                 val *= 10; val += *pbgn - '0';
             }
@@ -692,7 +692,7 @@ int str_gmt2time (void * p, int timelen, time_t * ptm)
  
         pbgn = skipOver(pbgn, pend-pbgn, " \t-", 3);
         if (pbgn >= pend) return 0;
-
+ 
         for (val=0,i=0; pbgn && pbgn < pend && isdigit(*pbgn) && i<4; pbgn++, i++) {
             val *= 10; val += *pbgn - '0';
         }
@@ -703,7 +703,7 @@ int str_gmt2time (void * p, int timelen, time_t * ptm)
             val = val + 2000 - 1900;
         } else if (i == 4 && val < 1900)
             return 0;
-
+ 
         ts.tm_year = val;
  
         fmt = 0;
@@ -720,12 +720,12 @@ int str_gmt2time (void * p, int timelen, time_t * ptm)
             val = val + 2000 - 1900;
         } else if (i == 4 && val < 1900)
             return 0;
-
+ 
         ts.tm_year = val;
  
        /* month */
         while (pbgn < pend && !isdigit(*pbgn)) pbgn++;
-
+ 
         for (val = 0, i = 0; pbgn && pbgn < pend && isdigit(*pbgn) && i < 2; pbgn++, i++) {
             val *= 10; val += *pbgn - '0';
         }
@@ -744,12 +744,13 @@ int str_gmt2time (void * p, int timelen, time_t * ptm)
  
     /* hour */
     while (pbgn < pend && !isdigit(*pbgn)) pbgn++;
-
+ 
     if (pbgn >= pend) {
-        if (ptm) *ptm = mktime(&ts);
-        return pbgn - ptime;
+        tick = mktime(&ts);
+        if (ptm) *ptm = tick;
+        return tick;
     }
-
+ 
     for (val=0,i=0; pbgn && pbgn < pend && isdigit(*pbgn) && i<2; pbgn++, i++) {
         val *= 10; val += *pbgn - '0';
     }
@@ -758,10 +759,11 @@ int str_gmt2time (void * p, int timelen, time_t * ptm)
     /* minute */
     while (pbgn < pend && !isdigit(*pbgn)) pbgn++;
     if (pbgn >= pend) {
-        if (ptm) *ptm = mktime(&ts);
-        return pbgn - ptime;
+        tick = mktime(&ts);
+        if (ptm) *ptm = tick;
+        return tick;
     }
-
+ 
     for (val=0,i=0; pbgn && pbgn < pend && isdigit(*pbgn) && i<2; pbgn++, i++) {
         val *= 10; val += *pbgn - '0';
     }
@@ -770,10 +772,11 @@ int str_gmt2time (void * p, int timelen, time_t * ptm)
     /* second */
     while (pbgn < pend && !isdigit(*pbgn)) pbgn++;
     if (pbgn >= pend) {
-        if (ptm) *ptm = mktime(&ts);
-        return pbgn - ptime;
+        tick = mktime(&ts);
+        if (ptm) *ptm = tick;
+        return tick;
     }
-
+ 
     for (val = 0, i = 0; pbgn && pbgn < pend && isdigit(*pbgn) && i < 2; pbgn++, i++) {
         val *= 10; val += *pbgn - '0';
     }
@@ -782,40 +785,43 @@ int str_gmt2time (void * p, int timelen, time_t * ptm)
     if (fmt == 0) {
         pbgn = skipOver(pbgn, pend-pbgn, " \t", 2);
         if (pbgn >= pend) {
-            if (ptm) *ptm = mktime(&ts);
-            return pbgn - ptime;
+            tick = mktime(&ts);
+            if (ptm) *ptm = tick;
+            return tick;
         }
-
+ 
         if (strncasecmp(pbgn, "GMT", 3) != 0) {
-            if (ptm) *ptm = mktime(&ts);
-            return pbgn - ptime;
+            tick = mktime(&ts);
+            if (ptm) *ptm = tick;
+            return tick;
         }
         tzone = current_timezone();
-
+ 
     } else if (fmt == 1) {
         /* time zone */
         while (pbgn < pend && !isdigit(*pbgn) && *pbgn !='-' && *pbgn != '+') pbgn++;
         if (pbgn >= pend) {
-            if (ptm) *ptm = mktime(&ts);
-            return pbgn - ptime;
+            tick = mktime(&ts);
+            if (ptm) *ptm = tick;
+            return tick;
         }
-
+ 
         if (*pbgn == '+' || *pbgn == '-') { sign = *pbgn; pbgn++; }
         else sign = '+';
         for (val = 0, i = 0; pbgn && pbgn < pend && isdigit(*pbgn) && i < 2; pbgn++, i++) {
             val *= 10; val += *pbgn - '0';
         }
         if (sign == '-') val = -val;
-
+ 
         tzone = current_timezone();
         tzone -= val;
     }
  
     tick = mktime(&ts);
     tick += tzone * 3600;
-
+ 
     if (ptm) *ptm = tick;
-    return pbgn - ptime;
+    return tick;
 }
 
 /* time format definition 

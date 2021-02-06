@@ -2648,3 +2648,28 @@ frame_p frame_realloc (frame_p frm, int size)
     return frm;
 }
 
+int frame_add_time (frame_t * frame, time_t * curtm)
+{
+    time_t    curt;
+    struct tm st;
+    char      tmpbuf[64];
+ 
+    if (!frame) return -1;
+ 
+    if (curtm == NULL) time(&curt);
+    else curt = *curtm;
+ 
+    if (curt == 0) {
+        sprintf(tmpbuf, "0000-00-00 00:00:00");
+    } else {
+        st = *localtime(&curt);
+        sprintf(tmpbuf, "%04d-%02d-%02d %02d:%02d:%02d",
+                st.tm_year+1900, st.tm_mon+1, st.tm_mday,
+                st.tm_hour, st.tm_min, st.tm_sec);
+    }
+ 
+    frame_append(frame, tmpbuf);
+ 
+    return 0;
+}
+
