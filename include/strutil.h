@@ -81,7 +81,7 @@ int str_hextou (void * p, int len, uint32 * pval);
    Mon, 24 Feb 2003 03:53:54 GMT       <=== subfmt=0 fmt=0 RFC1123 updated from RFC822
    Saturday, 30-Jun-2007 02:11:10 GMT  <=== subfmt=0 fmt=0 RFC1036 updated from RFC850
    Jan 20 2010 11:10:27                 <=== subfmt=1 fmt=0 */
-int str_gmt2time (void * p, int timelen, time_t * ptm);
+time_t str_gmt2time (void * p, int timelen, time_t * ptm);
 
 /* time format definition 
    RFC1123 - RFC822:  Sun, 06 Nov 1994 08:49:37 GMT

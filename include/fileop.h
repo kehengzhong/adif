@@ -58,6 +58,8 @@ int file_abspath (char * file, char * path, int pathlen);
 
 int file_get_absolute_path (char * relative, char * abs, int abslen);
 
+int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid, uint32 * appid);
+
 #ifdef UNIX
 void * file_mmap (void * addr, int fd, off_t offset, size_t length, int prot, int flags,
                   void ** ppmap, size_t * pmaplen, off_t * pmapoff);

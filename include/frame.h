@@ -159,6 +159,8 @@ void    frame_append_nbytes (frame_p frm, uint8 byte, int n);
 
 frame_p frame_realloc (frame_p frm, int size);
 
+int     frame_add_time (frame_t * frame, time_t * curtm);
+
 #ifdef __cplusplus
 }
 #endif

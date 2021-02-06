@@ -81,8 +81,8 @@ int    json_mget     (void * vobj, void * key, int keylen, void * val, int * val
 int    json_mgetP    (void * vobj, void * key, int keylen, void ** pval, int * vallen);
 int    json_mget_obj (void * vobj, void * key, int keylen, void ** pobj);
 
-int    json_get     (void * vobj, void * key, int keylen, int ind, void * val, int * vallen);
-int    json_getP    (void * vobj, void * key, int keylen, int ind, void ** pval, int * vallen);
+int    json_get     (void * vobj, void * key, int keylen, int ind, void * val, int vallen);
+int    json_getP    (void * vobj, void * key, int keylen, int ind, void * pval, int * vallen);
 int    json_get_obj (void * vobj, void * key, int keylen, int ind, void ** pobj);
 
 int    json_get_int8   (void * vobj, void * key, int keylen, int8 * val);
@@ -103,6 +103,8 @@ int    json_append_file (void * vobj, void * key, int keylen, char * fname, long
 
 /* if key exists, a new json-value will be created and bound to the key */
 int    json_add (void * vobj, void * key, int ken, void * val, int vlen, uint8 isarr, uint8 strip);
+
+#define json_add_str(obj, key, klen, val, vlen, isarr) json_add(obj, key, klen, val, vlen, isarr, 0)
 
 void * json_add_obj (void * vobj, void * key, int keylen, uint8 isarr);
 
