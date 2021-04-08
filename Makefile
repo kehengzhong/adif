@@ -1,7 +1,7 @@
 
 #################################################################
 #  Makefile for Application Development Interface Fundamental - adif
-#  Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
+#  Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
 #  All rights reserved. See MIT LICENSE for redistribution.
 #################################################################
 
@@ -32,7 +32,7 @@ solib = $(dst)/$(PKG_SO_LIB)
 
 PKG_VER_MAJOR = 2
 PKG_VER_MINOR = 6
-PKG_VER_RELEASE = 18
+PKG_VER_RELEASE = 20
 PKG_VER = $(PKG_VER_MAJOR).$(PKG_VER_MINOR).$(PKG_VER_RELEASE)
 
 PKG_VERSO_LIB = $(PKG_SO_LIB).$(PKG_VER)
