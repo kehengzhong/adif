@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
  */
 
@@ -109,6 +109,8 @@ int    size_hex_len (int64 size);
 typedef struct chunk_ {
     arr_t         * entity_list;
 
+    arr_t         * tail_entity_list;
+
     /* HTTP Chunk format as following:
      * 24E5CRLF            #chunk-sizeCRLF  (first chunk begin)
      * 24E5(byte)CRLF      #(chunk-size octet)CRLF
@@ -177,17 +179,23 @@ int64  chunk_readto_file  (void * vck, int fd, int64 offset, int64 length, int h
 int    chunk_go_ahead (void * vck, void * msg, int64 offset, int64 step);
 
 int    chunk_add_buffer       (void * vck, void * pbuf, int64 len);
-int    chunk_add_strip_buffer (void * vck, void * pbuf, int64 len, char * escch, int chlen);
+int64  chunk_prepend_strip_buffer (void * vck, void * pbuf, int64 len, char * escch, int chlen, uint8 isheader);
+int64  chunk_add_strip_buffer     (void * vck, void * pbuf, int64 len, char * escch, int chlen);
+int64  chunk_append_strip_buffer  (void * vck, void * pbuf, int64 len, char * escch, int chlen);
 
 int    chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, uint8 isheader);
 int    chunk_add_bufptr     (void * vck, void * pbuf, int64 len, void * porig);
-int    chunk_remove_bufptr  (void * vck, void * pbuf);
+int    chunk_append_bufptr  (void * vck, void * pbuf, int64 len, void * porig);
 
+int    chunk_remove_bufptr  (void * vck, void * pbuf);
 int    chunk_bufptr_porig_find (void * vck, void * porig);
 
-int    chunk_add_file   (void * vck, char * fname, int64 offset, int64 length, int merge);
-int    chunk_add_filefp (void * vck, FILE * fp, int64 offset, int64 length);
-int    chunk_add_filefd (void * vck, int fd, int64 offset, int64 length);
+int    chunk_add_file     (void * vck, char * fname, int64 offset, int64 length, int merge);
+int64  chunk_prepend_file (void * vck, char * fname, int64 packsize);
+int64  chunk_append_file  (void * vck, char * fname, int64 packsize);
+
+int    chunk_add_filefp   (void * vck, FILE * fp, int64 offset, int64 length);
+int    chunk_add_filefd   (void * vck, int fd, int64 offset, int64 length);
 
 int    chunk_add_cbdata (void * vck, void * fetchfunc, void * fetchobj, int64 offset, int64 length,
                          void * movefunc, void * movepara, void * cleanfunc, void * cleanobj);
@@ -203,7 +211,7 @@ typedef struct {
     int64         offset;   //offset from the begining of the chunk
     int64         size;     //available size
 
-    struct iovec  iovs[128];
+    struct iovec  iovs[192];
     int           iovcnt;
 
     int           filefd;

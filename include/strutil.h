@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
  */
 
@@ -30,8 +30,10 @@ typedef struct ckstr_s {
 #define ckstr_null         { NULL, 0}
 #define ckstr_set(str, pbyte, bytelen)         \
      (str)->p = pbyte;  (str)->len = bytelen
-#define ckstr_free(str)  kfree(str)
+void ckstr_free(void * str);
 void * ckstr_new(void * pbyte, int bytelen);
+int ckstr_cmp (void * a, void * b);
+int ckstr_casecmp (void * a, void * b);
 
 size_t str_len   (void * p);
 
