@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
  */
 
@@ -1414,22 +1414,33 @@ uint8 * seek_closed_peer (uint8 * pbgn, int len, int leftch, int rightch)
     return pbgn;
 }
 
-uint8 * find_closed_script (uint8 * pbgn, uint8 * pend)
+uint8 * find_closed_tag (uint8 * pbgn, uint8 * pend, char * tagname)
 {
     uint8  * pkvend = NULL;
+    char     headtag[64];
+    char     tailtag[64];
+    int      taglen = 0;
 
-    if (!pbgn || !pend) return NULL;
-    if (pend <= pbgn + 16) return NULL;
-
-    /* "cache_file" = <script> if()... else {..}  return ... </script>; */
-    if (str_ncasecmp(pbgn, "<script>", 8) != 0)
+    if (!tagname || (taglen = str_len(tagname)) <= 0)
         return NULL;
 
-    pkvend = sun_find_string(pbgn+8, pend-pbgn-8, "</script>", 9, NULL);
+    if (!pbgn || !pend) return NULL;
+
+    if (pend < pbgn + 2 * taglen + 5) return NULL;
+
+    snprintf(headtag, sizeof(headtag)-1, "<%s>", tagname);
+    snprintf(tailtag, sizeof(tailtag)-1, "</%s>", tagname);
+
+    /* "cache_file" = <script> if()... else {..}  return ... </script>; */
+
+    if (str_ncasecmp(pbgn, headtag, taglen + 2) != 0)
+        return NULL;
+
+    pkvend = sun_find_string(pbgn+8, pend-pbgn-8, tailtag, taglen + 3, NULL);
     if (pkvend == NULL)
         return NULL;
 
-    return pkvend + 9;
+    return pkvend + taglen + 3;
 }
 
 int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int strip)
@@ -1506,7 +1517,7 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
             }
         } //end of if (obj->cmtflag)
 
-        if (*pbgn == '<' && (pkvend = find_closed_script(pbgn, pend)) != NULL) { //<script>
+        if (*pbgn == '<' && (pkvend = find_closed_tag(pbgn, pend, "script")) != NULL) { //<script>
             /* <script>
                  if ($query[fid]) return $query[fid]$req_file_ext;
                </script> */
@@ -1523,6 +1534,25 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
 
             pbgn = pkvend;
             continue; 
+        }
+
+        if (*pbgn == '<' && (pkvend = find_closed_tag(pbgn, pend, "reply_script")) != NULL) { //<reply_script>
+            /* <reply_script>
+                 if ($query[fid]) return $query[fid]$req_file_ext;
+               </reply_script> */
+ 
+            name = (uint8 *)"reply_script";
+            namelen = 12;
+ 
+            value = skipOver(pbgn+namelen+2, pkvend-pbgn-namelen-2, " \t\r\n\f\v", 6);
+            poct = rskipOver(pkvend-namelen-4, pkvend-namelen-3-value, " \t\t\n\f\v", 6);
+            valuelen = poct + 1 - value;
+ 
+            if (valuelen > 0)
+                json_add(obj, name, namelen, value, valuelen, 1, strip);
+ 
+            pbgn = pkvend;
+            continue;
         }
 
         /* search the separator between key and value */
@@ -1569,6 +1599,25 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
                     continue;
                 } 
 
+                /* reply_script = { if (...) ... else ... }
+                   here we name 'reply_script' as a constant defining the script codes */
+                if (namelen == 12 && str_ncasecmp(name, "reply_script", 12) == 0) {
+                    pbgn = skipToPeer(poct, pend-poct, '{', '}');
+ 
+                    value = skipOver(poct+1, pbgn-poct-1, " \t\r\n\f\v", 6);
+                    poct = rskipOver(pbgn-1, pbgn-value, " \t\r\n\f\v", 6);
+                    valuelen = poct + 1 - value;
+ 
+                    if (valuelen > 0)
+                        json_add(obj, name, namelen, value, valuelen, 1, strip);
+ 
+                    if (pbgn < pend && *pbgn == '}') {
+                        pbgn++;
+                    }
+ 
+                    continue;
+                }
+
                 subobj = json_add_obj(obj, name, namelen, 1);
                 pbgn = poct + json_decode(subobj, poct, pend-poct, 1, strip);
 
@@ -1605,7 +1654,7 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
                     }
                 } while (pbgn < pend);
 
-            } else if (*poct == '<' && (pkvend = find_closed_script(poct, pend)) != NULL) { //<script>
+            } else if (*poct == '<' && (pkvend = find_closed_tag(poct, pend, "script")) != NULL) { //<script>
                 /* "cache_file" = <script> if ($query[fid]) return $query[fid]$req_file_ext; </script> */
 
                 value = poct;

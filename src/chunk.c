@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
  */
 
@@ -96,6 +96,7 @@ void * chunk_new (int buflen)
     if (!ck) return NULL;
 
     ck->entity_list = arr_new(8);
+    ck->tail_entity_list = arr_new(2);
 
     ck->httpchunk = 0;
     ck->rmchunklen = 0;
@@ -142,6 +143,8 @@ void chunk_free (void * vck)
     }
     arr_free(ck->entity_list);
 
+    arr_pop_free(ck->tail_entity_list, chunk_entity_free);
+
     kfree(ck);
 }
 
@@ -155,25 +158,32 @@ void chunk_zero (void * vck)
     if (!ck) return;
 
     num = arr_num(ck->entity_list);
-
     for (i = 0; i < num; i++) {
         ent = arr_value(ck->entity_list, i);
         if (!ent) continue;
  
         chunk_entity_free(ent);
     }
-
     arr_zero(ck->entity_list);
+
+    num = arr_num(ck->tail_entity_list);
+    for (i = 0; i < num; i++) {
+        ent = arr_value(ck->tail_entity_list, i);
+        if (!ent) continue;
+
+        chunk_entity_free(ent);
+    }
+    arr_zero(ck->tail_entity_list);
 
     ck->httpchunk = 0;
     ck->rmchunklen = 0;
     ck->chunksize = 5;  //0\r\n\r\n
     ck->chunkendsize = -1;
- 
+
     ck->rmentlen = 0;
     ck->size = 0;
     ck->endsize = -1;
- 
+
     ck->filenum = 0;
     ck->bufnum = 0;
 
@@ -338,8 +348,35 @@ int chunk_get_end (void * vck, int64 pos, int httpchunk)
 int chunk_set_end (void * vck)
 {
     chunk_t  * ck = (chunk_t *)vck;
+    ckent_t  * ent = NULL;
+    int        i, num;
 
     if (!ck) return 0;
+
+    num = arr_num(ck->tail_entity_list);
+    for (i = 0; i < num; i++) {
+        ent = arr_value(ck->tail_entity_list, i);
+        if (!ent) continue;
+
+        arr_push(ck->entity_list, ent);
+
+        switch (ent->cktype) {
+        case CKT_BUFFER_PTR:
+        case CKT_BUFFER:
+        case CKT_CHAR_ARRAY:
+            ck->bufnum++;
+            break;
+        case CKT_FILE_NAME:
+        case CKT_FILE_PTR:
+        case CKT_FILE_DESC:
+            ck->filenum++;
+            break;
+        }
+        ck->size += ent->length;
+        ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
+    }
+
+    arr_zero(ck->tail_entity_list);
 
     ck->endsize = ck->size;
     ck->chunkendsize = ck->chunksize;
@@ -1176,7 +1213,6 @@ int chunk_go_ahead (void * vck, void * msg, int64 offset, int64 step)
     return 0;
 }
 
-
 int chunk_add_buffer (void * vck, void * pbuf, int64 len)
 {
     chunk_t  * ck = (chunk_t *)vck;
@@ -1192,20 +1228,20 @@ int chunk_add_buffer (void * vck, void * pbuf, int64 len)
     if (len < sizeof(ent->u.charr.pbyte)) {
         ent->cktype = CKT_CHAR_ARRAY;
         ent->length = len;
-    
+
         if (len > 0) memcpy(ent->u.charr.pbyte, pbuf, len);
         ((char *)ent->u.charr.pbyte)[len] = '\0';
 
     } else {
         ent->cktype = CKT_BUFFER;
         ent->length = len;
-    
+
         ent->u.buf.pbyte = kalloc(len + 1);
         if (ent->u.buf.pbyte == NULL) {
             kfree(ent);
             return -200;
         }
-    
+
         if (len > 0) memcpy(ent->u.buf.pbyte, pbuf, len);
         ((char *)ent->u.buf.pbyte)[len] = '\0';
     }
@@ -1217,14 +1253,78 @@ int chunk_add_buffer (void * vck, void * pbuf, int64 len)
 
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
     ent->lenstrlen = strlen(ent->lenstr);
-    strcpy(ent->trailer, "\r\n"); 
+    strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
     ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
 
     return 0;
 }
 
-int chunk_add_strip_buffer (void * vck, void * pbuf, int64 len, char * escch, int chlen)
+int64 chunk_prepend_strip_buffer (void * vck, void * pbuf, int64 len, char * escch, int chlen, uint8 isheader)
+{
+    chunk_t  * ck = (chunk_t *)vck;
+    ckent_t  * ent = NULL;
+    int        i, num = 0;
+    int        insloc = 0;
+ 
+    if (!ck) return -1;
+ 
+    if (len < 0) return 0;
+ 
+    /* find the location of non-header entity */
+    if (!isheader) {
+        num = arr_num(ck->entity_list);
+        for (i = 0; i < num; i++) {
+            ent = arr_value(ck->entity_list, i);
+            if (!ent) continue;
+            if (ent->header) continue;
+            break;
+        }
+        insloc = i;
+    }
+ 
+    ent = kzalloc(sizeof(*ent));
+    if (!ent) return -100;
+ 
+    ent->u.buf.pbyte = kalloc(len+1);
+    if (ent->u.buf.pbyte == NULL) {
+        kfree(ent);
+        return -200;
+    }
+ 
+    ent->cktype = CKT_BUFFER;
+    ent->length = string_strip(pbuf, len, escch, chlen, ent->u.buf.pbyte, len);
+    if (ent->length >= 0)
+        ((char *)ent->u.buf.pbyte)[ent->length] = '\0';
+
+    ent->header = isheader ? 1 : 0;
+
+    arr_insert(ck->entity_list, ent, insloc);
+    ck->bufnum++;
+
+    ck->size += len;
+
+    if (ent->header) {
+        ent->lenstrlen = 0;
+        ent->trailerlen = 0;
+        ck->chunksize += ent->length;
+    } else {
+        sprintf(ent->lenstr, "%llx\r\n", ent->length);
+        ent->lenstrlen = strlen(ent->lenstr);
+        strcpy(ent->trailer, "\r\n");
+        ent->trailerlen = 2;
+        ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
+    }
+
+    if (ck->endsize > 0) {
+        ck->endsize = ck->size;
+        ck->chunkendsize = ck->chunksize;
+    }
+
+    return ent->length;
+}
+
+int64 chunk_add_strip_buffer (void * vck, void * pbuf, int64 len, char * escch, int chlen)
 {
     chunk_t  * ck = (chunk_t *)vck;
     ckent_t  * ent = NULL;
@@ -1244,8 +1344,9 @@ int chunk_add_strip_buffer (void * vck, void * pbuf, int64 len, char * escch, in
 
     ent->cktype = CKT_BUFFER;
     ent->length = string_strip(pbuf, len, escch, chlen, ent->u.buf.pbyte, len);
-    ((char *)ent->u.buf.pbyte)[len] = '\0';
- 
+    if (ent->length >= 0)
+        ((char *)ent->u.buf.pbyte)[ent->length] = '\0';
+
     arr_push(ck->entity_list, ent);
     ck->bufnum++;
 
@@ -1253,11 +1354,56 @@ int chunk_add_strip_buffer (void * vck, void * pbuf, int64 len, char * escch, in
 
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
     ent->lenstrlen = strlen(ent->lenstr);
-    strcpy(ent->trailer, "\r\n"); 
+    strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
     ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
 
-    return 0;
+    return ent->length;
+}
+
+int64 chunk_append_strip_buffer (void * vck, void * pbuf, int64 len, char * escch, int chlen)
+{
+    chunk_t  * ck = (chunk_t *)vck;
+    ckent_t  * ent = NULL;
+ 
+    if (!ck) return -1;
+ 
+    if (len <= 0) return 0;
+ 
+    ent = kzalloc(sizeof(*ent));
+    if (!ent) return -100;
+ 
+    ent->u.buf.pbyte = kalloc(len+1);
+    if (ent->u.buf.pbyte == NULL) {
+        kfree(ent);
+        return -200;
+    }
+ 
+    ent->cktype = CKT_BUFFER;
+    ent->length = string_strip(pbuf, len, escch, chlen, ent->u.buf.pbyte, len);
+    if (ent->length >= 0)
+        ((char *)ent->u.buf.pbyte)[ent->length] = '\0';
+
+    sprintf(ent->lenstr, "%llx\r\n", ent->length);
+    ent->lenstrlen = strlen(ent->lenstr);
+    strcpy(ent->trailer, "\r\n");
+    ent->trailerlen = 2;
+
+    if (ck->endsize > 0) {
+        arr_push(ck->entity_list, ent);
+
+        ck->bufnum++;
+        ck->size += len;
+        ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
+
+        ck->endsize = ck->size;
+        ck->chunkendsize = ck->chunksize;
+
+    } else {
+        arr_push(ck->tail_entity_list, ent);
+    }
+
+    return ent->length;
 }
 
 int chunk_remove_bufptr (void * vck, void * pbuf)
@@ -1272,10 +1418,10 @@ int chunk_remove_bufptr (void * vck, void * pbuf)
     num = arr_num(ck->entity_list);
 
     for (i = 0; i < num; i++) {
- 
+
         ent = arr_value(ck->entity_list, i);
         if (!ent) continue;
- 
+
         if (ent->cktype != CKT_BUFFER_PTR)
             continue;
 
@@ -1291,8 +1437,8 @@ int chunk_remove_bufptr (void * vck, void * pbuf)
 
             rmnum++;
         }
-    } 
- 
+    }
+
     return rmnum;
 }
 
@@ -1300,20 +1446,34 @@ int chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, uint8 isheader)
 {
     chunk_t  * ck = (chunk_t *)vck;
     ckent_t  * ent = NULL;
+    int        i, num = 0;
+    int        insloc = 0;
 
     if (!ck) return -1;
 
     if (len <= 0) return 0;
- 
+
+    /* find the location of non-header entity */
+    if (!isheader) {
+        num = arr_num(ck->entity_list);
+        for (i = 0; i < num; i++) {
+            ent = arr_value(ck->entity_list, i);
+            if (!ent) continue;
+            if (ent->header) continue;
+            break;
+        }
+        insloc = i;
+    }
+
     ent = kzalloc(sizeof(*ent));
     if (!ent) return -100;
- 
+
     ent->cktype = CKT_BUFFER_PTR;
     ent->header = isheader ? 1 : 0;
     ent->length = len;
     ent->u.bufptr.pbyte = pbuf;
- 
-    arr_insert(ck->entity_list, ent, 0);
+
+    arr_insert(ck->entity_list, ent, insloc);
     ck->bufnum++;
 
     ck->size += len;
@@ -1330,6 +1490,11 @@ int chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, uint8 isheader)
         ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
     }
 
+    if (ck->endsize > 0) {
+        ck->endsize = ck->size;
+        ck->chunkendsize = ck->chunksize;
+    }
+
     return 0;
 }
 
@@ -1341,29 +1506,68 @@ int chunk_add_bufptr (void * vck, void * pbuf, int64 len, void * porig)
     if (!ck) return -1;
 
     if (len <= 0) return 0;
- 
+
     ent = kzalloc(sizeof(*ent));
     if (!ent) return -100;
- 
+
     ent->cktype = CKT_BUFFER_PTR;
     ent->length = len;
     ent->u.bufptr.pbyte = pbuf;
     ent->u.bufptr.porig = porig;
- 
-    arr_push(ck->entity_list, ent);
-    ck->bufnum++;
-
-    ck->size += len;
 
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
     ent->lenstrlen = strlen(ent->lenstr);
     strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
+
+    arr_push(ck->entity_list, ent);
+
+    ck->bufnum++;
+    ck->size += len;
     ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
 
     return 0;
 }
- 
+
+int chunk_append_bufptr (void * vck, void * pbuf, int64 len, void * porig)
+{
+    chunk_t  * ck = (chunk_t *)vck;
+    ckent_t  * ent = NULL;
+
+    if (!ck) return -1;
+
+    if (len <= 0) return 0;
+
+    ent = kzalloc(sizeof(*ent));
+    if (!ent) return -100;
+
+    ent->cktype = CKT_BUFFER_PTR;
+    ent->length = len;
+    ent->u.bufptr.pbyte = pbuf;
+    ent->u.bufptr.porig = porig;
+
+    sprintf(ent->lenstr, "%llx\r\n", ent->length);
+    ent->lenstrlen = strlen(ent->lenstr);
+    strcpy(ent->trailer, "\r\n");
+    ent->trailerlen = 2;
+
+    if (ck->endsize > 0) {
+        arr_push(ck->entity_list, ent);
+
+        ck->bufnum++;
+        ck->size += len;
+        ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
+
+        ck->endsize = ck->size;
+        ck->chunkendsize = ck->chunksize;
+
+    } else {
+        arr_push(ck->tail_entity_list, ent);
+    }
+
+    return 0;
+}
+
 int chunk_bufptr_porig_find (void * vck, void * porig)
 {
     chunk_t  * ck = (chunk_t *)vck;
@@ -1399,7 +1603,7 @@ int chunk_add_file (void * vck, char * fname, int64 offset, int64 length, int me
     if (!ck) return -1;
 
     if (offset < 0) offset = 0;
- 
+
     if (file_attr(fname, &inode, &fsize, NULL, &mtime, NULL) < 0)
         return -100;
 
@@ -1425,18 +1629,18 @@ int chunk_add_file (void * vck, char * fname, int64 offset, int64 length, int me
     } else {
         ent = kzalloc(sizeof(*ent));
         if (!ent) return -100;
-     
+
         ent->cktype = CKT_FILE_NAME;
         ent->length = length;
-     
+
         ent->u.filename.pbyte = NULL;
         ent->u.filename.pmap = NULL;
         ent->u.filename.maplen = 0;
-    
+
         ent->u.filename.offset = offset;
         ent->u.filename.hfile = NULL;
         ent->u.filename.fname = str_dup(fname, -1);
-     
+
         arr_push(ck->entity_list, ent);
         ck->filenum++;
     }
@@ -1456,6 +1660,158 @@ int chunk_add_file (void * vck, char * fname, int64 offset, int64 length, int me
     ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
 
     return 0;
+}
+
+int64 chunk_prepend_file (void * vck, char * fname, int64 packsize)
+{
+    chunk_t  * ck = (chunk_t *)vck;
+    ckent_t  * ent = NULL;
+    int64      fsize = 0;
+    long       inode = 0;
+    time_t     mtime = 0;
+    int        i, num = 0;
+    int        insloc = 0;
+
+    int64      offset = 0;
+    int64      length = 0;
+
+    if (!ck) return -1;
+
+    if (file_attr(fname, &inode, &fsize, NULL, &mtime, NULL) < 0)
+        return -100;
+
+    if (fsize <= 0) return -101;
+
+    /* find the location of non-header entity */
+    num = arr_num(ck->entity_list);
+    for (i = 0; i < num; i++) {
+        ent = arr_value(ck->entity_list, i);
+        if (!ent) continue;
+        if (ent->header) continue;
+        break;
+    }
+    insloc = i;
+
+    if (packsize <= 0) num = 1;
+    else {
+        num = (fsize + packsize - 1) / packsize;
+    }
+
+    for (i = 0; i < num; i++) {
+        offset = packsize * i;
+        length = fsize - offset;
+        if (packsize > 0 && length > packsize)
+            length = packsize;
+
+        ent = kzalloc(sizeof(*ent));
+        if (!ent) return -200;
+
+        ent->cktype = CKT_FILE_NAME;
+        ent->length = length;
+
+        ent->u.filename.pbyte = NULL;
+        ent->u.filename.pmap = NULL;
+        ent->u.filename.maplen = 0;
+
+        ent->u.filename.offset = offset;
+        ent->u.filename.hfile = NULL;
+        ent->u.filename.fname = str_dup(fname, -1);
+
+        ent->u.filename.fsize = fsize;
+        ent->u.filename.inode = inode;
+        ent->u.filename.mtime = mtime;
+
+        sprintf(ent->lenstr, "%llx\r\n", ent->length);
+        ent->lenstrlen = strlen(ent->lenstr);
+
+        strcpy(ent->trailer, "\r\n");
+        ent->trailerlen = 2;
+
+        arr_insert(ck->entity_list, ent, insloc++);
+
+        ck->filenum++;
+        ck->size += length;
+        ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
+
+        if (ck->endsize > 0) {
+            ck->endsize = ck->size;
+            ck->chunkendsize = ck->chunksize;
+        }
+    }
+
+    return fsize;
+}
+
+int64 chunk_append_file (void * vck, char * fname, int64 packsize)
+{
+    chunk_t  * ck = (chunk_t *)vck;
+    ckent_t  * ent = NULL;
+    int64      fsize = 0;
+    long       inode = 0;
+    time_t     mtime = 0;
+    int        i, num = 0;
+
+    int64      offset = 0;
+    int64      length = 0;
+
+    if (!ck) return -1;
+
+    if (file_attr(fname, &inode, &fsize, NULL, &mtime, NULL) < 0)
+        return -100;
+
+    if (fsize <= 0) return -101;
+
+    if (packsize <= 0) num = 1;
+    else {
+        num = (fsize + packsize - 1) / packsize;
+    }
+
+    for (i = 0; i < num; i++) {
+        offset = packsize * i;
+        length = fsize - offset;
+        if (packsize > 0 && length > packsize)
+            length = packsize;
+
+        ent = kzalloc(sizeof(*ent));
+        if (!ent) return -200;
+
+        ent->cktype = CKT_FILE_NAME;
+        ent->length = length;
+
+        ent->u.filename.pbyte = NULL;
+        ent->u.filename.pmap = NULL;
+        ent->u.filename.maplen = 0;
+
+        ent->u.filename.offset = offset;
+        ent->u.filename.hfile = NULL;
+        ent->u.filename.fname = str_dup(fname, -1);
+
+        ent->u.filename.fsize = fsize;
+        ent->u.filename.inode = inode;
+        ent->u.filename.mtime = mtime;
+
+        sprintf(ent->lenstr, "%llx\r\n", ent->length);
+        ent->lenstrlen = strlen(ent->lenstr);
+
+        strcpy(ent->trailer, "\r\n");
+        ent->trailerlen = 2;
+
+        if (ck->endsize > 0) {
+            arr_push(ck->entity_list, ent);
+
+            ck->filenum++;
+            ck->size += length;
+            ck->chunksize += ent->length + ent->lenstrlen + ent->trailerlen;
+
+            ck->endsize = ck->size;
+            ck->chunkendsize = ck->chunksize;
+
+        } else {
+            arr_push(ck->tail_entity_list, ent);
+        }
+    }
+
+    return fsize;
 }
 
 int chunk_add_filefp (void * vck, FILE * fp, int64 offset, int64 length)
@@ -1757,6 +2113,9 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
     num = arr_num(ck->entity_list);
  
     for (i = 0; i < num; i++) {
+        if (pvec->iovcnt >= sizeof(pvec->iovs)/sizeof(pvec->iovs[0]) - 3)
+            break;
+
         ent = arr_value(ck->entity_list, i);
         if (!ent) continue;
 
@@ -2742,6 +3101,7 @@ void chunk_print (void * vck, FILE * fp)
                              " rmchunklen=%lld chunkendsize=%lld\n",
             ck->size, ck->rmentlen, ck->endsize, ck->chunksize, ck->rmchunklen, ck->chunkendsize);
     sprintf(buf+strlen(buf), "filenum=%d bufnum=%d entitynum=%d\n", ck->filenum, ck->bufnum, num);
+    fprintf(fp, buf); buf[0] = '\0';
 
     num = arr_num(ck->entity_list);
     for (i = 0; i < num; i++) {
@@ -2782,7 +3142,7 @@ void chunk_print (void * vck, FILE * fp)
         } else {
             sprintf(buf+strlen(buf), "  UNKNOWN    len=%lld hdr=%d\n", ent->length, ent->header);
         }
-        fprintf(fp, buf);
+        fprintf(fp, buf); buf[0] = '\0';
     }
     fprintf(fp, "------------------------end chunk---------------------\n");
     fflush(fp);

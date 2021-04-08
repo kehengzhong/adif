@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2020 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
  */
 
@@ -38,11 +38,58 @@ void ansi_2_unicode(wchar_t * wcrt, char * pstr)
 }
 #endif
 
+void ckstr_free(void * str)
+{
+    kfree(str);
+}
+
 void * ckstr_new(void * pbyte, int bytelen)
 {
      ckstr_t * ps = kzalloc(bytelen);
      ps->p = pbyte;  ps->len = bytelen;
      return ps;
+}
+
+int ckstr_cmp (void * a, void * b)
+{
+    ckstr_t * ca = (ckstr_t *)a;
+    ckstr_t * cb = (ckstr_t *)b;
+    int       len, ret = 0;
+
+    if ((!ca || ca->len <= 0) && (!cb || cb->len <= 0))
+        return 0;
+
+    if (!ca || ca->len <= 0) return -1;
+    if (!cb || cb->len <= 0) return 1;
+
+    len = ca->len > cb->len ? cb->len : ca->len;
+
+    ret = str_ncmp(ca->p, cb->p, len);
+    if (ret == 0)
+        return ca->len > cb->len ? 1 : (ca->len < cb->len ? -1 : 0);
+
+    return ret;
+}
+
+int ckstr_casecmp (void * a, void * b)
+{
+    ckstr_t * ca = (ckstr_t *)a;
+    ckstr_t * cb = (ckstr_t *)b;
+    int       len, ret = 0;
+
+    if ((!ca || ca->len <= 0) && (!cb || cb->len <= 0))
+        return 0;
+
+    if (!ca || ca->len <= 0) return -1;
+    if (!cb || cb->len <= 0) return 1;
+
+    len = ca->len > cb->len ? cb->len : ca->len;
+
+    ret = str_ncasecmp(ca->p, cb->p, len);
+    if (ret == 0)
+        return ca->len > cb->len ? 1 : (ca->len < cb->len ? -1 : 0);
+
+    return ret;
 }
 
 int toHex (int ch, int upercase) 
@@ -630,48 +677,48 @@ time_t str_gmt2time (void * p, int timelen, time_t * ptm)
     static char * weekname[7] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     uint8       fmt = 0;
     uint8       subfmt = 0;
- 
+
     if (!ptime) return 0;
     if (timelen < 0) timelen = str_len(ptime);
     if (timelen <= 0) return 0;
- 
+
     time(&tick);
     ts = *localtime(&tick);
     ts.tm_hour = ts.tm_min = ts.tm_sec = 0;
- 
+
     pbgn = ptime;
     pend = ptime + timelen;
- 
+
     pbgn = skipOver(pbgn, pend-pbgn, " \t", 2);
     if (pbgn >= pend) return 0;
- 
+
     if (!isdigit(*pbgn)) {
         for (i = 0; i < 7; i++) {
             if (strncasecmp(pbgn, weekname[i], 3) == 0) {
                 ts.tm_wday = i; break;
             }
         }
- 
+
         if (i < 7) { //matched Weekday
             pbgn = skipTo(pbgn, pend-pbgn, ", \t", 3);
             if (pbgn >= pend) return 0;
- 
+
             pbgn = skipOver(pbgn, pend-pbgn, ", \t", 3);
             if (pbgn >= pend) return 0;
- 
+
             for (val = 0, i = 0; pbgn && pbgn < pend && isdigit(*pbgn) && i < 2; pbgn++, i++) {
                 val *= 10; val += *pbgn - '0';
             }
             ts.tm_mday = val;
- 
+
             pbgn = skipOver(pbgn, pend-pbgn, " \t-", 3);
             if (pbgn >= pend) return 0;
- 
+
             subfmt = 0;
         } else {
             subfmt = 1;
         }
- 
+
         for (i = 0; i < 12; i++) {
             if (strncasecmp(pbgn, monthname[i], 3) == 0) {
                 ts.tm_mon = i; break;
@@ -679,20 +726,20 @@ time_t str_gmt2time (void * p, int timelen, time_t * ptm)
         }
         if (i >= 12) return 0;
         pbgn += 3;
- 
+
         if (subfmt == 1) {
             pbgn = skipOver(pbgn, pend-pbgn, " \t-", 3);
             if (pbgn >= pend) return 0;
- 
+
             for (val=0,i=0; pbgn && pbgn < pend && isdigit(*pbgn) && i<4; pbgn++, i++) {
                 val *= 10; val += *pbgn - '0';
             }
             ts.tm_mday = val;
         }
- 
+
         pbgn = skipOver(pbgn, pend-pbgn, " \t-", 3);
         if (pbgn >= pend) return 0;
- 
+
         for (val=0,i=0; pbgn && pbgn < pend && isdigit(*pbgn) && i<4; pbgn++, i++) {
             val *= 10; val += *pbgn - '0';
         }
@@ -703,9 +750,9 @@ time_t str_gmt2time (void * p, int timelen, time_t * ptm)
             val = val + 2000 - 1900;
         } else if (i == 4 && val < 1900)
             return 0;
- 
+
         ts.tm_year = val;
- 
+
         fmt = 0;
     } else {
         /* year */
@@ -720,42 +767,42 @@ time_t str_gmt2time (void * p, int timelen, time_t * ptm)
             val = val + 2000 - 1900;
         } else if (i == 4 && val < 1900)
             return 0;
- 
+
         ts.tm_year = val;
- 
+
        /* month */
         while (pbgn < pend && !isdigit(*pbgn)) pbgn++;
- 
+
         for (val = 0, i = 0; pbgn && pbgn < pend && isdigit(*pbgn) && i < 2; pbgn++, i++) {
             val *= 10; val += *pbgn - '0';
         }
         val -= 1; if (val < 0) val = 0;
         ts.tm_mon = val;
- 
+
         /* mday */
         while (pbgn < pend && !isdigit(*pbgn)) pbgn++;
         for (val=0,i=0; pbgn && pbgn < pend && isdigit(*pbgn) && i<2; pbgn++, i++) {
             val *= 10; val += *pbgn - '0';
         }
         ts.tm_mday = val;
- 
+
         fmt = 1;
     }
- 
+
     /* hour */
     while (pbgn < pend && !isdigit(*pbgn)) pbgn++;
- 
+
     if (pbgn >= pend) {
         tick = mktime(&ts);
         if (ptm) *ptm = tick;
         return tick;
     }
- 
+
     for (val=0,i=0; pbgn && pbgn < pend && isdigit(*pbgn) && i<2; pbgn++, i++) {
         val *= 10; val += *pbgn - '0';
     }
     ts.tm_hour = val;
- 
+
     /* minute */
     while (pbgn < pend && !isdigit(*pbgn)) pbgn++;
     if (pbgn >= pend) {
@@ -763,12 +810,12 @@ time_t str_gmt2time (void * p, int timelen, time_t * ptm)
         if (ptm) *ptm = tick;
         return tick;
     }
- 
+
     for (val=0,i=0; pbgn && pbgn < pend && isdigit(*pbgn) && i<2; pbgn++, i++) {
         val *= 10; val += *pbgn - '0';
     }
     ts.tm_min = val;
- 
+
     /* second */
     while (pbgn < pend && !isdigit(*pbgn)) pbgn++;
     if (pbgn >= pend) {
@@ -776,12 +823,12 @@ time_t str_gmt2time (void * p, int timelen, time_t * ptm)
         if (ptm) *ptm = tick;
         return tick;
     }
- 
+
     for (val = 0, i = 0; pbgn && pbgn < pend && isdigit(*pbgn) && i < 2; pbgn++, i++) {
         val *= 10; val += *pbgn - '0';
     }
     ts.tm_sec = val;
- 
+
     if (fmt == 0) {
         pbgn = skipOver(pbgn, pend-pbgn, " \t", 2);
         if (pbgn >= pend) {
@@ -789,14 +836,14 @@ time_t str_gmt2time (void * p, int timelen, time_t * ptm)
             if (ptm) *ptm = tick;
             return tick;
         }
- 
+
         if (strncasecmp(pbgn, "GMT", 3) != 0) {
             tick = mktime(&ts);
             if (ptm) *ptm = tick;
             return tick;
         }
         tzone = current_timezone();
- 
+
     } else if (fmt == 1) {
         /* time zone */
         while (pbgn < pend && !isdigit(*pbgn) && *pbgn !='-' && *pbgn != '+') pbgn++;
@@ -805,21 +852,21 @@ time_t str_gmt2time (void * p, int timelen, time_t * ptm)
             if (ptm) *ptm = tick;
             return tick;
         }
- 
+
         if (*pbgn == '+' || *pbgn == '-') { sign = *pbgn; pbgn++; }
         else sign = '+';
         for (val = 0, i = 0; pbgn && pbgn < pend && isdigit(*pbgn) && i < 2; pbgn++, i++) {
             val *= 10; val += *pbgn - '0';
         }
         if (sign == '-') val = -val;
- 
+
         tzone = current_timezone();
         tzone -= val;
     }
- 
+
     tick = mktime(&ts);
     tick += tzone * 3600;
- 
+
     if (ptm) *ptm = tick;
     return tick;
 }
@@ -1692,8 +1739,9 @@ void * string_strip_dup (void * p, int bytelen, void * pat, int chlen)
     uint8 * pbyte = (uint8 *)p;
     uint8 * escch = (uint8 *)pat;
     uint8 * pdup = NULL;
-    int     i = 0, num = 0;
+    int     i = 0, num = 0, ret;
     uint8   ch = 0;
+    uint32  uval = 0;
  
     if (escch && chlen < 0) chlen = str_len(escch);
     if (!escch || chlen <= 0) return str_dup(pbyte, bytelen);
@@ -1706,8 +1754,10 @@ void * string_strip_dup (void * p, int bytelen, void * pat, int chlen)
     if (!pdup) return NULL;
 
     for (i = 0, num = 0; i < bytelen; ) {
-        if (pbyte[i] == '\\' && i+1<bytelen) {
-            switch (pbyte[i+1]) {
+        if (pbyte[i] == '\\' && i + 1 < bytelen) {
+            ch = pbyte[i+1];
+
+            switch (ch) {
             case 'r':
                 ch = '\r';
                 break;
@@ -1735,12 +1785,29 @@ void * string_strip_dup (void * p, int bytelen, void * pat, int chlen)
             case '/':
                 ch = '/';
                 break;
-            default:
-                ch = pbyte[i+1];
+            case 'u':
+            case 'x':
+                if (bytelen - i >= 3) {
+                    ret = str_hextou(pbyte + i + 2, 4, &uval);
+                    if (ret <= 0) break;
+ 
+                    if (uval <= 0xFF) pdup[num++] = uval & 0xFF;
+                    else if (uval <= 0xFFFF) {
+                        if (isBigEndian()) {
+                            pdup[num++] = (uval >> 8) & 0xFF;
+                            pdup[num++] = (uval & 0xFF);
+                        } else {
+                            pdup[num++] = (uval & 0xFF);
+                            pdup[num++] = (uval >> 8) & 0xFF;
+                        }
+                    }
+                    i += 2 + ret;
+                    continue;
+                }
                 break;
             }
 
-            if (memchr(escch, ch, chlen) != NULL) {
+            if (escch && chlen > 0 && memchr(escch, ch, chlen) != NULL) {
                 pdup[num++] = ch; i+=2;
             } else {
                 pdup[num++] = pbyte[i++];
