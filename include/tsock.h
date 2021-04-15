@@ -281,6 +281,9 @@ int sock_write_ready (SOCKET fd, int ms);
 void   sock_addr_ntop (struct sockaddr * sa, char * buf);
 uint16 sock_addr_port (struct sockaddr * sa);
 
+int sock_inet_addr_parse (char * text, int len, uint32 * inaddr, int * retlen);
+int sock_inet6_addr_parse (char * p, int len, char * addr, int * retlen);
+
 /* parset string into sockaddr based on the format of IPv4 or IPv6  */
 int sock_addr_parse (char * text, int len, int port, ep_sockaddr_t * addr);
 
