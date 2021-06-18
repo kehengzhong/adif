@@ -1,6 +1,6 @@
-/*  
+/*
  * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+ * All rights reserved. See MIT LICENSE for redistribution.
  */
 
 #include "btype.h"
@@ -248,10 +248,10 @@ int word_lib_loadfile (void * vwlib, char * file)
     return 0;
 }
  
-static int getword (void * vwlib, uint8 * pbyte, int bytelen, int * word)
+int word_lib_getword (void * vwlib, void * vbyte, int bytelen, int * word)
 {
     WordLib * wlib = (WordLib *)vwlib;
-    uint8   * p = pbyte;
+    uint8   * pbyte = (uint8 *)vbyte;
     int       ret = 0;
     uint8   * pend = NULL;
     int       i, j, bytenum = 0;
@@ -260,20 +260,20 @@ static int getword (void * vwlib, uint8 * pbyte, int bytelen, int * word)
     pend = pbyte + bytelen;
  
     if (wlib->charset == WL_ASCII) {   
-        if (*p >= 'A' && *p <= 'Z') *word = *p-'A'+'a';
-        else *word = *p;
-        p++; ret++;
+        if (*pbyte >= 'A' && *pbyte <= 'Z') *word = *pbyte-'A'+'a';
+        else *word = *pbyte;
+        pbyte++; ret++;
     } else if (wlib->charset == WL_GBK) {   
-        *word = *p++; ret++;
-        if (p >= pend) return ret;
+        *word = *pbyte++; ret++;
+        if (pbyte >= pend) return ret;
 
         if (*word >= 0x80) {
-            *word *= 256; *word += *p++; ret++;
+            *word *= 256; *word += *pbyte++; ret++;
         }
     } else if (wlib->charset == WL_UNICODE) {
-        *word = *p++; ret++;
-        if (p >= pend) return ret;
-        *word *= 256; *word += *p++; ret++;
+        *word = *pbyte++; ret++;
+        if (pbyte >= pend) return ret;
+        *word *= 256; *word += *pbyte++; ret++;
     } else if (wlib->charset == WL_UTF8) {
         i = j = 0;
         if (pbyte[0] <= 0x7F) bytenum = 1;
@@ -294,7 +294,7 @@ static int getword (void * vwlib, uint8 * pbyte, int bytelen, int * word)
             *word = (*word << 6) + (pbyte[i] & 0x3F);
         }
     } else {
-        *word = *p++; ret++;
+        *word = *pbyte++; ret++;
     }
  
     return ret;
@@ -322,7 +322,7 @@ int word_lib_add (void * vwlib, void * vbyte, int bytelen, void * varpara, void 
     pend = pbyte + bytelen;
  
     memset(&item, 0, sizeof(item));
-    wordlen = getword(wlib, p, pend-p, &item.word); 
+    wordlen = word_lib_getword(wlib, p, pend-p, &item.word); 
     p += wordlen; phraselen += wordlen;
  
     wi = ht_get(wlib->subtab, &item.word);
@@ -337,7 +337,7 @@ int word_lib_add (void * vwlib, void * vbyte, int bytelen, void * varpara, void 
  
     for (; p < pend; ) {
         memset(&item, 0, sizeof(item));
-        wordlen = getword(wlib, p, pend-p, &item.word); 
+        wordlen = word_lib_getword(wlib, p, pend-p, &item.word); 
         p += wordlen; phraselen += wordlen;
  
         if (!wi->sublist) wi->sublist = arr_new(4);
@@ -381,14 +381,14 @@ int word_lib_get (void * vwlib, void * vbyte, int bytelen, void ** pvar)
     pend = pbyte + bytelen;
  
     memset(&item, 0, sizeof(item));
-    wordlen = getword(wlib, p, pend-p, &item.word); p += wordlen;
+    wordlen = word_lib_getword(wlib, p, pend-p, &item.word); p += wordlen;
  
     wi = ht_get(wlib->subtab, &item.word);
     if (!wi) return 0;
  
     for (; p < pend && arr_num(wi->sublist) > 0; ) {
         memset(&item, 0, sizeof(item));
-        wordlen = getword(wlib, p, pend-p, &item.word); p += wordlen;
+        wordlen = word_lib_getword(wlib, p, pend-p, &item.word); p += wordlen;
  
         subwi = arr_find_by(wi->sublist, &item, word_item_cmp_item);
         if (!subwi) break;
@@ -428,14 +428,14 @@ int word_lib_del (void * vwlib, void * vbyte, int bytelen)
     pend = pbyte + bytelen;
  
     memset(&item, 0, sizeof(item));
-    wordlen = getword(wlib, p, pend-p, &item.word); p+=wordlen;
+    wordlen = word_lib_getword(wlib, p, pend-p, &item.word); p+=wordlen;
  
     wi = ht_get(wlib->subtab, &item.word);
     if (!wi) return -100;
  
     for (; p < pend && arr_num(wi->sublist) > 0; ) {
         memset(&item, 0, sizeof(item));
-        wordlen = getword(wlib, p, pend-p, &item.word); p+=wordlen;
+        wordlen = word_lib_getword(wlib, p, pend-p, &item.word); p+=wordlen;
  
         subwi = arr_find_by(wi->sublist, &item, word_item_cmp_item);
         if (!subwi) break;

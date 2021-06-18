@@ -355,37 +355,66 @@ int64 file_size (char * file)
 #endif
 }
 
-int file_stat (char * file, struct stat * pfs)
+#ifdef _WIN32
+time_t FileTimeToUnixTime (FILETIME ft)
 {
+    ULARGE_INTEGER ui;
+
+    ui.LowPart  =  ft.dwLowDateTime;
+    ui.HighPart =  ft.dwHighDateTime;
+
+    return ( (ui.QuadPart  -  116444736000000000LL)  /  10000000 );
+}
+
+#endif
+
+int file_stat (char * file, void * pfs)
+{
+#ifdef UNIX
     struct stat fs;
 
     if (!file) return -1;
 
-#ifdef UNIX
     if (stat(file, &fs) < 0) {
         return -2;
     }
+
+    if (pfs) *(struct stat *)pfs = fs;
 #endif
 
 #ifdef _WIN32
-    if (_stat(file, &fs) < 0) {
+    struct _stat fs;
+    WIN32_FILE_ATTRIBUTE_DATA  wfad;
+    ULARGE_INTEGER  ui;
+ 
+    if (!file) return -1;
+ 
+    if (GetFileAttributesEx(file, GetFileExInfoStandard, &wfad) == 0) {
         return -2;
     }
-    fs.st_size = file_size(file);
+ 
+    memset(&fs, 0, sizeof(fs));
+ 
+    fs.st_ctime = FileTimeToUnixTime(wfad.ftCreationTime);
+    fs.st_atime = FileTimeToUnixTime(wfad.ftLastAccessTime);
+    fs.st_mtime = FileTimeToUnixTime(wfad.ftLastWriteTime);
+
+    fs.st_size = wfad.nFileSizeHigh << 32 | wfad.nFileSizeLow;
+
+    if (pfs) *(struct _stat *)pfs = fs;
 #endif
 
-    if (pfs) *pfs = fs;
     return 0;
 }
-
 
 int file_exist (char * file)
 {
 #ifdef UNIX
     struct stat fs;
 #endif
+
 #ifdef _WIN32
-    struct _stat fs;
+    WIN32_FILE_ATTRIBUTE_DATA  wfad;
 #endif
 
     if (!file) return 0;
@@ -395,10 +424,15 @@ int file_exist (char * file)
         if (errno == ENOENT) return 0;
     }
 #endif
-#ifdef _WIN32 
-    if (_stat(file, &fs)== -1) {
-        if (errno == ENOENT) return 0;
+
+#ifdef _WIN32
+    if (GetFileAttributesEx(file, GetFileExInfoStandard, &wfad) == 0) {
+        return 0;
     }
+
+    if ((wsad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        return directory;
+
 #endif
 
     return 1;
@@ -411,7 +445,7 @@ int file_is_regular (char * file)
     struct stat fs;
 #endif
 #ifdef _WIN32
-    struct _stat fs;
+    WIN32_FILE_ATTRIBUTE_DATA  wfad;
 #endif
 
     if (!file) return 0;
@@ -421,15 +455,20 @@ int file_is_regular (char * file)
         if (errno == ENOENT) return 0;
     }
     if (!S_ISREG(fs.st_mode)) return 0;
-#endif
-#ifdef _WIN32 
-    if (_stat(file, &fs)== -1) {
-        if (errno == ENOENT) return 0;
-    }
-    if (_S_IFDIR & fs.st_mode) return 0;
-#endif
 
     return 1;
+#endif
+
+#ifdef _WIN32
+    if (GetFileAttributesEx(file, GetFileExInfoStandard, &wfad) == 0) {
+        return 0;
+    }
+
+    if ((wsad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+        return 1;
+
+    return 0;
+#endif
 }
 
 int file_is_dir (char * file) 
@@ -438,22 +477,25 @@ int file_is_dir (char * file)
     struct stat fs; 
 #endif
 #ifdef _WIN32 
-    struct _stat fs;  
+    WIN32_FILE_ATTRIBUTE_DATA  wfad;
 #endif
  
     if (!file) return 0; 
- 
+
 #ifdef UNIX 
     if (stat(file, &fs)== -1) {
         if (errno == ENOENT) return 0;
     } 
     if (S_ISDIR(fs.st_mode)) return 1;
 #endif
+
 #ifdef _WIN32
-    if (_stat(file, &fs)== -1) {
-        if (errno == ENOENT) return 0;
+    if (GetFileAttributesEx(file, GetFileExInfoStandard, &wfad) == 0) {
+        return 0;
     }
-    if (_S_IFDIR & fs.st_mode) return 1;
+
+    if (wsad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        return 1;
 #endif
  
     return 0;
@@ -476,16 +518,17 @@ int64 file_attr (char * file, long * inode, int64 * size, time_t * atime, time_t
     if (stat(file, &fs)== -1) {
         return -2;
     }
-    fsize = fs.st_size;
-    if (size) *size = fsize;
-#endif
-#ifdef _WIN32
-    if (_stat(file, &fs)== -1) {
-        return -2;
-    }
-    fsize = file_size(file);
 #endif
 
+#ifdef _WIN32
+    if (file_stat(file, &fs)== -1) {
+        return -2;
+    }
+#endif
+
+    fsize = fs.st_size;
+
+    if (size) *size = fs.st_size;
     if (inode) *inode = fs.st_ino;
     if (atime) *atime = fs.st_atime;
     if (mtime) *mtime = fs.st_mtime;
@@ -529,7 +572,7 @@ int file_dir_create (char * path, int hasfilename)
         mkdir(p, 0755);
     #endif
     #ifdef _WIN32
-        _mkdir(p);
+        CreateDirectory(p, NULL);
     #endif
     }
 
@@ -1051,6 +1094,9 @@ void * file_mmap (void * addr, int fd, off_t offset, size_t length, int prot, in
 
     if (offset >= st.st_size) return NULL;
 
+    if (prot == 0) prot = PROT_READ | PROT_WRITE;
+    if (flags == 0) flags = MAP_SHARED;
+
     pa_off = offset & ~(pagesize - 1);
     maplen = length + offset - pa_off;
 
@@ -1073,6 +1119,91 @@ int file_munmap (void * pmap, size_t maplen)
     return munmap(pmap, maplen);
 }
 
+#endif
+
+#ifdef _WIN32
+
+void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * mapname,
+                  HANDLE * phmap, void ** ppmap, int64 * pmaplen, int64 * pmapoff)
+{
+    BY_HANDLE_FILE_INFORMATION bhfi;
+    int64         fsize = 0;
+    SYSTEM_INFO   si;
+    HANDLE        hmap;
+    void        * pmap = NULL;
+    int64         maplen;
+    int64         pa_off = 0;
+    int64         pagesize = 0;
+ 
+    if (GetFileInformationByHandle(hfile, &bhfi) == 0)
+        return NULL;
+
+    fsize = bhfi.nFileSizeHigh << 32 | bhfi.nFileSizeLow;
+ 
+    if (length <= 0) return NULL;
+ 
+    if (offset >= fsize) return NULL;
+ 
+    GetSystemInfo(&si);
+    pagesize = si.dwPageSize;
+
+    pa_off = offset & ~(pagesize - 1);
+    maplen = length + offset - pa_off;
+ 
+    if (pa_off + maplen > fsize)
+        maplen = fsize - pa_off;
+ 
+    hmap = OpenFileMapping(
+                   FILE_MAP_ALL_ACCESS,   /* read/write access */
+                   FALSE,                 /* do not inherit the name */
+                   mapname );             /* name of mapping object */
+    if (!hmap) {
+        hmap = CreateFileMapping(
+                   hfile,                       /* file handle intended to map */
+                   NULL,                        /* default security */
+                   PAGE_READWRITE | SEC_COMMIT, /* read/write access */
+                   maplen >> 32,                /* maximum object size (high-order DWORD) */
+                   maplen & 0xFFFFFFFF,         /* maximum object size (low-order DWORD) */
+                   mapname);                    /* name of mapping object */
+ 
+        if (!hmap) {
+#ifdef _DEBUG
+            printf( "CreateFileMapping error, Last error = %d\n", GetLastError() );
+#endif
+            return NULL;
+        }
+    }
+
+    pmap = MapViewOfFileEx(
+                   hmap,                   /* handle to map object */
+                   FILE_MAP_ALL_ACCESS,    /* read/write permission */
+                   pa_off >> 32,           /* high-order DWORD of the file offset */
+                   pa_off & 0xFFFFFFFF,    /* low-order DWORD of offset where mapping is to begin */
+                   maplen,                 /* number of bytes of a file mapping to map */
+                   addr);                  /* memory address where mapping begins */
+ 
+    if (!pmap) {
+#ifdef _DEBUG
+        printf( "MapViewOfFile error, Last error = %d\n", GetLastError() );
+#endif
+        CloseHandle(hmap);
+        return NULL;
+    }
+
+    if (phmap) *phmap = hmap;
+    if (ppmap) *ppmap = pmap;
+    if (pmaplen) *pmaplen = maplen;
+    if (pmapoff) *pmapoff = pa_off;
+ 
+    return pmap + offset - pa_off;
+}
+
+int file_munmap (HANDLE hmap, void * pmap)
+{
+    UnmapViewOfFile(pmap);
+    CloseHandle(hmap);
+    return 0;
+}
 
 #endif
 
@@ -1080,6 +1211,9 @@ int file_munmap (void * pmap, size_t maplen)
 typedef struct file_buf_s {
     char        * fname;
     int           fd;
+#ifdef _WIN32
+    HANDLE        hfile;
+#endif
 
     int64         fsize;
 
@@ -1090,12 +1224,17 @@ typedef struct file_buf_s {
     int64         mapoff;
     int64         maplen;
     uint8       * pbyte;
+    uint8       * mapaddr;
+#ifdef _WIN32
+    HANDLE        hmap;
+#endif
 
 } fbuf_t;
 
 
 void * fbuf_init (char * fname, int pagecount)
 {
+#ifdef UNIX
     fbuf_t * fbf = NULL;
     int      fd = -1;
     struct stat st;
@@ -1127,8 +1266,53 @@ void * fbuf_init (char * fname, int pagecount)
 
     fbf->mapoff = fbf->maplen = 0;
     fbf->pbyte = NULL;
+    fbf->mapaddr = NULL;
 
     return fbf;
+#endif
+
+#ifdef _WIN32
+    fbuf_t     * fbf = NULL;
+    SYSTEM_INFO  si;
+    HANDLE       hfile;
+    DWORD        dwSize, dwHigh;
+    int64        fsize = 0;
+ 
+    hfile = CreateFile(fname, GENERIC_READ,
+                       FILE_SHARE_READ, NULL,
+                       OPEN_EXISTING, NULL, NULL);
+    if (!hfile) return NULL;
+
+    dwSize = GetFileSize(hfile, &dwHigh);
+    fsize = dwHigh << 32 | dwSize;
+
+    fbf = kzalloc(sizeof(*fbf));
+    if (!fbf) {
+        CloseHandle(hfile);
+        return NULL;
+    }
+
+    if (pagecount < 8) pagecount = 8;
+    fbf->pagecount = pagecount;
+
+    fbf->fname = str_dup(fname, strlen(fname));
+    fbf->hfile = hfile;
+    fbf->fsize = fsize;
+ 
+    GetSystemInfo(&si);
+    fbf->pagesize = si.dwPageSize;
+    if (fbf->pagesize < 512)
+        fbf->pagesize = 4096;
+ 
+    fbf->mapsize = fbf->pagesize * fbf->pagecount; //1024;
+ 
+    fbf->mapoff = fbf->maplen = 0;
+    fbf->pbyte = NULL;
+    fbf->mapaddr = NULL;
+    fbf->hmap = NULL;
+ 
+    return fbf;
+#endif
 }
 
 void fbuf_free (void * vfb)
@@ -1139,7 +1323,10 @@ void fbuf_free (void * vfb)
 
     if (fbf->pbyte) {
 #ifdef UNIX
-        munmap(fbf->pbyte, fbf->maplen);
+        munmap(fbf->mapaddr, fbf->maplen);
+#endif
+#ifdef _WIN32
+        file_munmap(fbf->hmap, fbf->mapaddr);
 #endif
     }
 
@@ -1187,8 +1374,12 @@ int fbuf_mmap (void * vfb, int64 pos)
  
         if (fbf->pbyte != NULL) {
 #ifdef UNIX
-            munmap(fbf->pbyte, fbf->maplen);
+            munmap(fbf->mapaddr, fbf->maplen);
 #endif
+#ifdef _WIN32
+            file_munmap(fbf->hmap, fbf->mapaddr);
+#endif
+            fbf->pbyte = NULL;
         }
  
         fbf->mapoff = pos / fbf->pagesize * fbf->pagesize;
@@ -1204,6 +1395,13 @@ int fbuf_mmap (void * vfb, int64 pos)
         if (fbf->pbyte == MAP_FAILED) {
             return -3;
         }
+        fbf->mapaddr = fbf->pbyte;
+#endif
+
+#ifdef _WIN32
+        fbf->pbyte = file_mmap(fbf->pbyte, fbf->hfile, fbf->mapoff, fbf->maplen, fbf->fname,
+                               &fbf->hmap, (void **)&fbf->mapaddr, &fbf->maplen, &fbf->mapoff);
+        if (!fbf->pbyte) return -3;
 #endif
     }
 

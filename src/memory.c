@@ -1,6 +1,6 @@
-/*  
+/*
  * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+ * All rights reserved. See MIT LICENSE for redistribution.
  */
 
 #include "btype.h"
@@ -50,7 +50,6 @@ int kmem_cmp_kmem_by_id (void * a, void * b) {
     if (mema->memid < memb->memid) return -1;
     return 0;
 }
-
 int kmem_add(void * ptr) {
     KmemHdr * hdr = (KmemHdr *)ptr;
     if (kmem_init == 0) {
@@ -60,25 +59,19 @@ int kmem_add(void * ptr) {
         kmemid = 0;
     }
     if (!ptr) return -1;
-
     EnterCriticalSection(&kmemCS);
     arr_insert_by(kmem_list, hdr, kmem_cmp_kmem_by_id);
     LeaveCriticalSection(&kmemCS);
-
     return 0;
 }
-
 int kmem_del(void * ptr) {        
     KmemHdr * hdr = (KmemHdr *)ptr;
     if (!ptr) return -1;
-
     EnterCriticalSection(&kmemCS);
     arr_delete_by(kmem_list, hdr, kmem_cmp_kmem_by_id);
     LeaveCriticalSection(&kmemCS);
-
     return 0;
 }        
-
 void kmem_print() {
     time_t curt = time(0);
     FILE  * fp = NULL;
@@ -89,26 +82,21 @@ void kmem_print() {
 
     sprintf(file, "kmem-%lu.txt", curt);
     fp = fopen(file, "w");
-
     EnterCriticalSection(&kmemCS);
-
     num = arr_num(kmem_list);
-    for (i = 0;  i < num; i++) {
+    for (i = 0; i < num; i++) {
         hdr = arr_value(kmem_list, i);
         if (!hdr) continue;
-
         if (hdr->kflag != mflag) {
             fprintf(fp, "%p, %uB, is corrupted\n", hdr, hdr->size);
             continue;
         }
-
         fprintf(fp, "%p, %uB, id=%llu, re=%u, line=%u, file=%s\n",
                 hdr, hdr->size, hdr->memid,
                 hdr->reallocate, hdr->line, hdr->file);
         msize += hdr->size;
     }
     fprintf(fp, "Total Number: %u    Total MemSize: %llu\n", num, msize);
-
     LeaveCriticalSection(&kmemCS);
     fclose(fp);
 }
@@ -118,15 +106,66 @@ void kmem_print() {
 #endif
 
 
+void * kosmalloc (size_t size)
+{
+    void * ptr = NULL;
+
+    if (size <= 0) return NULL;
+
+#ifdef _WIN32
+    ptr = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size);
+#else
+    ptr = malloc(size);
+#endif
+
+    return ptr;
+}
+
+void * kosrealloc (void * ptr, size_t size)
+{
+    void  * oldp = ptr;
+
+#ifdef _WIN32
+    if (ptr != NULL)
+        ptr = HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ptr, size);
+    else
+        ptr = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size);
+
+    if (ptr == NULL) {
+        if (oldp) HeapFree(GetProcessHeap(), 0, oldp);
+    }
+
+#else
+    ptr = realloc(ptr, size);
+
+    if (ptr == NULL) {
+        if (oldp) free(oldp);
+    }
+#endif
+ 
+    return ptr;
+}
+
+void kosfree (void * ptr)
+{
+#ifdef _WIN32
+    if (ptr) HeapFree(GetProcessHeap(), 0, ptr);
+#else
+    if (ptr) free(ptr);
+#endif
+}
+
+
 void * kalloc_dbg (size_t size, char * file, int line)
 {
     void * ptr = NULL;
+
 #ifdef _MEMDBG
     KmemHdr * hdr = NULL;
 
     if (size <= 0) return NULL;
 
-    ptr = malloc(size + sizeof(KmemHdr));
+    ptr = kosmalloc(size + sizeof(KmemHdr));
 
     hdr = (KmemHdr *)ptr;
     memset(hdr, 0, sizeof(*hdr));
@@ -138,9 +177,12 @@ void * kalloc_dbg (size_t size, char * file, int line)
     kmem_add(ptr); 
 
     return (uint8 *)ptr + sizeof(KmemHdr);
+
 #else
     if (size <= 0) return NULL;
-    ptr = malloc(size);
+
+    ptr = kosmalloc(size);
+
     return ptr;
 #endif
 }
@@ -149,12 +191,13 @@ void * kalloc_dbg (size_t size, char * file, int line)
 void * kzalloc_dbg (size_t size, char * file, int line)
 {
     void * ptr = NULL;
+
 #ifdef _MEMDBG
     KmemHdr * hdr = NULL;
 
     if (size <= 0) return NULL;
 
-    ptr = malloc(size + sizeof(KmemHdr));
+    ptr = kosmalloc(size + sizeof(KmemHdr));
     if (ptr)
         memset(ptr, 0, size + sizeof(KmemHdr));
 
@@ -167,26 +210,25 @@ void * kzalloc_dbg (size_t size, char * file, int line)
     kmem_add(ptr);
 
     return (uint8 *)ptr + sizeof(KmemHdr);
-#else
 
+#else
     if (size <= 0) return NULL;
-    ptr = malloc(size);
+
+    ptr = kosmalloc(size);
     if (ptr) memset(ptr, 0, size);
+
     return ptr;
 #endif
 } 
 
 void * krealloc_dbg(void * ptr, size_t size, char * file, int line)
 {
-    void * oldp = NULL;
 #ifdef _MEMDBG
     KmemHdr * hdr = NULL;
     uint64    memid = 0;
 
-    oldp = ptr;
-
     if (ptr != NULL) {
-        hdr = (KmemHdr *)(ptr-sizeof(KmemHdr)); 
+        hdr = (KmemHdr *)(ptr - sizeof(KmemHdr)); 
         memid = hdr->memid;
         kmem_del(hdr);
 
@@ -194,12 +236,13 @@ void * krealloc_dbg(void * ptr, size_t size, char * file, int line)
             tolog("###Panic: %s:%d krealloc %ld bytes, old %p:%llu %u bytes alloc by %s:%d ruined\n",
                      file, line, size, ptr, memid, hdr->size, hdr->file, hdr->line);
 
-        ptr = realloc((uint8 *)ptr - sizeof(KmemHdr), size + sizeof(KmemHdr));
-    } else
-        ptr = malloc(size + sizeof(KmemHdr));
+        ptr = kosrealloc((uint8 *)ptr - sizeof(KmemHdr), size + sizeof(KmemHdr));
+
+    } else {
+        ptr = kosmalloc(size + sizeof(KmemHdr));
+    }
  
     if (ptr == NULL) {
-        if (oldp) free((uint8 *)oldp - sizeof(KmemHdr));
         return NULL;
     }
 
@@ -213,23 +256,14 @@ void * krealloc_dbg(void * ptr, size_t size, char * file, int line)
     kmem_add(ptr); 
 
     return (uint8 *)ptr + sizeof(KmemHdr);
+
 #else
-    oldp = ptr;
-    if (ptr != NULL) 
-        ptr = realloc((uint8 *)ptr, size);
-    else
-        ptr = realloc(ptr, size);
-
-    if (ptr == NULL) {
-        if (oldp) kfree(oldp);
-    }
-
-    return ptr;
+    return kosrealloc(ptr, size);
 #endif
 }
 
 
-void  kfree_dbg (void * ptr, char * file, int line)
+void kfree_dbg (void * ptr, char * file, int line)
 {
     if (ptr) {
 #ifdef _MEMDBG
@@ -240,9 +274,10 @@ void  kfree_dbg (void * ptr, char * file, int line)
                   file, line, ptr, hdr->memid, hdr->size, hdr->file, hdr->line);
             return;
         }
-        free(hdr);
+        kosfree(hdr);
+
 #else
-        free(ptr);
+        kosfree(ptr);
 #endif
     }
 }

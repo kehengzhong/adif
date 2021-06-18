@@ -665,40 +665,40 @@ int native_file_remove (char * nfile)
 
 
 #if 0
-/*void * native_file_open   (char * nfile, int flag)
+void * native_file_open   (char * nfile, int flag)
 {
     NativeFile * hfile = NULL;
     int          ret = 0;
     struct stat  st;
-
+ 
     if (!nfile) return NULL;
-
+ 
     memset(&st, 0, sizeof(st));
-    ret = _stat(nfile, &st); 
-
+    ret = _stat(nfile, &st);
+ 
     if (ret < 0) {
         if ((flag & NF_MASK_RW) == NF_READ)
-            return NULL; //only read existing file 
+            return NULL; //only read existing file
         if ((flag & NF_MASK_RW) == NF_READPLUS)
             return NULL;//not create it; read/write existing file
     } else { //file exist
         if ((flag & NF_MASK_RW) == NF_WRITE) {
-            unlink(nfile);
+            DeleteFile(nfile);
             ret = -100;
         }
     }
-
+ 
     hfile = kzalloc(sizeof(*hfile));
     if (!hfile) return NULL;
-
+ 
     InitializeCriticalSection(&hfile->fileCS);
-
+ 
     strncpy(hfile->name, nfile, sizeof(hfile->name)-1);
     hfile->flag = flag;
     hfile->oflag = 0;
     //hfile->mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
     //if (flag & NF_EXEC) hfile->mode |= (S_IXUSR | S_IXGRP | S_IXOTH);
-
+ 
     hfile->offset = 0;
     if (ret >= 0) {
         hfile->size = st.st_size;
@@ -711,46 +711,43 @@ int native_file_remove (char * nfile)
         hfile->ctime = 0;
         hfile->inode = 0;
     }
-
-//     if ((flag & NF_MASK_R) && (flag & NF_MASK_W)) hfile->oflag = O_RDWR;
-//     else {
-//         if (flag & NF_READPLUS || flag & NF_WRITEPLUS) hfile->oflag = O_RDWR;
-//         else if (flag & NF_READ) hfile->oflag = O_RDONLY;
-//         else if (flag & NF_WRITE) hfile->oflag = O_WRONLY;
-//     }
-
-    if (ret < 0) { //file not exist, need create it
-        hfile->hfile = CreateFile(nfile,GENERIC_READ | GENERIC_WRITE,FILE_SHARE_READ,NULL,
-            CREATE_ALWAYS, NULL, NULL);
-    } else {
-        hfile->hfile = CreateFile(nfile,GENERIC_READ | GENERIC_WRITE,FILE_SHARE_READ,NULL,
-            OPEN_EXISTING, NULL, NULL);
-    }
-    if (hfile->hfile < 0) {
+ 
+    /* Opens the file, if it exists. If the file does not exist, the
+       function creates the file as if this parameter were set to CREATE_NEW.
+     */
+    hfile->hfile = CreateFile(nfile,
+                              GENERIC_READ | GENERIC_WRITE,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE,
+                              NULL,
+                              OPEN_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL,
+                              NULL);
+    if (hfile->hfile == INVALID_HANDLE_VALUE) {
         kfree(hfile);
         return NULL;
     }
+ 
     return hfile;
 }
-
+ 
 void * native_file_create (char * nfile, int flag)
 {
     return native_file_open(nfile, flag|NF_WRITE);
 }
-
+ 
 int native_file_close (void * vhfile)
 {
     NativeFile * hfile = (NativeFile *)vhfile;
-
+ 
     if (!hfile) return -1;
-
+ 
     DeleteCriticalSection(&hfile->fileCS);
-
+ 
     if (hfile->hfile >= 0) {
         CloseHandle(hfile->hfile);
         hfile->hfile = -1;
     }
-
+ 
     kfree(hfile);
     return 0;
 }
@@ -758,66 +755,143 @@ int native_file_close (void * vhfile)
 int native_file_read (void * vhfile, void * pbuf, int size)
 {
     NativeFile * hfile = (NativeFile *)vhfile;
-    int          ret = 0;
+    DWORD        readlen = 0;
+    BOOL         ret;
     int          len = 0;
-
+ 
     if (!hfile) return -1;
     if (!pbuf) return -2;
     if (size < 0) return -3;
-
+ 
     EnterCriticalSection(&hfile->fileCS);
-    for (len=0; len < size; ) {
-        ReadFile(hfile->hfile, pbuf+len, size-len, &ret, NULL);
-        if (ret < 0) {
-            if (errno == EINTR || errno == EAGAIN) {
-                Sleep(1); //sleep 0.5 milli-seconds
-                continue;
-            }
-            LeaveCriticalSection(&hfile->fileCS);
-            return -100;
-        } else if (ret == 0) { //reach end of the file
+ 
+    for (len = 0; len < size; ) {
+        ret = ReadFile(hfile->hfile, pbuf+len, size-len, &readlen, NULL);
+        if (readlen == 0 && ret != 0) {
+            /* If the return value is nonzero and the number of bytes read
+               is zero, the file pointer was beyond the current end of the
+               file at the time of the read operation. */
             break;
         }
-        len += ret;
-        hfile->offset += ret;
+        if (ret == 0) {
+            /* return value is nonzero indicates success. Zero indicates failure. */
+#ifdef _DEBUG
+            printf("native_file_read: ret=%d error:%d file:%s\n", ret, GetLastError(), hfile->name);
+#endif
+            LeaveCriticalSection(&hfile->fileCS);
+            return -100;
+        }
+ 
+        len += readlen;
+        hfile->offset += readlen;
     }
+ 
     LeaveCriticalSection(&hfile->fileCS);
-
+ 
     return len;
 }
-
+ 
 int native_file_write (void * vhfile, void * buf, int size)
 {
     NativeFile * hfile = (NativeFile *)vhfile;
-    int          ret = 0; 
+    BOOL         ret;
+    DWORD        writelen = 0;
     int          len = 0;
-
+ 
     if (!hfile) return -1;
-    if (!buf) return -2; 
+    if (!buf) return -2;
     if (size < 0) return -3;
-
+ 
     EnterCriticalSection(&hfile->fileCS);
-    for (len=0; len < size; ) { 
-        WriteFile(hfile->hfile, buf+len, size-len,&ret,NULL );
-        if (ret < 0) { 
-            if (errno == EINTR || errno == EAGAIN) {
-                Sleep(1);
-                continue;
-            }
+ 
+    for (len = 0; len < size; ) {
+        ret = WriteFile(hfile->hfile, buf+len, size-len, &writelen, NULL);
+        /* return value: Nonzero indicates success. Zero indicates failure. */
+ 
+        if (ret == 0) {
+#ifdef _DEBUG
+            printf("native_file_write: ret=%d error:%d file:%s\n", ret, GetLastError(), hfile->name);
+#endif
             LeaveCriticalSection(&hfile->fileCS);
             return -100;
         }
-        len += ret;
-        hfile->offset += ret;
+        len += writelen;
+        hfile->offset += writelen;
     }
-
+ 
     if (hfile->offset > hfile->size)
         hfile->size = hfile->offset;
+ 
     LeaveCriticalSection(&hfile->fileCS);
-
+ 
     return len;
 }
-*/
+ 
+int native_file_seek (void * vhfile, int64 offset)
+{
+    NativeFile    * hfile = (NativeFile *)vhfile;
+    DWORD           dwRet;
+    LARGE_INTEGER   liPos;
+ 
+    if (!hfile) return -1;
+ 
+    liPos.QuadPart = offset;
+ 
+    int          times = 0;
+    int64        fpos = 0;
+ 
+    EnterCriticalSection(&hfile->fileCS);
+ 
+    if (offset < 0) offset = hfile->size;
+ 
+    if (offset == hfile->offset) {
+        LeaveCriticalSection(&hfile->fileCS);
+        return 0;
+    }
+ 
+    dwRet = SetFilePointer(hfile->hfile, liPos.LowPart, &liPos.HighPart, FILE_BEGIN);
+    if( dwRet == ((DWORD)-1) /*INVALID_SET_FILE_POINTER*/ && GetLastError() != NO_ERROR ){
+#ifdef _DEBUG
+        printf( "SetFilePointer error, dwRet = %d, Last error = %d\n", dwRet, GetLastError() );
+#endif
+        return -100;
+    }
+ 
+    hfile->offset = offset;
+ 
+    LeaveCriticalSection(&hfile->fileCS);
+ 
+    return 0;
+}
+ 
+int native_file_resize (void * vhfile, int64 newsize)
+{
+    NativeFile    * hfile = (NativeFile *)vhfile;
+    DWORD           dwRet;
+    LARGE_INTEGER   liPos;
+ 
+    if (!hfile) return -1;
+ 
+    if (newsize == hfile->size) return 0;
+ 
+    EnterCriticalSection(&hfile->fileCS);
+ 
+    liPos.QuadPart = newsize;
+ 
+    dwRet = SetFilePointer(hfile->hfile, liPos.LowPart, &liPos.HighPart, FILE_BEGIN);
+    if( dwRet == ((DWORD)-1) /*INVALID_SET_FILE_POINTER*/ && GetLastError() != NO_ERROR ){
+#ifdef _DEBUG
+        printf("native_file_resize: SetFilePointer error, dwRet = %d, Last error = %d\n", dwRet, GetLastError() );
+#endif
+        return -1;
+    }
+ 
+    SetEndOfFile(hfile->hfile);
+ 
+    LeaveCriticalSection(&hfile->fileCS);
+ 
+    return 0;
+}
 #endif
 
 #endif
