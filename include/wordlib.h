@@ -33,6 +33,8 @@ int    word_lib_clean  (void * vwlib);
 
 int    word_lib_loadfile (void * vwlib, char * file);
 
+int    word_lib_getword (void * vwlib, void * pbyte, int bytelen, int * word);
+
 int    word_lib_add (void * vlib, void * pbyte, int bytelen, void * varpara, void * varfree);
 int    word_lib_get (void * vlib, void * pbyte, int bytelen, void ** pvar);
 int    word_lib_del (void * vlib, void * pbyte, int bytelen);

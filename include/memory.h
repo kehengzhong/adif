@@ -12,6 +12,10 @@ extern "C" {
 
 void kmem_print();
 
+void * kosmalloc  (size_t size);
+void * kosrealloc (void * ptr, size_t size);
+void   kosfree    (void * ptr);
+
 void * kalloc_dbg   (size_t size, char * file, int line);
 void * kzalloc_dbg  (size_t size, char * file, int line);
 void * krealloc_dbg (void * ptr, size_t size, char * file, int line);
@@ -61,6 +65,7 @@ void * mupool_by_index (void * vpool, int index);
 int    mupool_scan     (void * vpool);
 
 void   mupool_print (FILE * fp, void * vpool);
+
 
 #ifdef __cplusplus
 }

@@ -32,7 +32,7 @@ int64 file_seek  (FILE * fp, int64 pos, int whence);
 int   file_valid (FILE * fp);
 
 int64 file_size  (char * file);
-int   file_stat  (char * file, struct stat * pfs);
+int   file_stat  (char * file, void * pfs);
 int   file_exist (char * file);
 int   file_is_regular (char * file);
 int   file_is_dir (char * file);
@@ -64,6 +64,12 @@ int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid
 void * file_mmap (void * addr, int fd, off_t offset, size_t length, int prot, int flags,
                   void ** ppmap, size_t * pmaplen, off_t * pmapoff);
 int file_munmap (void * pmap, size_t maplen);
+#endif
+
+#ifdef _WIN32
+void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * mapname,
+                  HANDLE * phmap, void ** ppmap, int64 * pmaplen, int64 * pmapoff)
+int file_munmap (HANDLE hmap, void * pmap)
 #endif
 
 void * fbuf_init (char * fname, int pagecount);

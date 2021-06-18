@@ -81,21 +81,33 @@ int    json_mget     (void * vobj, void * key, int keylen, void * val, int * val
 int    json_mgetP    (void * vobj, void * key, int keylen, void ** pval, int * vallen);
 int    json_mget_obj (void * vobj, void * key, int keylen, void ** pobj);
 
+int    json_mget_int8   (void * vobj, void * key, int keylen, int8 * val);
+int    json_mget_uint8  (void * vobj, void * key, int keylen, uint8 * val);
+int    json_mget_int16  (void * vobj, void * key, int keylen, int16 * val);
+int    json_mget_uint16 (void * vobj, void * key, int keylen, uint16 * val);
+int    json_mget_int    (void * vobj, void * key, int keylen, int * val);
+int    json_mget_uint32 (void * vobj, void * key, int keylen, uint32 * val);
+int    json_mget_long   (void * vobj, void * key, int keylen, long * val);
+int    json_mget_ulong  (void * vobj, void * key, int keylen, ulong * val);
+int    json_mget_int64  (void * vobj, void * key, int keylen, int64 * val);
+int    json_mget_uint64 (void * vobj, void * key, int keylen, uint64 * val);
+int    json_mget_double (void * vobj, void * key, int keylen, double * val);
+
 int    json_get     (void * vobj, void * key, int keylen, int ind, void * val, int vallen);
 int    json_getP    (void * vobj, void * key, int keylen, int ind, void * pval, int * vallen);
 int    json_get_obj (void * vobj, void * key, int keylen, int ind, void ** pobj);
 
-int    json_get_int8   (void * vobj, void * key, int keylen, int8 * val);
-int    json_get_uint8  (void * vobj, void * key, int keylen, uint8 * val);
-int    json_get_int16  (void * vobj, void * key, int keylen, int16 * val);
-int    json_get_uint16 (void * vobj, void * key, int keylen, uint16 * val);
-int    json_get_int    (void * vobj, void * key, int keylen, int * val);
-int    json_get_uint32 (void * vobj, void * key, int keylen, uint32 * val);
-int    json_get_long   (void * vobj, void * key, int keylen, long * val);
-int    json_get_ulong  (void * vobj, void * key, int keylen, ulong * val);
-int    json_get_int64  (void * vobj, void * key, int keylen, int64 * val);
-int    json_get_uint64 (void * vobj, void * key, int keylen, uint64 * val);
-int    json_get_double (void * vobj, void * key, int keylen, double * val);
+int    json_get_int8   (void * vobj, void * key, int keylen, int ind, int8 * val);
+int    json_get_uint8  (void * vobj, void * key, int keylen, int ind, uint8 * val);
+int    json_get_int16  (void * vobj, void * key, int keylen, int ind, int16 * val);
+int    json_get_uint16 (void * vobj, void * key, int keylen, int ind, uint16 * val);
+int    json_get_int    (void * vobj, void * key, int keylen, int ind, int * val);
+int    json_get_uint32 (void * vobj, void * key, int keylen, int ind, uint32 * val);
+int    json_get_long   (void * vobj, void * key, int keylen, int ind, long * val);
+int    json_get_ulong  (void * vobj, void * key, int keylen, int ind, ulong * val);
+int    json_get_int64  (void * vobj, void * key, int keylen, int ind, int64 * val);
+int    json_get_uint64 (void * vobj, void * key, int keylen, int ind, uint64 * val);
+int    json_get_double (void * vobj, void * key, int keylen, int ind, double * val);
 
 /* if key exists, it's value will be appended the new content */
 int    json_append      (void * vobj, void * key, int keylen, void * val, int vallen, uint8 strip);
