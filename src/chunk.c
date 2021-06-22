@@ -193,6 +193,7 @@ void chunk_zero (void * vck)
 
     ck->procnotify = NULL;
     ck->procnotifypara = NULL;
+    ck->procnotifycbval = 0;
 }
 
  
@@ -1179,7 +1180,7 @@ int chunk_go_ahead (void * vck, void * msg, int64 offset, int64 step)
     if (offset >= ck->size) return -3;
  
     if (ck->procnotify)
-        (*ck->procnotify)(msg, ck->procnotifypara, offset, step);
+        (*ck->procnotify)(msg, ck->procnotifypara, ck->procnotifycbval, offset, step);
 
     readpos = offset;
     accentlen = ck->rmentlen;
@@ -1968,7 +1969,7 @@ int chunk_add_cbdata (void * vck, void * fetchfunc, void * fetchobj, int64 offse
 }
 
 
-int chunk_add_process_notify (void * vck, void * notifyfunc, void * notifypara)
+int chunk_add_process_notify (void * vck, void * notifyfunc, void * notifypara, uint64 notifycbval)
 {
     chunk_t  * ck = (chunk_t *)vck;
 
@@ -1976,6 +1977,7 @@ int chunk_add_process_notify (void * vck, void * notifyfunc, void * notifypara)
 
     ck->procnotify = notifyfunc;
     ck->procnotifypara = notifypara;
+    ck->procnotifycbval = notifycbval;
 
     return 0;
 }
