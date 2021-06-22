@@ -16,7 +16,7 @@ typedef int FetchData (void * para, int64 offset, int64 lenght, void ** ppbyte, 
 typedef int GoAhead   (void * para, int64 offset, int64 step);
 typedef int FetchEnd  (void * para, int status);
 
-typedef int ProcessNotify (void * msg, void * para, int64 offset, int64 step);
+typedef int ProcessNotify (void * msg, void * para, uint64 cbval, int64 offset, int64 step);
 
 #define CKT_UNKNOWN     0
 #define CKT_CHAR_ARRAY  1
@@ -142,6 +142,7 @@ typedef struct chunk_ {
 
     ProcessNotify * procnotify;
     void          * procnotifypara;
+    uint64          procnotifycbval;
 
 } chunk_t, *chunk_p;
 
@@ -200,7 +201,7 @@ int    chunk_add_filefd   (void * vck, int fd, int64 offset, int64 length);
 int    chunk_add_cbdata (void * vck, void * fetchfunc, void * fetchobj, int64 offset, int64 length,
                          void * movefunc, void * movepara, void * cleanfunc, void * cleanobj);
 
-int    chunk_add_process_notify (void * vck, void * movefunc, void * movepara);
+int    chunk_add_process_notify (void * vck, void * movefunc, void * movepara, uint64 movecbval);
 
 int    chunk_remove (void * vck, int64 pos, int httpchunk);
 
