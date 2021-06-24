@@ -67,7 +67,7 @@ int     frame_get_last (frame_p frm);
 int     frame_get_nlast (frame_p frm, void * pbyte, int n);
 
 #define frame_peek(frm, pos) frame_read((frm), (pos))
-#define frame_peekn(frm, pos, pbyte, n) frame_read((frm), (pos), (pbyte), (n))
+#define frame_peekn(frm, pos, pbyte, n) frame_readn((frm), (pos), (pbyte), (n))
 int     frame_read  (frame_p frm, int pos);
 int     frame_readn (frame_p frm, int pos, void * pbyte, int n);
 
