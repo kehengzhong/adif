@@ -17,7 +17,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <strings.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
@@ -25,6 +24,7 @@
 #ifdef UNIX
 #include <unistd.h>
 #include <sys/time.h>
+#include <strings.h>
 #endif
 
 typedef unsigned long long  uint64;
@@ -119,6 +119,11 @@ typedef char                int8;
 
 
 #ifdef _WIN32
+
+struct iovec {
+    void   * iov_base;    /* Starting address */
+    size_t   iov_len;     /* Number of bytes to transfer */
+};
 
 #ifndef SLEEP 
 #define SLEEP Sleep

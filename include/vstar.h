@@ -21,7 +21,7 @@ typedef struct _VStructArray {
     int     num;
     int     num_alloc;
  
-    void  * data;
+    uint8 * data;
  
     VarUnitFree * clean;
  

@@ -38,9 +38,9 @@ int     frame_size (frame_p frm);
 #define frame_len_set(frm, slen)   ((frm) ? ((frm)->len = (slen)) : 0)
 #define frame_len_add(frm, slen)   ((frm) ? ((frm)->len += (slen)) : 0)
 
-#define frameP(frm)    ((frm) ? ((frm)->data + (frm)->start) : (void *)frm)
-#define frame_bgn(frm) ((frm) ? (frm)->data + (frm)->start : (void *)frm)
-#define frame_end(frm) ((frm) ? (frm)->data + (frm)->start + (frm)->len : (void *)frm)
+#define frameP(frm)    ((frm) ? (void *)((frm)->data + (frm)->start) : NULL)
+#define frame_bgn(frm) ((frm) ? (void *)((frm)->data + (frm)->start) : NULL)
+#define frame_end(frm) ((frm) ? (void *)((frm)->data + (frm)->start + (frm)->len) : (void *)frm)
 
 #define frameAt(frm, pos) ((frm) ? ((frm)->data[(frm)->start + pos] : -1)
 

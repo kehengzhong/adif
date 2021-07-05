@@ -71,6 +71,9 @@ int    native_file_write  (void * hfile, void * buf, int size);
 int    native_file_seek   (void * hfile, int64 offset);
 int    native_file_resize (void * hfile, int64 newsize);
 
+#ifdef _WIN32
+HANDLE native_file_handle (void * vhfile);
+#endif
 int    native_file_fd (void * vhfile);
 
 int64  native_file_size   (void * hfile);
@@ -78,7 +81,7 @@ int64  native_file_offset (void * hfile);
 
 int    native_file_eof (void *vhfile);
 
-int    native_file_attr (void * hfile, uint64 * msize, time_t * mtime, long * inode, uint32 * mimeid);
+int    native_file_attr (void * hfile, int64 * msize, time_t * mtime, long * inode, uint32 * mimeid);
 
 int    native_file_stat (char * nfile, struct stat * st);
 int    native_file_remove (char * nfile);

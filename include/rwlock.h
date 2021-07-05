@@ -10,6 +10,8 @@
 extern "C" { 
 #endif 
   
+#ifdef UNIX
+
 typedef struct rwlock_s {
 
     uint8            alloc;
@@ -34,6 +36,8 @@ int    rwlock_read_unlock (void * vlock);
 
 int    rwlock_write_lock   (void * vlock);
 int    rwlock_write_unlock (void * vlock);
+
+#endif
 
 #ifdef __cplusplus
 }

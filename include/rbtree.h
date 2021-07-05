@@ -72,7 +72,7 @@ int    rbtnode_free (void * vnode, rbtfree_t * freefunc, int alloc_node);
 
 void * rbtree_new  (rbtcmp_t * cmp, int alloc_node);
 void   rbtree_free (void * ptree);
-void   rbtree_free_all (void * ptree, int (*freefunc)());
+void   rbtree_free_all (void * ptree, rbtfree_t * freefunc);
 
 void   rbtree_zero (void * vptree);
 

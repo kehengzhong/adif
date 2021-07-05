@@ -20,11 +20,17 @@
 extern "C" {
 #endif 
 
+#ifdef _WIN32
+int    file_handle_to_fd (HANDLE hfile);
+HANDLE fd_to_file_handle (int fd);
+
+time_t FileTimeToUnixTime (FILETIME ft);
+#endif
 
 int filefd_read   (int fd, void * pbuf, int size);
 int filefd_write  (int fd, void * pbuf, int size);
 int filefd_writev (int fd, void * piov, int iovcnt, int64 * actnum);
-int filefd_copy   (int fdin, off_t offset, size_t length, int fdout, int64 * actnum);
+int filefd_copy   (int fdin, int64 offset, int64 length, int fdout, int64 * actnum);
 
 long  file_read  (FILE * fp, void * buf, long readlen);
 long  file_write (FILE * fp, void * buf, long writelen);
@@ -44,8 +50,8 @@ int file_dir_create (char * path, int hasfilename);
 int file_rollover (char * fname, int line);
 int file_lines (char * file);
 
-int file_copy (char * srcfile, off_t offset, size_t length, char * dstfile, int64 * actnum);
-int file_copy2fp (char * srcfile, off_t offset, size_t length, FILE * fpout, int64 * actnum);
+int file_copy (char * srcfile, int64 offset, int64 length, char * dstfile, int64 * actnum);
+int file_copy2fp (char * srcfile, int64 offset, int64 length, FILE * fpout, int64 * actnum);
 
 int file_conv_charset (char * srcchst, char * dstchst, char * srcfile, char * dstfile);
 
@@ -57,7 +63,6 @@ char * file_basename (char * file);
 int file_abspath (char * file, char * path, int pathlen);
 
 int file_get_absolute_path (char * relative, char * abs, int abslen);
-
 int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid, uint32 * appid);
 
 #ifdef UNIX
@@ -68,8 +73,8 @@ int file_munmap (void * pmap, size_t maplen);
 
 #ifdef _WIN32
 void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * mapname,
-                  HANDLE * phmap, void ** ppmap, int64 * pmaplen, int64 * pmapoff)
-int file_munmap (HANDLE hmap, void * pmap)
+                  HANDLE * phmap, void ** ppmap, int64 * pmaplen, int64 * pmapoff);
+int file_munmap (HANDLE hmap, void * pmap);
 #endif
 
 void * fbuf_init (char * fname, int pagecount);

@@ -53,6 +53,9 @@ typedef struct chunk_entity {
         } bufptr;
 
         struct {
+#ifdef _WIN32
+            HANDLE     hmap;
+#endif
             void     * pbyte;
             void     * pmap;
             size_t     maplen;
@@ -66,6 +69,9 @@ typedef struct chunk_entity {
         } filename;
 
         struct {
+#ifdef _WIN32
+            HANDLE     hmap;
+#endif
             void     * pbyte;
             void     * pmap;
             size_t     maplen;
@@ -78,6 +84,9 @@ typedef struct chunk_entity {
         } fileptr;
 
         struct {
+#ifdef _WIN32
+            HANDLE     hmap;
+#endif
             void     * pbyte;
             void     * pmap;
             size_t     maplen;

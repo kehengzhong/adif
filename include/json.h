@@ -49,8 +49,9 @@ typedef struct json_obj {
     uint8              arrend[8];
     uint8              kvend[8];
  
-    unsigned           sptype:2;
+    unsigned           sptype:2;   //0-standard separator(:,) 1-conf-like separator(=;)
     unsigned           cmtflag:2;  //0-not support comment  1-support comment
+    unsigned           sibcoex:2;  //0-same keys exclude  1-same keys coexist
  
     unsigned           splen:4;
     unsigned           kvsplen:4;
@@ -65,7 +66,7 @@ typedef struct json_obj {
     0-->  { "key":"value", "name":"data"}
     1-->  { "key"="value"; "name"="data"}
  */
-void * json_init  (int sptype, int cmtflag);
+void * json_init  (int sptype, int cmtflag, int sibcoex);
 int    json_clean (void * vobj);
 
 int    json_size (void * vobj);
