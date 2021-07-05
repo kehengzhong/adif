@@ -12,8 +12,6 @@
 #include <sys/time.h>
 #include <fcntl.h>
 
-#include <sys/types.h>
-#include <linux/ipc.h>
 #include <linux/sem.h>
 #include <linux/shm.h>
 
@@ -538,9 +536,9 @@ int file_mutex_unlock (void * vfmutex)
 
 int file_mutex_locked (char * filename) 
 {
-    int            fd;
+    //int            fd;
 
-    if (!filename) return -1;
+    //if (!filename) return -1;
 
     //fd = open(filename, O_CREAT | O_WRONLY | O_EXCL, 0644);
 

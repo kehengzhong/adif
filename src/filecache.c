@@ -28,7 +28,7 @@ typedef struct file_cache {
     FCCDNRead        * cdnread;
 
     int64              offset; 
-    uint64             length; 
+    int64              length; 
  
     uint8              bufalloc;
     void             * pbuf;
@@ -144,7 +144,7 @@ void * file_cache_init (int packnum, int packsize)
     cache->offset = 0;
     cache->length = 0;
 
-    cache->prefix_ratio = 0.1;
+    cache->prefix_ratio = (float)0.1;
 
     cache->pbuf = NULL;
     cache->buflen = cache->actlen = 0;

@@ -3,6 +3,8 @@
  * All rights reserved. See MIT LICENSE for redistribution. 
  */
 
+#ifdef UNIX
+
 #include "btype.h"
 #include "tsock.h"
 
@@ -10,8 +12,6 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
-
-#ifdef UNIX
 
 #define QLEN 100
 #define TMP_PATH    "/tmp/cdn.XXXXXX" 

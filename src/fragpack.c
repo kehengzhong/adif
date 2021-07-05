@@ -208,7 +208,7 @@ int frag_pack_read (void * vfrag, int fd, int64 pos)
 
     num = len/sizeof(FragItem);
     for (i = 0; i < num; i++) {
-        item = (FragItem *)(p + i * sizeof(FragItem));
+        item = (FragItem *)((uint8 *)p + i * sizeof(FragItem));
         frag->rcvlen += item->length;
 
         vstar_push(frag->pack_var, item);

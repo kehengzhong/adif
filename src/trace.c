@@ -141,6 +141,9 @@ void printOctet (FILE * fp, void * data, int start, int count, int margin)
     uint8 marginChar [MARGIN_MAX + 1];
     int   lines, i, j, hexInd, ascInd, iter;
     int   ch;
+#ifdef _WIN32
+    char  trline[256];
+#endif
  
     if (start < 0) start = 0;
  

@@ -11,9 +11,12 @@
 #include "filecache.h"
 #include "patmat.h"
 #include "fileop.h"
+#include "nativefile.h"
 
 #include <fcntl.h>
+#ifdef UNIX
 #include <sys/mman.h>
+#endif
 
 #include "json.h"
 
@@ -23,7 +26,7 @@ typedef struct CommKey_ {
 } CommStrKey;
 
 
-#define objget(vobj, key, keylen, val, mget, ind, signed, func)         \
+#define objgets(vobj, key, keylen, val, mget, ind, signflg, func)         \
     JsonObj  * obj = (JsonObj *)vobj;                                     \
     char     * p = NULL;                                                  \
     char     * endp = NULL;                                               \
@@ -56,7 +59,56 @@ typedef struct CommKey_ {
             return -501;                                                  \
         }                                                                 \
                                                                           \
-        if (signed) {                                                     \
+        if (signflg) {                                                    \
+            if (*p == '+') { p++; len--; }                                \
+            else if (*p == '-') { p++; len--; sign = -1; }                \
+        }                                                                 \
+                                                                          \
+        if (len > 2 && p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) {     \
+            *val = sign * func(p + 2, &endp, 16);                         \
+        } else {                                                          \
+            *val = sign * func(p, &endp, 10);                             \
+        }                                                                 \
+                                                                          \
+        if (!endp) return ret;                                            \
+    }                                                                     \
+    return ret;
+
+
+#define objget(vobj, key, keylen, val, mget, ind, signflg, func)          \
+    JsonObj  * obj = (JsonObj *)vobj;                                     \
+    char     * p = NULL;                                                  \
+    char     * endp = NULL;                                               \
+    int        len = 0;                                                   \
+    int        ret = 0;                                                   \
+    int        sign = 1;                                                  \
+                                                                          \
+    if (!obj) return -1;                                                  \
+                                                                          \
+    if (!key) return -2;                                                  \
+    if (keylen < 0) keylen = str_len(key);                                \
+    if (keylen <= 0) return -3;                                           \
+                                                                          \
+    if (mget)                                                             \
+        ret = json_mgetP(obj, key, keylen, (void **)&p, &len);            \
+    else                                                                  \
+        ret = json_getP(obj, key, keylen, ind, &p, &len);                 \
+    if (ret < 0) return ret;                                              \
+                                                                          \
+    if (!p || len <= 0)                                                   \
+        return -500;                                                      \
+                                                                          \
+    if (val) {                                                            \
+        while (len > 0 && ISSPACE(*p)) {                                  \
+            p++; len--;                                                   \
+        }                                                                 \
+                                                                          \
+        if (len <= 0) {                                                   \
+            *val = 0;                                                     \
+            return -501;                                                  \
+        }                                                                 \
+                                                                          \
+        if (signflg) {                                                    \
             if (*p == '+') { p++; len--; }                                \
             else if (*p == '-') { p++; len--; sign = -1; }                \
         }                                                                 \
@@ -239,7 +291,7 @@ int json_item_free (void * vitem)
 }
 
 
-void * json_init (int sptype, int cmtflag)
+void * json_init (int sptype, int cmtflag, int sibcoex)
 {
     JsonObj * obj = NULL;
 
@@ -255,6 +307,7 @@ void * json_init (int sptype, int cmtflag)
 
     obj->sptype = (sptype == 0 ? 0 : 1);
     obj->cmtflag = cmtflag;
+    obj->sibcoex = sibcoex;
 
     str_cpy(obj->sp, " \t\r\n\f\v");
     obj->splen = 6;
@@ -618,23 +671,23 @@ int json_mget_obj (void * jobj, void * key, int keylen, void ** pobj)
  
 int json_mget_int8 (void * vobj, void * key, int keylen, int8 * val)
 {
-    objget(vobj, key, keylen, val, 1, 0, 1, strtol);
+    objgets(vobj, key, keylen, val, 1, 0, 1, strtol);
 }
  
 int json_mget_uint8 (void * vobj, void * key, int keylen, uint8 * val)
 {
-    objget(vobj, key, keylen, val, 1, 0, 0, strtoul);
+    objgets(vobj, key, keylen, val, 1, 0, 0, strtoul);
 }
  
 
 int json_mget_int16 (void * vobj, void * key, int keylen, int16 * val)
 {    
-    objget(vobj, key, keylen, val, 1, 0, 1, strtol);
+    objgets(vobj, key, keylen, val, 1, 0, 1, strtol);
 }
 
 int json_mget_uint16 (void * vobj, void * key, int keylen, uint16 * val)
 {
-    objget(vobj, key, keylen, val, 1, 0, 0, strtoul);
+    objgets(vobj, key, keylen, val, 1, 0, 0, strtoul);
 }
  
 int json_mget_int (void * vobj, void * key, int keylen, int * val)
@@ -770,7 +823,7 @@ int json_get_obj (void * vobj, void * key, int keylen, int index, void ** pobj)
         return ret;
     }
  
-    if (pobj) *pobj = pobj;
+    if (pobj) *pobj = obj;
  
     return ret;
 }
@@ -778,23 +831,23 @@ int json_get_obj (void * vobj, void * key, int keylen, int index, void ** pobj)
  
 int json_get_int8 (void * vobj, void * key, int keylen, int index, int8 * val)
 {
-    objget(vobj, key, keylen, val, 0, index, 1, strtol);
+    objgets(vobj, key, keylen, val, 0, index, 1, strtol);
 }
  
 int json_get_uint8 (void * vobj, void * key, int keylen, int index, uint8 * val)
 {
-    objget(vobj, key, keylen, val, 0, index, 0, strtoul);
+    objgets(vobj, key, keylen, val, 0, index, 0, strtoul);
 }
  
 
 int json_get_int16 (void * vobj, void * key, int keylen, int index, int16 * val)
 {    
-    objget(vobj, key, keylen, val, 0, index, 1, strtol);
+    objgets(vobj, key, keylen, val, 0, index, 1, strtol);
 }
 
 int json_get_uint16 (void * vobj, void * key, int keylen, int index, uint16 * val)
 {
-    objget(vobj, key, keylen, val, 0, index, 0, strtoul);
+    objgets(vobj, key, keylen, val, 0, index, 0, strtoul);
 }
  
 int json_get_int (void * vobj, void * key, int keylen, int index, int * val)
@@ -839,6 +892,7 @@ int json_add (void * vobj, void * key, int keylen, void * val, int vallen, uint8
     JsonItem  * item = NULL;
     JsonValue * jval = NULL;
     arr_t     * vallist = NULL;
+    uint8       alloc = 0;
 
     if (!obj) return -1;
 
@@ -849,11 +903,22 @@ int json_add (void * vobj, void * key, int keylen, void * val, int vallen, uint8
     if (val && vallen < 0) vallen = str_len(val);
     if (vallen < 0) vallen = 0;
 
+    if (strip) {
+        key = json_strip_dup(key, keylen);
+        keylen = str_len(key);
+        alloc = 1;
+    }
+
     item = json_item_get(obj, key, keylen);
     if (!item) {
         item = json_item_alloc();
-        item->name = str_dup(key, keylen);
-        item->namelen = keylen;
+        if (alloc) {
+            item->name = key;
+            item->namelen = keylen;
+        } else {
+            item->name = str_dup(key, keylen);
+            item->namelen = keylen;
+        }
         json_item_add(obj, key, keylen, item);
 
         obj->bytenum += keylen + 3;
@@ -907,6 +972,7 @@ int json_append (void * vobj, void * key, int keylen, void * val, int vallen, ui
     arr_t     * vallist = NULL;
     int         i, num = 0;
     int         bytenum = 0;
+    uint8       alloc = 0;
  
     if (!obj) return -1;
  
@@ -917,11 +983,23 @@ int json_append (void * vobj, void * key, int keylen, void * val, int vallen, ui
     if (val && vallen < 0) vallen = str_len(val);
     if (vallen <= 0) return 0;
  
+    if (strip) {
+        key = json_strip_dup(key, keylen);
+        keylen = str_len(key);
+        alloc = 1;
+    }
+
     item = json_item_get(obj, key, keylen);
     if (!item) {
         item = json_item_alloc();
-        item->name = str_dup(key, keylen);
-        item->namelen = keylen;
+
+        if (alloc) {
+            item->name = key;
+            item->namelen = keylen;
+        } else {
+            item->name = str_dup(key, keylen);
+            item->namelen = keylen;
+        }
 
         json_item_add(obj, key, keylen, item);
  
@@ -1185,7 +1263,7 @@ void * json_add_obj (void * vobj, void * key, int keylen, uint8 isarr)
 
     jval = json_value_alloc();
     jval->valtype = 1;
-    jval->jsonobj = json_init(obj->sptype, obj->cmtflag);
+    jval->jsonobj = json_init(obj->sptype, obj->cmtflag, obj->sibcoex);
 
     if (item->arrflag) {
         if (item->valnum == 0) {
@@ -1245,7 +1323,7 @@ void * json_add_obj_by_fca (void * vobj, void * fca, long keypos, int keylen, ui
  
     jval = json_value_alloc();
     jval->valtype = 1;
-    jval->jsonobj = json_init(obj->sptype, obj->cmtflag);
+    jval->jsonobj = json_init(obj->sptype, obj->cmtflag, obj->sibcoex);
  
     if (item->arrflag) {
         if (item->valnum == 0) item->valobj = jval;
@@ -1683,7 +1761,11 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
                     continue;
                 }
 
-                subobj = json_add_obj(obj, name, namelen, 1);
+                if (obj->sibcoex)
+                    subobj = json_add_obj(obj, name, namelen, 2);
+                else
+                    subobj = json_add_obj(obj, name, namelen, 0);
+
                 pbgn = poct + json_decode(subobj, poct, pend-poct, 1, strip);
 
             } else if (*poct == '[') { //array
@@ -1750,7 +1832,11 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
                 }
 
                 valuelen = poct - value + 1;
-                json_add(obj, name, namelen, value, valuelen, 1, strip);
+
+                if (obj->sibcoex)
+                    json_add(obj, name, namelen, value, valuelen, 2, strip);
+                else
+                    json_add(obj, name, namelen, value, valuelen, 0, strip);
 
                 pbgn = pkvend;
             }
@@ -1778,7 +1864,10 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
                 json_decode_file(obj, pbgn,  poct + 1 - pbgn, 0, strip);
 
             } else {
-                json_add(obj, name, namelen, NULL, 0, 1, strip);
+                if (obj->sibcoex)
+                    json_add(obj, name, namelen, NULL, 0, 2, strip);
+                else
+                    json_add(obj, name, namelen, NULL, 0, 0, strip);
             }
             
             pbgn = pkvsep + 1;
@@ -1791,6 +1880,7 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
  
 int json_decode_file (void * vobj, void * fn, int fnlen, int findobjbgn, int strip)
 {
+#ifdef UNIX
     JsonObj     * obj = (JsonObj *)vobj;
     char          fname[512];
     struct stat   st;
@@ -1822,6 +1912,44 @@ int json_decode_file (void * vobj, void * fn, int fnlen, int findobjbgn, int str
     close(fd);
 
     return ret;
+#endif
+
+#ifdef _WIN32
+    JsonObj     * obj = (JsonObj *)vobj;
+    char          fname[512];
+    void        * hfile = NULL;
+    HANDLE        hmap;
+    void        * pmap;
+    void        * pbyte = NULL;
+    int64         maplen = 0;
+    int64         mapoff = 0;
+    int           ret = 0;
+
+    if (!obj) return -1;
+    if (!fn || fnlen <= 0) return -2;
+
+    str_secpy(fname, sizeof(fname)-1, fn, fnlen);
+
+    hfile = native_file_open(fname, NF_READ);
+    if (!hfile) {
+        return -200;
+    }
+ 
+    pbyte = file_mmap(NULL, native_file_handle(hfile), 0,
+                      native_file_size(hfile), NULL,
+                      &hmap, &pmap, &maplen, &mapoff);
+    if (!pbyte) {
+        native_file_close(hfile);
+        return -300;
+    }
+ 
+    ret = json_decode(obj, pbyte, native_file_size(hfile), findobjbgn, strip);
+ 
+    file_munmap(hmap, pmap);
+    native_file_close(hfile);
+
+    return ret;
+#endif
 }
 
 #if 0
@@ -2257,7 +2385,10 @@ int json_encode (void * vobj, void * vjson, int len)
         if (iter + 1 <= len) pjson[iter] = obj->kvsep;
         iter++;
 
-        if (item->arrflag) {
+        if (item->arrflag == 1) {
+            if (iter+1 <= len) pjson[iter] = '[';
+            iter++;
+        } else if (item->arrflag == 2 && item->valnum > 1) {
             if (iter+1 <= len) pjson[iter] = '[';
             iter++;
         }
@@ -2278,7 +2409,10 @@ int json_encode (void * vobj, void * vjson, int len)
             }
         }
 
-        if (item->arrflag) {
+        if (item->arrflag == 1) {
+            if (iter+1 <= len) pjson[iter] = ']';
+            iter++;
+        } else if (item->arrflag == 2 && item->valnum > 1) {
             if (iter+1 <= len) pjson[iter] = ']';
             iter++;
         }
@@ -2351,7 +2485,9 @@ int json_encode2 (void * vobj, frame_p objfrm)
         frame_put_last(objfrm, '"'); iter++;
         frame_put_last(objfrm, obj->kvsep); iter++;
 
-        if (item->arrflag) {
+        if (item->arrflag == 1) {
+            frame_put_last(objfrm, '['); iter++;
+        } else if (item->arrflag == 2 && item->valnum > 1) {
             frame_put_last(objfrm, '['); iter++;
         }
 
@@ -2368,7 +2504,9 @@ int json_encode2 (void * vobj, frame_p objfrm)
             }
         }
 
-        if (item->arrflag) {
+        if (item->arrflag == 1) {
+            frame_put_last(objfrm, ']'); iter++;
+        } else if (item->arrflag == 2 && item->valnum > 1) {
             frame_put_last(objfrm, ']'); iter++;
         }
  

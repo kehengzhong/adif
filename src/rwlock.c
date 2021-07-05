@@ -3,6 +3,8 @@
  * All rights reserved. See MIT LICENSE for redistribution. 
  */
 
+#ifdef UNIX
+
 #include "btype.h"
 #include "memory.h"
 #include <pthread.h>
@@ -140,3 +142,4 @@ int rwlock_write_unlock (void * vlock)
     return 0;
 }
 
+#endif

@@ -18,10 +18,23 @@
 #include <poll.h>
 #include <ctype.h>
 #include <netdb.h>
+
+extern void * memrchr (__const void *__s, int __c, size_t __n);
+
 #endif
 
-extern void *memrchr (__const void *__s, int __c, size_t __n);
 #define  DEFAULT_SIZE  128
+
+#ifdef _WIN32
+void * memrchr (const void * s, int c, size_t n)
+{
+    while ( n && (((uint8 *)s)[n - 1] != (uint8)c) ) {
+            n--;
+    }
+
+    return(n ? (uint8 *)s + n - 1 : NULL);
+}
+#endif
 
 frame_p frame_new (int size)
 {
@@ -226,7 +239,6 @@ void frame_grow_head (frame_p frm, int size)
     frm->start += size;
 }
 
-
 void frame_print (frame_p frm, FILE * fp, int start, int count, int margin)
 {
 #define CHARS_ON_LINE 16
@@ -385,7 +397,6 @@ int frame_get_nfirst (frame_p frm, void * bytes, int n)
     return n;
 }
 
-
 int frame_get_last (frame_p frm)
 {
     int c;
@@ -403,7 +414,6 @@ int frame_get_last (frame_p frm)
 
     return c;
 }
-
 
 int frame_get_nlast (frame_p frm, void * bytes, int n)
 {
@@ -424,7 +434,6 @@ int frame_get_nlast (frame_p frm, void * bytes, int n)
     return n;
 }
 
-
 int frame_read (frame_p frm, int pos)
 {
     if (frm->len == 0 || pos < 0 || pos >= frm->len)
@@ -444,7 +453,6 @@ int frame_readn (frame_p frm, int pos, void * bytes, int n)
     
     return n;
 }
-
 
 void frame_put_first (frame_p frm, int byte)
 {
@@ -596,7 +604,6 @@ void frame_setn (frame_p frm, int pos, void * bytes, int n)
 
     memcpy(frm->data + frm->start + pos, bytes, n);
 }
-
 
 void frame_append (frame_p frm, char * str)
 {
@@ -751,7 +758,6 @@ void frame_del (frame_p frm, int pos, int n)
         frame_empty(frm);
 }
 
-
 void frame_trunc (frame_p frm, int len)
 {
     if (!frm || len <= 0) return;
@@ -765,7 +771,6 @@ void frame_trunc (frame_p frm, int len)
     
     frm->len = len;
 }
-
 
 int frame_attach (frame_p frm, void * pbuf, int len)
 {
@@ -782,7 +787,6 @@ int frame_attach (frame_p frm, void * pbuf, int len)
 
     return len;
 }
-
 
 int frame_replace (frame_p frm, int pos, int len, void * pbyte, int bytelen)
 {
@@ -917,7 +921,6 @@ int frame_search_replace (frame_p frm, int pos, int len, void * pattern, int pat
     return schrep;
 }
 
-
 int frame_search_string (frame_p frm, int pos, int len, void * pattern, int backward)
 {
     uint8  * pat = (uint8 *)pattern;
@@ -950,7 +953,6 @@ int frame_search_string (frame_p frm, int pos, int len, void * pattern, int back
     return p - (frm->data + frm->start);
 
 }
- 
  
 int frame_search_string_replace (frame_p frm, int pos, int len, void * pattern,
                                   void * pbyte, int bytelen, int backward)
@@ -998,7 +1000,6 @@ int frame_search_string_replace (frame_p frm, int pos, int len, void * pattern,
     return schrep;
 }
 
-
 int frame_file_load (frame_p frm, char * fname)
 {
     struct stat fs;
@@ -1045,7 +1046,6 @@ int frame_file_dump (frame_p frm, char * fname)
 
     return (int)len;
 }
-
 
 int frame_file_read (frame_p frm, FILE * fp, long fpos, long flen)
 {
@@ -1133,7 +1133,6 @@ int frame_filefd_write (frame_p frm, int fd, long fpos)
     return (int)len;
 }
 
- 
 int frame_tcp_recv (frame_p frm, SOCKET fd, int waitms, int * actnum)
 {
     uint8   buf[524288];
@@ -1239,7 +1238,6 @@ error:
     return ret;
 }
 
-
 int frame_tcp_send (frame_p frm, SOCKET fd, int waitms, int * actnum)
 {
     int     ret, sendLen = 0;
@@ -1281,7 +1279,7 @@ int frame_tcp_send (frame_p frm, SOCKET fd, int waitms, int * actnum)
 #ifdef UNIX
         errno = 0;
 #endif
-        ret = send (fd, frameP(frm) + sendLen, frm->len - sendLen, MSG_NOSIGNAL);
+        ret = send (fd, (uint8 *)frameP(frm) + sendLen, frm->len - sendLen, MSG_NOSIGNAL);
         if (ret == -1) {
 #ifdef _WIN32
             errcode = WSAGetLastError();
@@ -1425,7 +1423,6 @@ error: /* connection exception */
     return ret;
 }
  
-
 int frame_tcp_nb_recv (frame_p frm, SOCKET fd, int * actnum, int * perr)
 {
     uint8   buf[524288];
@@ -1506,8 +1503,6 @@ error: /* connection exception */
     return ret;
 }
  
-
-
 int frame_tcp_nb_send (frame_p frm, SOCKET fd, int * actnum)
 {
     int     sendLen = 0;
@@ -1532,7 +1527,7 @@ int frame_tcp_nb_send (frame_p frm, SOCKET fd, int * actnum)
 #ifdef UNIX
         errno = 0;
 #endif
-        ret = send(fd, frameP(frm) + sendLen, frm->len - sendLen, MSG_NOSIGNAL);
+        ret = send(fd, (uint8 *)frameP(frm) + sendLen, frm->len - sendLen, MSG_NOSIGNAL);
         if (ret == -1) {
 #ifdef _WIN32
             errcode = WSAGetLastError();
@@ -1571,7 +1566,6 @@ error:
     if (actnum) *actnum = sendLen;
     return ret;
 }
-
 
 //#define BASE64CRLF 1
 int frame_bin_to_base64 (frame_p frm, frame_p dst)
@@ -1719,7 +1713,6 @@ int frame_bin_to_base64 (frame_p frm, frame_p dst)
     return 0;
 }
  
- 
 int frame_base64_to_bin (frame_p frm, frame_p dst)
 {
     int      triplet, pos, len, to;
@@ -1828,7 +1821,6 @@ int frame_bin_to_ascii (frame_p binfrm, frame_p ascfrm)
     return 0;
 }
  
- 
 int frame_ascii_to_bin (frame_p ascfrm, frame_p binfrm)
 {
     int     i;
@@ -1859,7 +1851,6 @@ int frame_ascii_to_bin (frame_p ascfrm, frame_p binfrm)
  
     return 0;
 }
-
 
 int frame_slash_add (void * psrc, int len, void * pesc, int chlen, frame_p dstfrm)
 {
@@ -2429,10 +2420,10 @@ int frame_html_escape (void * psrc, int len, frame_p dstfrm)
     int       i = 0, num = 0, totalnum = 0;
     uint8     dstbuf[4096];
  
-    if (!src) return 0;  
-    if (len < 0) len = str_len(src);  
-    if (len <= 0) return 0; 
- 
+    if (!src) return 0;
+    if (len < 0) len = str_len(src);
+    if (len <= 0) return 0;
+
     if (dstfrm == NULL) {
         while (len > 0) {
             ch = *src++;
@@ -2454,14 +2445,14 @@ int frame_html_escape (void * psrc, int len, frame_p dstfrm)
                 num += sizeof("&quot;") - 2;
                 break;
             }
- 
+
             num++;
             len--;
         }
  
         return num;
     }
- 
+
     for (i = 0, num = 0; i < len; i++) {
         ch = src[i];
  
@@ -2470,7 +2461,7 @@ int frame_html_escape (void * psrc, int len, frame_p dstfrm)
             dstbuf[num++] = '&'; dstbuf[num++] = 'l';
             dstbuf[num++] = 't'; dstbuf[num++] = ';';
             break;
- 
+
         case '>':
             dstbuf[num++] = '&'; dstbuf[num++] = 'g';
             dstbuf[num++] = 't'; dstbuf[num++] = ';';
@@ -2487,12 +2478,12 @@ int frame_html_escape (void * psrc, int len, frame_p dstfrm)
             dstbuf[num++] = 'u'; dstbuf[num++] = 'o';
             dstbuf[num++] = 't'; dstbuf[num++] = ';';
             break;
- 
+
         default:
             dstbuf[num++] = ch;
             break;
         }
- 
+
         if (num >= sizeof(dstbuf) - 8) {
             frame_put_nlast(dstfrm, dstbuf, num);
             totalnum += num;
@@ -2607,8 +2598,6 @@ int frame_bit_shift_right (frame_p frm, int offset)
     return 0;
 }
 
-
-
 void frame_append_nbytes (frame_p frm, uint8 byte, int n)
 {
     if (!frm || n <= 0) return;
@@ -2653,12 +2642,12 @@ int frame_add_time (frame_t * frame, time_t * curtm)
     time_t    curt;
     struct tm st;
     char      tmpbuf[64];
- 
+
     if (!frame) return -1;
- 
+
     if (curtm == NULL) time(&curt);
     else curt = *curtm;
- 
+
     if (curt == 0) {
         sprintf(tmpbuf, "0000-00-00 00:00:00");
     } else {
@@ -2667,9 +2656,9 @@ int frame_add_time (frame_t * frame, time_t * curtm)
                 st.tm_year+1900, st.tm_mon+1, st.tm_mday,
                 st.tm_hour, st.tm_min, st.tm_sec);
     }
- 
+
     frame_append(frame, tmpbuf);
- 
+
     return 0;
 }
 

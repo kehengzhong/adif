@@ -1,6 +1,6 @@
-/*  
+/*
  * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+ * All rights reserved. See MIT LICENSE for redistribution.
  */
 
 #include "btype.h"
@@ -43,7 +43,7 @@ typedef struct buffer_pool {
     int      exhausted; /*the number which has been pulled out for usage*/
     int      remaining; /*the available number remaining in the pool*/
 
-    int      freegate;
+    time_t   idletick;
 
     /* the memory units organized via the following linked list */
     CRITICAL_SECTION   ulCS;
@@ -86,7 +86,7 @@ bpool_t * bpool_init (bpool_t * pool)
 
     pmem->allocnum = 1;
 
-    pmem->freegate = 0;
+    pmem->idletick = 0;
 
     InitializeCriticalSection(&pmem->ulCS);
     pmem->fifo = ar_fifo_new(128);
@@ -260,6 +260,8 @@ void * bpool_fetch (bpool_t * pool)
 
 int bpool_recycle (bpool_t * pool, void * punit)
 {
+    int   threshold = 0;
+
     if (!pool || !punit) return -1;
 
     EnterCriticalSection(&pool->ulCS);
@@ -287,29 +289,34 @@ int bpool_recycle (bpool_t * pool, void * punit)
        of CPU/Memory will go down. the resouces allocated in highest
        load should be released partly and kept in normal level. */
 
-    if (pool->remaining > pool->allocnum) pool->freegate++;
-    else pool->freegate = 0;
+    if (pool->allocnum >= 4) threshold = pool->allocnum >> 1;
+    else threshold = pool->allocnum << 1;
 
-    if (pool->freegate > pool->allocnum / 3) {
-        int   i = 0;
-        for (i = 0; i < pool->allocnum && pool->remaining > pool->allocnum; i++) {
-            punit = ar_fifo_out(pool->refifo);
-            if (punit) {
-                if (pool->unitfree) (*pool->unitfree)(punit);
-                else kfree(punit);
+    if (pool->allocated > pool->allocnum && pool->exhausted <= threshold) {
+        if (pool->idletick == 0) {
+            pool->idletick = time(0);
 
-                pool->remaining--;
-                pool->allocated--;
-            } else {
-                punit = ar_fifo_out(pool->fifo);
+        } else if (time(0) - pool->idletick > 300) {
+            while (pool->allocated > pool->allocnum && pool->remaining > threshold) {
+                punit = ar_fifo_out(pool->refifo);
                 if (punit) {
-                    kfree(punit);
+                    if (pool->unitfree) (*pool->unitfree)(punit);
+                    else kfree(punit);
+     
                     pool->remaining--;
                     pool->allocated--;
+                } else {
+                    punit = ar_fifo_out(pool->fifo);
+                    if (punit) {
+                        kfree(punit);
+                        pool->remaining--;
+                        pool->allocated--;
+                    }
                 }
             }
         }
-        pool->freegate = 0;
+    } else if (pool->idletick > 0) {
+        pool->idletick = 0;
     }
 
     LeaveCriticalSection(&pool->ulCS);

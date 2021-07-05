@@ -145,7 +145,10 @@ void fast_ht_free_member (void * vht, void * vfunc)
  
     if (!ht) return;
  
-    if (func == NULL) return fast_ht_zero(ht);
+    if (func == NULL) { 
+        fast_ht_zero(ht);
+        return;
+    }
  
     for (i = 0; i < ht->size; i++) {
         if (ht->ptab[i].exist) {

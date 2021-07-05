@@ -161,7 +161,7 @@ int str_secpy (void * dst, int dstlen, void * src, int srclen)
  
     if (srclen > dstlen) srclen = dstlen; 
  
-    return str_ncpy(dst, src, srclen) - dst;
+    return (uint8 *)str_ncpy(dst, src, srclen) - (uint8 *)dst;
 } 
 
 void * str_cat (void * s1, const void * s2)
@@ -1821,7 +1821,7 @@ void * string_strip_dup (void * p, int bytelen, void * pat, int chlen)
     return pdup;
 }
 
-int json_escape (void * psrc, size_t size, void * pdst, size_t dstlen)
+int json_escape (void * psrc, int size, void * pdst, int dstlen)
 {
     uint8   * dst = (uint8 *)pdst;
     uint8   * src = (uint8 *)psrc;
@@ -1905,14 +1905,14 @@ int json_escape (void * psrc, size_t size, void * pdst, size_t dstlen)
     return len;
 }
  
-int json_strip (void * psrc, size_t size, void * pdst, size_t dstlen)
+int json_strip (void * psrc, int size, void * pdst, int dstlen)
 {
     uint8   * dst = (uint8 *)pdst;
     uint8   * src = (uint8 *)psrc;
     uint8     ch;
     int       ret, len = 0;
     uint32    uval = 0;
-    size_t    i = 0;
+    int       i = 0;
  
     if (!src || size <= 0) return 0;
 
@@ -2067,14 +2067,14 @@ int json_strip (void * psrc, size_t size, void * pdst, size_t dstlen)
 }
  
 
-void * json_strip_dup (void * psrc, size_t size)
+void * json_strip_dup (void * psrc, int size)
 {
     uint8   * src = (uint8 *)psrc;
     uint8   * dst = NULL;
     uint8     ch;
     int       ret, num = 0;
     uint32    uval = 0;
-    size_t    i = 0;
+    int       i = 0;
  
     if (!src || size <= 0) return NULL;
  
@@ -2180,7 +2180,7 @@ void * json_strip_dup (void * psrc, size_t size)
       ESCAPE_MEMCACHED      5
       ESCAPE_MAIL_AUTH      6
  */
-int uri_encode (void * psrc, size_t size, void * pdst, size_t dstlen, int type)
+int uri_encode (void * psrc, int size, void * pdst, int dstlen, int type)
 {
     uint8        * dst = (uint8 *)pdst;
     uint8        * src = (uint8 *)psrc;
@@ -2459,7 +2459,7 @@ int uri_decode (void * psrc, int size, void * pdst, int dstlen)
     return len; 
 }
  
-int html_escape (void * psrc, size_t size, void * pdst, size_t dstlen)
+int html_escape (void * psrc, int size, void * pdst, int dstlen)
 {
     uint8 * src = (uint8 *)psrc;
     uint8 * dst = (uint8 *)pdst;

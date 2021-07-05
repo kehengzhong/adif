@@ -17,7 +17,8 @@ typedef struct CommKey_ {
     int       namelen;
 } CommStrKey;
 
-#define kvobjget(vobj, key, keylen, ind, val, signed, func)               \
+
+#define kvobjgets(vobj, key, keylen, ind, val, signflg, func)             \
     KVPairObj * obj = (KVPairObj *)vobj;                                  \
     char      * p = NULL;                                                 \
     char      * endp = NULL;                                              \
@@ -31,7 +32,7 @@ typedef struct CommKey_ {
     if (keylen < 0) keylen = str_len(key);                                \
     if (keylen <= 0) return -3;                                           \
                                                                           \
-    ret = kvpair_getP(obj, key, keylen, ind, (void **)&p, &len);        \
+    ret = kvpair_getP(obj, key, keylen, ind, (void **)&p, &len);          \
     if (ret < 0) return ret;                                              \
                                                                           \
     if (!p || len <= 0)                                                   \
@@ -47,7 +48,52 @@ typedef struct CommKey_ {
             return -501;                                                  \
         }                                                                 \
                                                                           \
-        if (signed) {                                                     \
+        if (signflg) {                                                    \
+            if (*p == '+') { p++; len--; }                                \
+            else if (*p == '-') { p++; len--; sign = -1; }                \
+        }                                                                 \
+                                                                          \
+        if (len > 2 && p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) {     \
+            *val = sign * func(p + 2, &endp, 16);                         \
+        } else {                                                          \
+            *val = sign * func(p, &endp, 10);                             \
+        }                                                                 \
+                                                                          \
+        if (!endp) return ret;                                            \
+    }                                                                     \
+    return ret;
+
+#define kvobjget(vobj, key, keylen, ind, val, signflg, func)              \
+    KVPairObj * obj = (KVPairObj *)vobj;                                  \
+    char      * p = NULL;                                                 \
+    char      * endp = NULL;                                              \
+    int         len = 0;                                                  \
+    int         ret = 0;                                                  \
+    int         sign = 1;                                                 \
+                                                                          \
+    if (!obj) return -1;                                                  \
+                                                                          \
+    if (!key) return -2;                                                  \
+    if (keylen < 0) keylen = str_len(key);                                \
+    if (keylen <= 0) return -3;                                           \
+                                                                          \
+    ret = kvpair_getP(obj, key, keylen, ind, (void **)&p, &len);          \
+    if (ret < 0) return ret;                                              \
+                                                                          \
+    if (!p || len <= 0)                                                   \
+        return -500;                                                      \
+                                                                          \
+    if (val) {                                                            \
+        while (len > 0 && ISSPACE(*p)) {                                  \
+            p++; len--;                                                   \
+        }                                                                 \
+                                                                          \
+        if (len <= 0) {                                                   \
+            *val = 0;                                                     \
+            return -501;                                                  \
+        }                                                                 \
+                                                                          \
+        if (signflg) {                                                    \
             if (*p == '+') { p++; len--; }                                \
             else if (*p == '-') { p++; len--; sign = -1; }                \
         }                                                                 \
@@ -491,22 +537,22 @@ int kvpair_del (void * vobj, void * key, int keylen, int index)
 
 int kvpair_get_int8 (void * vobj, void * key, int keylen, int index, int8 * val)
 {
-    kvobjget(vobj, key, keylen, index, val, 1, strtol);
+    kvobjgets(vobj, key, keylen, index, val, 1, strtol);
 }
  
 int kvpair_get_uint8 (void * vobj, void * key, int keylen, int index, uint8 * val)
 {
-    kvobjget(vobj, key, keylen, index, val, 0, strtoul);
+    kvobjgets(vobj, key, keylen, index, val, 0, strtoul);
 }
  
 int kvpair_get_int16 (void * vobj, void * key, int keylen, int index, int16 * val)
 {    
-    kvobjget(vobj, key, keylen, index, val, 1, strtol);
+    kvobjgets(vobj, key, keylen, index, val, 1, strtol);
 }
  
 int kvpair_get_uint16 (void * vobj, void * key, int keylen, int index, uint16 * val)
 {
-    kvobjget(vobj, key, keylen, index, val, 0, strtoul);
+    kvobjgets(vobj, key, keylen, index, val, 0, strtoul);
 }
  
 int kvpair_get_int (void * vobj, void * key, int keylen, int index, int * val)

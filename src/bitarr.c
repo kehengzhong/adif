@@ -103,7 +103,7 @@ int bitarr_set (bitarr_t * bar, int ind)
  
     if (ind < 0) return -2;
  
-    if (ind >= bar->bitnum) {
+    if (ind >= (int)bar->bitnum) {
         bitarr_resize(bar, ind);
     }
  
@@ -124,7 +124,7 @@ int bitarr_unset (bitarr_t * bar, int ind)
  
     if (ind < 0) return -2;
  
-    if (ind >= bar->bitnum) {
+    if (ind >= (int)bar->bitnum) {
         bitarr_resize(bar, ind);
     }
  
@@ -145,7 +145,7 @@ int bitarr_get (bitarr_t * bar, int ind)
  
     if (ind < 0) return -2;
  
-    if (ind >= bar->bitnum) {
+    if (ind >= (int)bar->bitnum) {
         bitarr_resize(bar, ind);
     }
  
@@ -168,7 +168,7 @@ int bitarr_left (bitarr_t * bar, int bits)
  
     if (!bar) return -1;
  
-    if (bits >= bar->bitnum) {
+    if (bits >= (int)bar->bitnum) {
         memset(bar->bitarr, 0, bar->unitnum * UNITBYTE);
         return 0;
     }
@@ -215,7 +215,7 @@ int bitarr_right (bitarr_t * bar, int bits)
  
     if (!bar) return -1;
  
-    if (bits >= bar->bitnum) {
+    if (bits >= (int)bar->bitnum) {
         memset(bar->bitarr, 0, bar->unitnum * UNITBYTE);
         return 0;
     }
@@ -361,7 +361,7 @@ int bitarr_filled (bitarr_t * bar)
  
     if (!bar) return -1;
  
-    for (i = 0; i < bar->bitnum; i += UNITBIT) {
+    for (i = 0; i < (int)bar->bitnum; i += UNITBIT) {
         restbit = bar->bitnum - i;
  
         if (restbit < UNITBIT)
@@ -406,7 +406,7 @@ void bitarr_print (bitarr_t * bar)
     printf("\n");
     printf(" 0  |");
 
-    for (i = 0; i < bar->bitnum; i++, n++) {
+    for (i = 0; i < (int)bar->bitnum; i++, n++) {
         printf("%d ", bitarr_get(bar, i) == 0 ? 0 : 1);
         if ((n + 1) % 32 == 0) {
             printf("\n");

@@ -57,7 +57,7 @@ int mstr_char (mstr_t * mstr, int pos, int * ind)
 
     if (pos < 0 || pos >= mstr->len) return -2;
 
-    for (i = 0, len = 0; i < mstr->num; i++) {
+    for (i = 0, len = 0; i < (int)mstr->num; i++) {
         if (pos < len + mstr->plen[i]) {
             if (ind) *ind = i;
             return mstr->pbyte[i][pos - len];
@@ -77,7 +77,7 @@ uint8 * mstr_p (mstr_t * mstr, int pos, int * ind)
  
     if (pos < 0 || pos >= mstr->len) return NULL;
  
-    for (i = 0, len = 0; i < mstr->num; i++) {
+    for (i = 0, len = 0; i < (int)mstr->num; i++) {
         if (pos < len + mstr->plen[i]) {
             if (ind) *ind = i;
             return mstr->pbyte[i] + pos - len;

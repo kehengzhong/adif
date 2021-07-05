@@ -201,7 +201,7 @@ void rbtree_free (void * vptree)
 }
  
 
-void rbtree_free_all (void * vptree, int (*freefunc)())
+void rbtree_free_all (void * vptree, rbtfree_t * freefunc)
 {
     rbtree_t  * ptree = (rbtree_t *)vptree;
 
@@ -959,7 +959,7 @@ void * rbtree_delete_max (void * vptree)
     return NULL;
 }
  
- 
+
 static int rbtree_preorder_node (rbtnode_t * node, rbtcb_t * cb, 
                    void * cbpara, int index, int alloc_node)
 {

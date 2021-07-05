@@ -23,7 +23,33 @@
 #include <direct.h>
 #include <tchar.h>
 #include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+
 extern void ansi_2_unicode (wchar_t * wcrt, char * pstr);
+
+int file_handle_to_fd (HANDLE hfile)
+{
+    if (!hfile) return -1;
+
+    return _open_osfhandle((intptr_t)hfile, _O_APPEND | _O_RDONLY);
+}
+
+HANDLE fd_to_file_handle (int fd)
+{
+    return (HANDLE)_get_osfhandle(fd);
+}
+
+time_t FileTimeToUnixTime (FILETIME ft)
+{
+    ULARGE_INTEGER ui;
+
+    ui.LowPart  =  ft.dwLowDateTime;
+    ui.HighPart =  ft.dwHighDateTime;
+
+    return ( (ui.QuadPart  -  116444736000000000LL)  /  10000000 );
+}
+
 #endif
 
 
@@ -37,7 +63,7 @@ int filefd_read (int fd, void * pbuf, int size)
     if (size < 0) return -3;
  
     for (len = 0; len < size; ) {
-        ret = read(fd, pbuf+len, size-len);
+        ret = read(fd, (uint8 *)pbuf + len, size - len);
         if (ret < 0) {
             if (errno == EINTR || errno == EAGAIN) {
                 SLEEP(10); //sleep 1 milli-seconds
@@ -65,7 +91,7 @@ int filefd_write (int fd, void * pbuf, int size)
     if (size < 0) return -3;
  
     for (len = 0; len < size; ) {
-        ret = write(fd, pbuf + len, size - len);
+        ret = write(fd, (uint8 *)pbuf + len, size - len);
         if (ret < 0) {
             if (errno == EINTR || errno == EAGAIN) {
                 SLEEP(10);
@@ -155,13 +181,14 @@ int filefd_writev (int fd, void * piov, int iovcnt, int64 * actnum)
 #endif
 }
 
-int filefd_copy (int fdin, off_t offset, size_t length, int fdout, int64 * actnum)
+int filefd_copy (int fdin, int64 offset, int64 length, int fdout, int64 * actnum)
 {
-    size_t       size = 0;
-    size_t       toread = 0;
+    int64        size = 0;
+    int64        toread = 0;
  
     struct stat  st;
 #ifdef UNIX
+    off_t        offval = offset;
     ssize_t      ret;
 #else
     int          len = 0;
@@ -191,7 +218,7 @@ int filefd_copy (int fdin, off_t offset, size_t length, int fdout, int64 * actnu
     toread = min(length, SENDFILE_MAXSIZE);
  
     while (offset < size) {
-        ret = sendfile(fdout, fdin, &offset, toread);
+        ret = sendfile(fdout, fdin, &offval, toread);
         if (ret < 0) {
             if (errno == EINTR || errno == EAGAIN) {
                 usleep(50);
@@ -238,37 +265,37 @@ int filefd_copy (int fdin, off_t offset, size_t length, int fdout, int64 * actnu
 
 long file_read (FILE * fp, void * buf, long readlen)
 {
-    size_t i, iRet = 0;
+    long i, iRet = 0;
 
     if (!fp) return -1;
     if (!buf) return -2;
     if (readlen <= 0) return -3;
     
-    for (i = 0; i < (size_t)readlen && !feof(fp); ) {
-        iRet = fread(buf+i, 1, readlen-i, fp);
+    for (i = 0; i < readlen && !feof(fp); ) {
+        iRet = fread((uint8 *)buf + i, 1, readlen - i, fp);
         i += iRet;
     }
 
-    return (long)i;
+    return i;
 }
 
 
 
 long file_write (FILE * fp, void * buf, long writelen)
 {
-    size_t i, iRet = 0;
+    long i, iRet = 0;
 
     if (!fp) return -1;
     if (!buf) return -2;
     if (writelen <= 0) return -3;
     
-    for (i = 0; i < (size_t)writelen; ) {
-        iRet = fwrite(buf+i, 1, writelen-i, fp);
+    for (i = 0; i < writelen; ) {
+        iRet = fwrite((uint8 *)buf + i, 1, writelen - i, fp);
         i += iRet;
     }
     fflush(fp);
 
-    return (long)i;
+    return i;
 }
 
 int64 file_seek (FILE * fp, int64 pos, int whence)
@@ -323,7 +350,6 @@ int64 file_size (char * file)
     struct stat fs;
 #endif
 #ifdef _WIN32
-    struct _stat fs;
     HANDLE       hFile = NULL;
     int64        nSize = 0;
     ulong        dwHigh = 0;
@@ -343,10 +369,12 @@ int64 file_size (char * file)
 
 #ifdef _WIN32
     ansi_2_unicode(filePath, file);
-    hFile = (HANDLE)CreateFile(filePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, NULL, NULL);
+    hFile = (HANDLE)CreateFile(filePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
     if (hFile) {
         dwSize = GetFileSize(hFile, &dwHigh);
-        nSize = dwHigh << 32 | dwSize;
+        nSize = dwHigh;
+        nSize <<= 32;
+        nSize |= dwSize;
         CloseHandle(hFile);
         return nSize;
     } else {
@@ -355,18 +383,6 @@ int64 file_size (char * file)
 #endif
 }
 
-#ifdef _WIN32
-time_t FileTimeToUnixTime (FILETIME ft)
-{
-    ULARGE_INTEGER ui;
-
-    ui.LowPart  =  ft.dwLowDateTime;
-    ui.HighPart =  ft.dwHighDateTime;
-
-    return ( (ui.QuadPart  -  116444736000000000LL)  /  10000000 );
-}
-
-#endif
 
 int file_stat (char * file, void * pfs)
 {
@@ -385,7 +401,6 @@ int file_stat (char * file, void * pfs)
 #ifdef _WIN32
     struct _stat fs;
     WIN32_FILE_ATTRIBUTE_DATA  wfad;
-    ULARGE_INTEGER  ui;
  
     if (!file) return -1;
  
@@ -399,7 +414,9 @@ int file_stat (char * file, void * pfs)
     fs.st_atime = FileTimeToUnixTime(wfad.ftLastAccessTime);
     fs.st_mtime = FileTimeToUnixTime(wfad.ftLastWriteTime);
 
-    fs.st_size = wfad.nFileSizeHigh << 32 | wfad.nFileSizeLow;
+    fs.st_size = wfad.nFileSizeHigh;
+    fs.st_size <<= 32;
+    fs.st_size |= wfad.nFileSizeLow;
 
     if (pfs) *(struct _stat *)pfs = fs;
 #endif
@@ -420,7 +437,7 @@ int file_exist (char * file)
     if (!file) return 0;
 
 #ifdef UNIX
-    if (stat(file, &fs)== -1) {
+    if (stat(file, &fs) == -1) {
         if (errno == ENOENT) return 0;
     }
 #endif
@@ -430,8 +447,8 @@ int file_exist (char * file)
         return 0;
     }
 
-    if ((wsad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
-        return directory;
+    if ((wfad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        return 1;
 
 #endif
 
@@ -464,7 +481,7 @@ int file_is_regular (char * file)
         return 0;
     }
 
-    if ((wsad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+    if ((wfad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
         return 1;
 
     return 0;
@@ -494,7 +511,7 @@ int file_is_dir (char * file)
         return 0;
     }
 
-    if (wsad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+    if (wfad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         return 1;
 #endif
  
@@ -653,15 +670,15 @@ int file_lines (char * file)
 }
 
 
-int file_copy (char * srcfile, off_t offset, size_t length, char * dstfile, int64 * actnum)
+int file_copy (char * srcfile, int64 offset, int64 length, char * dstfile, int64 * actnum)
 {
-    off_t     size = 0;
+    int64     size = 0;
 
 #ifdef UNIX
     int       fdin;
     int       fdout;
 #else
-    off_t     toread = 0;
+    int64     toread = 0;
     FILE    * fpin = NULL;
     FILE    * fpout = NULL;
     uint8     inbuf[16384];
@@ -735,14 +752,14 @@ int file_copy (char * srcfile, off_t offset, size_t length, char * dstfile, int6
 }
 
 
-int file_copy2fp (char * srcfile, off_t offset, size_t length, FILE * fpout, int64 * actnum)
+int file_copy2fp (char * srcfile, int64 offset, int64 length, FILE * fpout, int64 * actnum)
 { 
-    size_t     size = 0; 
+    int64     size = 0;
      
 #ifdef UNIX
     int       fdin;
 #else
-    size_t    toread = 0;
+    int64     toread = 0;
     FILE    * fpin = NULL;
     char      inbuf[16384];
     int       ret = 0;
@@ -1064,9 +1081,19 @@ int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid
  
     sprintf(cmd, "file -bi %s", fname);
     memset(mime, 0, sizeof(mime));
+#ifdef UNIX
     fp = popen(cmd, "r");
+#endif
+#ifdef _WIN32
+    fp = _popen(cmd, "r");
+#endif
     if (fp && !feof(fp)) fgets(mime, sizeof(mime)-1, fp);
+#ifdef UNIX
     if (fp) pclose(fp);
+#endif
+#ifdef _WIN32
+    if (fp) _pclose(fp);
+#endif
  
     p = str_trim(mime);
     if (pmime) strcpy(pmime, p);
@@ -1138,7 +1165,9 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
     if (GetFileInformationByHandle(hfile, &bhfi) == 0)
         return NULL;
 
-    fsize = bhfi.nFileSizeHigh << 32 | bhfi.nFileSizeLow;
+    fsize = bhfi.nFileSizeHigh;
+    fsize <<= 32;
+    fsize |= bhfi.nFileSizeLow;
  
     if (length <= 0) return NULL;
  
@@ -1195,7 +1224,7 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
     if (pmaplen) *pmaplen = maplen;
     if (pmapoff) *pmapoff = pa_off;
  
-    return pmap + offset - pa_off;
+    return (uint8 *)pmap + offset - pa_off;
 }
 
 int file_munmap (HANDLE hmap, void * pmap)
@@ -1280,11 +1309,12 @@ void * fbuf_init (char * fname, int pagecount)
  
     hfile = CreateFile(fname, GENERIC_READ,
                        FILE_SHARE_READ, NULL,
-                       OPEN_EXISTING, NULL, NULL);
+                       OPEN_EXISTING, 0, NULL);
     if (!hfile) return NULL;
 
     dwSize = GetFileSize(hfile, &dwHigh);
-    fsize = dwHigh << 32 | dwSize;
+    fsize = dwHigh;  fsize <<= 32;
+    fsize |= dwSize;
 
     fbf = kzalloc(sizeof(*fbf));
     if (!fbf) {

@@ -187,7 +187,7 @@ void * mpool_fetch (mpool_t * mp)
         arr_insert_by(mp->cache_list, pca, mem_cache_cmp_mem_cache);
 
         for (i = 0; i < mp->allocnum; i++) {
-            ar_fifo_push(mp->fifo, pca + i * mp->unitsize);
+            ar_fifo_push(mp->fifo, (uint8 *)pca + i * mp->unitsize);
         }
     }
 

@@ -46,7 +46,14 @@ void chunk_entity_free (void * pent)
  
     } else if (ent->cktype == CKT_FILE_NAME) {
         if (ent->u.filename.pmap) {
+#ifdef UNIX
             file_munmap(ent->u.filename.pmap, ent->u.filename.maplen);
+#endif
+#ifdef _WIN32 
+            file_munmap(ent->u.filename.hmap, ent->u.filename.pmap);
+            ent->u.filename.hmap = NULL;
+#endif
+            ent->u.filename.pbyte = NULL;
             ent->u.filename.pmap = NULL;
             ent->u.filename.maplen = 0;
             ent->u.filename.mapoff = 0;
@@ -64,7 +71,14 @@ void chunk_entity_free (void * pent)
  
     } else if (ent->cktype == CKT_FILE_PTR) {
         if (ent->u.fileptr.pmap) {
+#ifdef UNIX
             file_munmap(ent->u.fileptr.pmap, ent->u.fileptr.maplen);
+#endif
+#ifdef _WIN32
+            file_munmap(ent->u.fileptr.hmap, ent->u.fileptr.pmap);
+            ent->u.fileptr.hmap = NULL;
+#endif
+            ent->u.fileptr.pbyte = NULL;
             ent->u.fileptr.pmap = NULL;
             ent->u.fileptr.maplen = 0;
             ent->u.fileptr.mapoff = 0;
@@ -72,7 +86,14 @@ void chunk_entity_free (void * pent)
 
     } else if (ent->cktype == CKT_FILE_DESC) {
         if (ent->u.filefd.pmap) {
+#ifdef UNIX
             file_munmap(ent->u.filefd.pmap, ent->u.filefd.maplen);
+#endif
+#ifdef _WIN32
+            file_munmap(ent->u.filefd.hmap, ent->u.filefd.pmap);
+            ent->u.filefd.hmap = NULL;
+#endif
+            ent->u.filefd.pbyte = NULL;
             ent->u.filefd.pmap = NULL;
             ent->u.filefd.maplen = 0;
             ent->u.filefd.mapoff = 0;
@@ -499,10 +520,10 @@ int64 chunk_read (void * vck, void * pbuf, int64 offset, int64 length, int httpc
                 memcpy(pbuf, ent->u.charr.pbyte + curpos, curlen);
 
             } else if (ent->cktype == CKT_BUFFER) {
-                memcpy(pbuf, ent->u.buf.pbyte + curpos, curlen);
+                memcpy(pbuf, (uint8 *)ent->u.buf.pbyte + curpos, curlen);
 
             } else if (ent->cktype == CKT_BUFFER_PTR) {
-                memcpy(pbuf, ent->u.bufptr.pbyte + curpos, curlen);
+                memcpy(pbuf, (uint8 *)ent->u.bufptr.pbyte + curpos, curlen);
 
             } else if (ent->cktype == CKT_FILE_NAME) {
                 if (ent->u.filename.hfile == NULL) {
@@ -541,7 +562,7 @@ int64 chunk_read (void * vck, void * pbuf, int64 offset, int64 length, int httpc
                                                        curlen - onelen,
                                                        &pbyte, &bytelen);
                     if (ret >= 0) {
-                        memcpy(pbuf+onelen, pbyte, bytelen);
+                        memcpy((uint8 *)pbuf + onelen, pbyte, bytelen);
                         onelen += bytelen;
                         continue;
                     }
@@ -684,13 +705,13 @@ int64 chunk_read_ptr (void * vck, int64 offset, int64 length, void ** ppbyte, in
                 return curlen;
 
             } else if (ent->cktype == CKT_BUFFER) {
-                if (ppbyte) *ppbyte = ent->u.buf.pbyte + curpos;
+                if (ppbyte) *ppbyte = (uint8 *)ent->u.buf.pbyte + curpos;
                 if (pbytelen) *pbytelen = curlen;
 
                 return curlen;
 
             } else if (ent->cktype == CKT_BUFFER_PTR) {
-                if (ppbyte) *ppbyte = ent->u.bufptr.pbyte + curpos;
+                if (ppbyte) *ppbyte = (uint8 *)ent->u.bufptr.pbyte + curpos;
                 if (pbytelen) *pbytelen = curlen;
 
                 return curlen;
@@ -874,10 +895,10 @@ int64 chunk_readto_frame (void * vck, frame_p frm, int64 offset, int64 length, i
                 frame_put_nlast(frm, ent->u.charr.pbyte + curpos, curlen);
 
             } else if (ent->cktype == CKT_BUFFER) {
-                frame_put_nlast(frm, ent->u.buf.pbyte + curpos, curlen);
+                frame_put_nlast(frm, (uint8 *)ent->u.buf.pbyte + curpos, curlen);
 
             } else if (ent->cktype == CKT_BUFFER_PTR) {
-                frame_put_nlast(frm, ent->u.bufptr.pbyte + curpos, curlen);
+                frame_put_nlast(frm, (uint8 *)ent->u.bufptr.pbyte + curpos, curlen);
 
             } else if (ent->cktype == CKT_FILE_NAME) {
                 if (ent->u.filename.hfile == NULL) {
@@ -1060,10 +1081,10 @@ int64 chunk_readto_file (void * vck, int fd, int64 offset, int64 length, int htt
                 filefd_write(fd, ent->u.charr.pbyte + curpos, curlen);
 
             } else if (ent->cktype == CKT_BUFFER) {
-                filefd_write(fd, ent->u.buf.pbyte + curpos, curlen);
+                filefd_write(fd, (uint8 *)ent->u.buf.pbyte + curpos, curlen);
 
             } else if (ent->cktype == CKT_BUFFER_PTR) {
-                filefd_write(fd, ent->u.bufptr.pbyte + curpos, curlen);
+                filefd_write(fd, (uint8 *)ent->u.bufptr.pbyte + curpos, curlen);
 
             } else if (ent->cktype == CKT_FILE_NAME) {
                 if (ent->u.filename.hfile == NULL) {
@@ -1635,6 +1656,9 @@ int chunk_add_file (void * vck, char * fname, int64 offset, int64 length, int me
         ent->length = length;
 
         ent->u.filename.pbyte = NULL;
+#ifdef _WIN32
+        ent->u.filename.hmap = NULL;
+#endif
         ent->u.filename.pmap = NULL;
         ent->u.filename.maplen = 0;
 
@@ -1711,6 +1735,9 @@ int64 chunk_prepend_file (void * vck, char * fname, int64 packsize)
         ent->length = length;
 
         ent->u.filename.pbyte = NULL;
+#ifdef _WIN32
+        ent->u.filename.hmap = NULL;
+#endif
         ent->u.filename.pmap = NULL;
         ent->u.filename.maplen = 0;
 
@@ -1780,6 +1807,9 @@ int64 chunk_append_file (void * vck, char * fname, int64 packsize)
         ent->length = length;
 
         ent->u.filename.pbyte = NULL;
+#ifdef _WIN32
+        ent->u.filename.hmap = NULL;
+#endif
         ent->u.filename.pmap = NULL;
         ent->u.filename.maplen = 0;
 
@@ -1846,6 +1876,9 @@ int chunk_add_filefp (void * vck, FILE * fp, int64 offset, int64 length)
     ent->length = length;
  
     ent->u.fileptr.pbyte = NULL;
+#ifdef _WIN32
+        ent->u.fileptr.hmap = NULL;
+#endif
     ent->u.fileptr.pmap = NULL;
     ent->u.fileptr.maplen = 0;
 
@@ -1903,6 +1936,9 @@ int chunk_add_filefd (void * vck, int fd, int64 offset, int64 length)
     ent->length = length;
  
     ent->u.filefd.pbyte = NULL;
+#ifdef _WIN32
+        ent->u.filefd.hmap = NULL;
+#endif
     ent->u.filefd.pmap = NULL;
     ent->u.filefd.maplen = 0;
 
@@ -2161,7 +2197,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
                 if (pvec->vectype != 0 && pvec->vectype != 1)
                     return (int)pvec->size;
 
-                pvec->iovs[pvec->iovcnt].iov_base = ent->u.buf.pbyte + curpos;
+                pvec->iovs[pvec->iovcnt].iov_base = (uint8 *)ent->u.buf.pbyte + curpos;
                 pvec->iovs[pvec->iovcnt].iov_len = curlen;
                 pvec->iovcnt++;
 
@@ -2173,7 +2209,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
                 if (pvec->vectype != 0 && pvec->vectype != 1)
                     return (int)pvec->size;
 
-                pvec->iovs[pvec->iovcnt].iov_base = ent->u.bufptr.pbyte + curpos;
+                pvec->iovs[pvec->iovcnt].iov_base = (uint8 *)ent->u.bufptr.pbyte + curpos;
                 pvec->iovs[pvec->iovcnt].iov_len = curlen;
                 pvec->iovcnt++;
 
@@ -2430,18 +2466,34 @@ int chunk_at (void * vck, int64 pos, int * ind)
                 if (curpos < ent->u.filename.mapoff || 
                     curpos >= ent->u.filename.mapoff + ent->u.filename.maplen)
                 {
+#ifdef UNIX
                     if (ent->u.filename.pmap != NULL) {
                         file_munmap(ent->u.filename.pmap, ent->u.filename.maplen);
                         ent->u.filename.pmap = NULL;
                         ent->u.filename.pbyte = NULL;
                     }
                     ent->u.filename.pbyte = file_mmap(NULL, native_file_fd(ent->u.filename.hfile), 
-                                                  ent->u.filename.offset + curpos,
-                                                  2048*1024,
+                                                  curpos, 2048*1024,
                                                   PROT_READ, MAP_SHARED,
                                                   &ent->u.filename.pmap,
                                                   &ent->u.filename.maplen,
                                                   &ent->u.filename.mapoff);
+#endif
+#ifdef _WIN32
+                    if (ent->u.filename.pmap != NULL) {
+                        file_munmap(ent->u.filename.hmap, ent->u.filename.pmap);
+                        ent->u.filename.hmap = NULL;
+                        ent->u.filename.pmap = NULL;
+                        ent->u.filename.pbyte = NULL;
+                    }
+                    ent->u.filename.pbyte = file_mmap(NULL, native_file_handle(ent->u.filename.hfile),
+                                                  curpos, 2048*1024,
+                                                  NULL,
+                                                  &ent->u.filename.hmap,
+                                                  &ent->u.filename.pmap,
+                                                  &ent->u.filename.maplen,
+                                                  &ent->u.filename.mapoff);
+#endif
                     if (ent->u.filename.pbyte == NULL)
                         return -100;
                 }
@@ -2453,6 +2505,7 @@ int chunk_at (void * vck, int64 pos, int * ind)
                 if (curpos < ent->u.fileptr.mapoff ||
                     curpos >= ent->u.fileptr.mapoff + ent->u.fileptr.maplen)
                 {
+#ifdef UNIX
                     if (ent->u.fileptr.pmap != NULL) {
                         file_munmap(ent->u.fileptr.pmap, ent->u.fileptr.maplen);
                         ent->u.fileptr.pmap = NULL;
@@ -2465,6 +2518,22 @@ int chunk_at (void * vck, int64 pos, int * ind)
                                                   &ent->u.fileptr.pmap,
                                                   &ent->u.fileptr.maplen,
                                                   &ent->u.fileptr.mapoff);
+#endif
+#ifdef _WIN32
+                    if (ent->u.fileptr.pmap != NULL) {
+                        file_munmap(ent->u.fileptr.hmap, ent->u.fileptr.pmap);
+                        ent->u.fileptr.hmap = NULL;
+                        ent->u.fileptr.pmap = NULL;
+                        ent->u.fileptr.pbyte = NULL;
+                    }
+                    ent->u.fileptr.pbyte = file_mmap(NULL, fd_to_file_handle(fileno(ent->u.fileptr.fp)),
+                                                  curpos, 2048*1024,
+                                                  NULL,
+                                                  &ent->u.fileptr.hmap,
+                                                  &ent->u.fileptr.pmap,
+                                                  &ent->u.fileptr.maplen,
+                                                  &ent->u.fileptr.mapoff);
+#endif
                     if (ent->u.fileptr.pbyte == NULL)
                         return -100;
                 }
@@ -2476,6 +2545,7 @@ int chunk_at (void * vck, int64 pos, int * ind)
                 if (curpos < ent->u.filefd.mapoff ||
                     curpos >= ent->u.filefd.mapoff + ent->u.filefd.maplen)
                 {
+#ifdef UNIX
                     if (ent->u.filefd.pmap != NULL) {
                         file_munmap(ent->u.filefd.pmap, ent->u.filefd.maplen);
                         ent->u.filefd.pmap = NULL;
@@ -2488,6 +2558,22 @@ int chunk_at (void * vck, int64 pos, int * ind)
                                                   &ent->u.filefd.pmap,
                                                   &ent->u.filefd.maplen,
                                                   &ent->u.filefd.mapoff);
+#endif
+#ifdef _WIN32
+                    if (ent->u.filefd.pmap != NULL) {
+                        file_munmap(ent->u.filefd.hmap, ent->u.filefd.pmap);
+                        ent->u.filefd.hmap = NULL;
+                        ent->u.filefd.pmap = NULL;
+                        ent->u.filefd.pbyte = NULL;
+                    }
+                    ent->u.filefd.pbyte = file_mmap(NULL, fd_to_file_handle(ent->u.filefd.fd),
+                                                  curpos, 2048*1024,
+                                                  NULL,
+                                                  &ent->u.filefd.hmap,
+                                                  &ent->u.filefd.pmap,
+                                                  &ent->u.filefd.maplen,
+                                                  &ent->u.filefd.mapoff);
+#endif
                     if (ent->u.filefd.pbyte == NULL)
                         return -100;
                 }
@@ -2558,15 +2644,15 @@ void * chunk_ptr (void * vck, int64 pos, int * ind, void ** ppbuf, int64 * plen)
  
             } else if (ent->cktype == CKT_BUFFER) {
                 if (ind) *ind = i;
-                if (ppbuf) *ppbuf = ent->u.buf.pbyte + curpos;
+                if (ppbuf) *ppbuf = (uint8 *)ent->u.buf.pbyte + curpos;
                 if (plen) *plen = curlen;
-                return ent->u.buf.pbyte + curpos;
+                return (uint8 *)ent->u.buf.pbyte + curpos;
  
             } else if (ent->cktype == CKT_BUFFER_PTR) {
                 if (ind) *ind = i;
-                if (ppbuf) *ppbuf = ent->u.bufptr.pbyte + curpos;
+                if (ppbuf) *ppbuf = (uint8 *)ent->u.bufptr.pbyte + curpos;
                 if (plen) *plen = curlen;
-                return ent->u.bufptr.pbyte + curpos;
+                return (uint8 *)ent->u.bufptr.pbyte + curpos;
  
             } else if (ent->cktype == CKT_FILE_NAME) {
                 if (ent->u.filename.hfile == NULL) {
@@ -2583,18 +2669,35 @@ void * chunk_ptr (void * vck, int64 pos, int * ind, void ** ppbuf, int64 * plen)
                 if (curpos < ent->u.filename.mapoff ||
                     curpos >= ent->u.filename.mapoff + ent->u.filename.maplen)
                 {
+#ifdef UNIX
                     if (ent->u.filename.pmap != NULL) {
                         file_munmap(ent->u.filename.pmap, ent->u.filename.maplen);
                         ent->u.filename.pmap = NULL;
                         ent->u.filename.pbyte = NULL;
                     }
                     ent->u.filename.pbyte = file_mmap(NULL, native_file_fd(ent->u.filename.hfile),
-                                                  ent->u.filename.offset + curpos,
-                                                  2048*1024,
+                                                  curpos, 2048*1024,
                                                   PROT_READ, MAP_SHARED,
                                                   &ent->u.filename.pmap,
                                                   &ent->u.filename.maplen,
                                                   &ent->u.filename.mapoff);
+#endif
+#ifdef _WIN32
+                    if (ent->u.filename.pmap != NULL) {
+                        file_munmap(ent->u.filename.hmap, ent->u.filename.pmap);
+                        ent->u.filename.hmap = NULL;
+                        ent->u.filename.pmap = NULL;
+                        ent->u.filename.pbyte = NULL;
+                    }
+                    ent->u.filename.pbyte = file_mmap(NULL, native_file_handle(ent->u.filename.hfile),
+                                                  curpos, 2048*1024,
+                                                  NULL,
+                                                  &ent->u.filename.hmap,
+                                                  &ent->u.filename.pmap,
+                                                  &ent->u.filename.maplen,
+                                                  &ent->u.filename.mapoff);
+#endif
+
                     if (ent->u.filename.pbyte == NULL)
                         return NULL;
                 }
@@ -2603,27 +2706,43 @@ void * chunk_ptr (void * vck, int64 pos, int * ind, void ** ppbuf, int64 * plen)
                     curlen = ent->u.filename.maplen - (curpos - ent->u.filename.mapoff);
 
                 if (ind) *ind = i;
-                if (ppbuf) *ppbuf = ent->u.filename.pmap + curpos - ent->u.filename.mapoff;
+                if (ppbuf) *ppbuf = (uint8 *)ent->u.filename.pmap + curpos - ent->u.filename.mapoff;
                 if (plen) *plen = curlen;
-                return ent->u.filename.pmap + curpos - ent->u.filename.mapoff;
+                return (uint8 *)ent->u.filename.pmap + curpos - ent->u.filename.mapoff;
  
             } else if (ent->cktype == CKT_FILE_PTR) {
                 curpos += ent->u.fileptr.offset;
                 if (curpos < ent->u.fileptr.mapoff ||
                     curpos >= ent->u.fileptr.mapoff + ent->u.fileptr.maplen)
                 {
+#ifdef UNIX
                     if (ent->u.fileptr.pmap != NULL) {
                         file_munmap(ent->u.fileptr.pmap, ent->u.fileptr.maplen);
                         ent->u.fileptr.pmap = NULL;
                         ent->u.fileptr.pbyte = NULL;
                     }
                     ent->u.fileptr.pbyte = file_mmap(NULL, fileno(ent->u.fileptr.fp),
-                                                  ent->u.fileptr.offset + curpos,
-                                                  2048*1024,
+                                                  curpos, 2048*1024,
                                                   PROT_READ, MAP_SHARED,
                                                   &ent->u.fileptr.pmap,
                                                   &ent->u.fileptr.maplen,
                                                   &ent->u.fileptr.mapoff);
+#endif
+#ifdef _WIN32
+                    if (ent->u.fileptr.pmap != NULL) {
+                        file_munmap(ent->u.fileptr.hmap, ent->u.fileptr.pmap);
+                        ent->u.fileptr.hmap = NULL;
+                        ent->u.fileptr.pmap = NULL;
+                        ent->u.fileptr.pbyte = NULL;
+                    }
+                    ent->u.fileptr.pbyte = file_mmap(NULL, fd_to_file_handle(fileno(ent->u.fileptr.fp)),
+                                                  curpos, 2048*1024,
+                                                  NULL,
+                                                  &ent->u.fileptr.hmap,
+                                                  &ent->u.fileptr.pmap,
+                                                  &ent->u.fileptr.maplen,
+                                                  &ent->u.fileptr.mapoff);
+#endif
                     if (ent->u.fileptr.pbyte == NULL)
                         return NULL;
                 }
@@ -2632,27 +2751,43 @@ void * chunk_ptr (void * vck, int64 pos, int * ind, void ** ppbuf, int64 * plen)
                     curlen = ent->u.fileptr.maplen - (curpos - ent->u.fileptr.mapoff);
 
                 if (ind) *ind = i;
-                if (ppbuf) *ppbuf = ent->u.fileptr.pmap + curpos - ent->u.fileptr.mapoff;
+                if (ppbuf) *ppbuf = (uint8 *)ent->u.fileptr.pmap + curpos - ent->u.fileptr.mapoff;
                 if (plen) *plen = curlen;
-                return ent->u.fileptr.pmap + curpos - ent->u.fileptr.mapoff;
+                return (uint8 *)ent->u.fileptr.pmap + curpos - ent->u.fileptr.mapoff;
  
             } else if (ent->cktype == CKT_FILE_DESC) {
                 curpos += ent->u.filefd.offset;
                 if (curpos < ent->u.filefd.mapoff ||
                     curpos >= ent->u.filefd.mapoff + ent->u.filefd.maplen)
                 {
+#ifdef UNIX
                     if (ent->u.filefd.pmap != NULL) {
                         file_munmap(ent->u.filefd.pmap, ent->u.filefd.maplen);
                         ent->u.filefd.pmap = NULL;
                         ent->u.filefd.pbyte = NULL;
                     }
                     ent->u.filefd.pbyte = file_mmap(NULL, ent->u.filefd.fd,
-                                                  ent->u.filefd.offset + curpos,
-                                                  2048*1024,
+                                                  curpos, 2048*1024,
                                                   PROT_READ, MAP_SHARED,
                                                   &ent->u.filefd.pmap,
                                                   &ent->u.filefd.maplen,
                                                   &ent->u.filefd.mapoff);
+#endif
+#ifdef _WIN32
+                    if (ent->u.filefd.pmap != NULL) {
+                        file_munmap(ent->u.filefd.hmap, ent->u.filefd.pmap);
+                        ent->u.filefd.hmap = NULL;
+                        ent->u.filefd.pmap = NULL;
+                        ent->u.filefd.pbyte = NULL;
+                    }
+                    ent->u.filefd.pbyte = file_mmap(NULL, fd_to_file_handle(ent->u.filefd.fd),
+                                                  curpos, 2048*1024,
+                                                  NULL,
+                                                  &ent->u.filefd.hmap,
+                                                  &ent->u.filefd.pmap,
+                                                  &ent->u.filefd.maplen,
+                                                  &ent->u.filefd.mapoff);
+#endif
                     if (ent->u.filefd.pbyte == NULL)
                         return NULL;
                 }
@@ -2661,9 +2796,9 @@ void * chunk_ptr (void * vck, int64 pos, int * ind, void ** ppbuf, int64 * plen)
                     curlen = ent->u.filefd.maplen - (curpos - ent->u.filefd.mapoff);
 
                 if (ind) *ind = i;
-                if (ppbuf) *ppbuf = ent->u.filefd.pmap + curpos - ent->u.filefd.mapoff;
+                if (ppbuf) *ppbuf = (uint8 *)ent->u.filefd.pmap + curpos - ent->u.filefd.mapoff;
                 if (plen) *plen = curlen;
-                return ent->u.filefd.pmap + curpos - ent->u.filefd.mapoff;
+                return (uint8 *)ent->u.filefd.pmap + curpos - ent->u.filefd.mapoff;
  
             } else if (ent->cktype == CKT_CALLBACK) {
                 void   * pbyte = NULL;

@@ -6,6 +6,7 @@
 #include "btype.h"
 #include "memory.h"
 #include "nativefile.h"
+#include "fileop.h"
 
 #ifdef UNIX
 
@@ -107,13 +108,13 @@ int native_file_close (void * vhfile)
     return 0;
 }
  
-int native_file_attr (void * vhfile, uint64 * msize, time_t * mtime, long * inode, uint32 * mimeid)
+int native_file_attr (void * vhfile, int64 * msize, time_t * mtime, long * inode, uint32 * mimeid)
 {
     NativeFile * hfile = (NativeFile *)vhfile;
      
     if (!hfile) return -1;
      
-    if (msize) *msize = (uint64)hfile->size;
+    if (msize) *msize = hfile->size;
     if (mtime) *mtime = hfile->mtime;
     if (inode) *inode = hfile->inode;
     if (mimeid) *mimeid = hfile->mimeid; 
@@ -331,25 +332,10 @@ int native_file_remove (char * nfile)
     return unlink(nfile);
 }
 
-
 #endif
 
 
-#ifdef _WIN32
-
-extern void ansi_2_unicode (wchar_t * wcrt, char * pstr);
-
-void  FileTimeToTime_t (FILETIME  ft, time_t * t)
-{
-    int64          ll;
-    ULARGE_INTEGER ui;
-
-    ui.LowPart  =  ft.dwLowDateTime;
-    ui.HighPart =  ft.dwHighDateTime;
-    ll =  ft.dwHighDateTime  <<  32  +  ft.dwLowDateTime;
-    *t =  ((LONGLONG)(ui.QuadPart  -  116444736000000000)  /  10000000);
-}
-
+#if 0
 
 void * native_file_open (char * nfile, int flag)
 {
@@ -441,13 +427,13 @@ int native_file_close (void * vhfile)
     return 0;
 }
 
-int native_file_attr (void * vhfile, uint64 * msize, time_t * mtime, long * inode, uint32 * mimeid)
+int native_file_attr (void * vhfile, int64 * msize, time_t * mtime, long * inode, uint32 * mimeid)
 {
     NativeFile * hfile = (NativeFile *)vhfile;
 
     if (!hfile) return -1;
 
-    if (msize) *msize = (uint64)hfile->size;
+    if (msize) *msize = hfile->size;
     if (mtime) *mtime = hfile->mtime;
     if (inode) *inode = hfile->inode;
     if (mimeid) *mimeid = hfile->mimeid; 
@@ -663,18 +649,21 @@ int native_file_remove (char * nfile)
     return DeleteFile(nfile);
 }
 
+#endif
 
-#if 0
+#ifdef _WIN32
+
 void * native_file_open   (char * nfile, int flag)
 {
     NativeFile * hfile = NULL;
     int          ret = 0;
-    struct stat  st;
+    WIN32_FILE_ATTRIBUTE_DATA  wfad;
  
     if (!nfile) return NULL;
  
-    memset(&st, 0, sizeof(st));
-    ret = _stat(nfile, &st);
+    if (GetFileAttributesEx(nfile, GetFileExInfoStandard, &wfad) == 0) {
+        ret = -10;
+    }
  
     if (ret < 0) {
         if ((flag & NF_MASK_RW) == NF_READ)
@@ -701,10 +690,13 @@ void * native_file_open   (char * nfile, int flag)
  
     hfile->offset = 0;
     if (ret >= 0) {
-        hfile->size = st.st_size;
-        hfile->mtime = st.st_mtime;
-        hfile->ctime = st.st_ctime;
-        hfile->inode = st.st_ino;
+        hfile->size = wfad.nFileSizeHigh;
+        hfile->size <<= 32;
+        hfile->size |= wfad.nFileSizeLow;
+
+        hfile->mtime = FileTimeToUnixTime(wfad.ftLastWriteTime);
+        hfile->ctime = FileTimeToUnixTime(wfad.ftCreationTime);
+        hfile->inode = 0;
     } else {
         hfile->size = 0;
         hfile->mtime = 0;
@@ -745,13 +737,26 @@ int native_file_close (void * vhfile)
  
     if (hfile->hfile >= 0) {
         CloseHandle(hfile->hfile);
-        hfile->hfile = -1;
+        hfile->hfile = NULL;
     }
  
     kfree(hfile);
     return 0;
 }
- 
+
+int native_file_attr (void * vhfile, int64 * msize, time_t * mtime, long * inode, uint32 * mimeid)
+{
+    NativeFile * hfile = (NativeFile *)vhfile;
+
+    if (!hfile) return -1;
+
+    if (msize) *msize = hfile->size;
+    if (mtime) *mtime = hfile->mtime;
+    if (inode) *inode = hfile->inode;
+    if (mimeid) *mimeid = hfile->mimeid;
+    return 0;
+}
+
 int native_file_read (void * vhfile, void * pbuf, int size)
 {
     NativeFile * hfile = (NativeFile *)vhfile;
@@ -766,7 +771,7 @@ int native_file_read (void * vhfile, void * pbuf, int size)
     EnterCriticalSection(&hfile->fileCS);
  
     for (len = 0; len < size; ) {
-        ret = ReadFile(hfile->hfile, pbuf+len, size-len, &readlen, NULL);
+        ret = ReadFile(hfile->hfile, (uint8 *)pbuf + len, size - len, &readlen, NULL);
         if (readlen == 0 && ret != 0) {
             /* If the return value is nonzero and the number of bytes read
                is zero, the file pointer was beyond the current end of the
@@ -805,7 +810,7 @@ int native_file_write (void * vhfile, void * buf, int size)
     EnterCriticalSection(&hfile->fileCS);
  
     for (len = 0; len < size; ) {
-        ret = WriteFile(hfile->hfile, buf+len, size-len, &writelen, NULL);
+        ret = WriteFile(hfile->hfile, (uint8 *)buf + len, size - len, &writelen, NULL);
         /* return value: Nonzero indicates success. Zero indicates failure. */
  
         if (ret == 0) {
@@ -832,14 +837,11 @@ int native_file_seek (void * vhfile, int64 offset)
     NativeFile    * hfile = (NativeFile *)vhfile;
     DWORD           dwRet;
     LARGE_INTEGER   liPos;
- 
+
     if (!hfile) return -1;
- 
+
     liPos.QuadPart = offset;
- 
-    int          times = 0;
-    int64        fpos = 0;
- 
+
     EnterCriticalSection(&hfile->fileCS);
  
     if (offset < 0) offset = hfile->size;
@@ -892,7 +894,64 @@ int native_file_resize (void * vhfile, int64 newsize)
  
     return 0;
 }
-#endif
+
+HANDLE native_file_handle (void * vhfile)
+{
+    NativeFile * hfile = (NativeFile *)vhfile;
+ 
+    if (!hfile) return INVALID_HANDLE_VALUE;
+ 
+    return hfile->hfile;
+}
+ 
+int native_file_fd (void * vhfile)
+{
+    NativeFile * hfile = (NativeFile *)vhfile;
+ 
+    if (!hfile) return -1;
+ 
+    return hfile->fd;
+}
+ 
+int64 native_file_size (void * vhfile)
+{
+    NativeFile * hfile = (NativeFile *)vhfile;
+ 
+    if (!hfile) return 0;
+ 
+    return hfile->size;
+}
+ 
+int64 native_file_offset (void * vhfile)
+{
+    NativeFile * hfile = (NativeFile *)vhfile;
+ 
+    if (!hfile) return 0;
+ 
+    return hfile->offset;
+}
+ 
+int native_file_eof (void *vhfile)
+{
+    NativeFile * hfile = (NativeFile *)vhfile;
+ 
+    if (!hfile) return 0;
+ 
+    return hfile->offset >= hfile->size ? 1:0;
+}
+ 
+int native_file_stat (char * nfile, struct stat * stbuf)
+{
+    return file_stat(nfile, stbuf);
+}
+ 
+int native_file_remove (char * nfile)
+{
+    if (!nfile || strlen(nfile) < 0)
+        return -1;
+ 
+    return DeleteFile(nfile);
+}
 
 #endif
 

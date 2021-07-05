@@ -1316,7 +1316,7 @@ int mem_blk_cmp_pmem (void * a, void * b)
 
     if (a > b) return 1;
 
-    if (b >= a && b < a + mblk->totalsize)
+    if (b >= a && (uint8 *)b < (uint8 *)a + mblk->totalsize)
         return 0;
 
     return -1;
@@ -1569,7 +1569,7 @@ void * mupool_by_index (void * vpool, int index)
         iblk = arr_value(pool->mem_blk_list, i);
         if (!iblk) continue;
 
-        if (index < unitnum + iblk->allocunit) {
+        if (index < unitnum + (int)iblk->allocunit) {
             return mem_unit_by_index(iblk, index - unitnum);
         }
 

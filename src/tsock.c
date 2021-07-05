@@ -6,6 +6,7 @@
 #include "btype.h"
 #include "memory.h"
 #include "tsock.h"
+#include "fileop.h"
 #include "strutil.h"
 #include "trace.h"
 
@@ -42,6 +43,7 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <io.h>
+#include <mswsock.h>
 #endif
 
 
@@ -1181,19 +1183,40 @@ SOCKET tcp_ep_connect (ep_sockaddr_t * addr, int nblk, char * lip, int lport, vo
 
 int tcp_connected (SOCKET fd)
 {
+#ifdef UNIX
     struct tcp_info  info; 
     int              len = 0;
+    int              ret = 0;
 
     if (fd < 0) return 0;
 
     len = sizeof(info); 
 
-    getsockopt(fd, IPPROTO_TCP, TCP_INFO, &info, (socklen_t *)&len); 
+    ret = getsockopt(fd, IPPROTO_TCP, TCP_INFO, &info, (socklen_t *)&len); 
+    if (ret == SOCKET_ERROR) return 0;
     if (info.tcpi_state == TCP_ESTABLISHED) { 
         return 1; 
     } 
 
     return 0; 
+#endif
+
+#ifdef _WIN32
+    int  ret = 0;
+    int  secnum = 0;
+    int  len = 0;
+
+    if (fd < 0) return 0;
+
+    len = sizeof(secnum);
+
+    ret = getsockopt(fd, SOL_SOCKET, SO_CONNECT_TIME, &secnum, &len);
+    if (ret == SOCKET_ERROR) {
+        return 0;
+    }
+
+    return 1;
+#endif
 }
 
 int tcp_recv (SOCKET fd, void * prcvbuf, int toread, long waitms, int * actnum)
@@ -1713,8 +1736,8 @@ int tcp_writev (SOCKET fd, void * piov, int iovcnt, int * actnum, int * perr)
         if (ret == -1) {
             errcode = WSAGetLastError();
 
-            if (num) *num = wlen;
-            if (err) *err = errcode;
+            if (actnum) *actnum = wlen;
+            if (perr) *perr = errcode;
 
 #ifdef _WIN32
             if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
@@ -1725,8 +1748,8 @@ int tcp_writev (SOCKET fd, void * piov, int iovcnt, int * actnum, int * perr)
         }
     }
 
-    if (num) *num = wlen;
-    if (err) *err = 0;
+    if (actnum) *actnum = wlen;
+    if (perr) *perr = 0;
 
     return wlen;
 #endif

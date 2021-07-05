@@ -29,20 +29,20 @@
 int get_cpu_num ()
 {
     int    num = 0;
- 
+
 #ifdef _WIN32
     SYSTEM_INFO sysinfo;
- 
+
     GetSystemInfo( &sysinfo );
     num = sysinfo.dwNumberOfProcessors;
- 
+
 #elif defined UNIX
     num = sysconf(_SC_NPROCESSORS_ONLN);
     if (num <= 0) {
         num = get_nprocs();
     }
 #endif
- 
+
     return num;
 }
 
@@ -62,7 +62,8 @@ void ChangeByteOrder (uint8 * szString, int uscStrSize)
  
 void sys_cpuid (uint32 i, uint32 * buf);
  
- 
+#ifdef UNIX
+
 #if ( __i386__ )
  
 void sys_cpuid (uint32 i, uint32 * buf)
@@ -90,13 +91,13 @@ void sys_cpuid (uint32 i, uint32 * buf)
  
  
 #else /* __amd64__ */
- 
+
 inline void sys_cpuid (uint32 i, uint32 * buf)
 {
     uint32  eax, ebx, ecx, edx;
  
     __asm__ (
- 
+
         "cpuid"
  
     : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx) : "a" (i) );
@@ -109,8 +110,6 @@ inline void sys_cpuid (uint32 i, uint32 * buf)
  
 #endif
  
-
-#ifdef UNIX
 
 static int WaitIde()
 {
@@ -318,6 +317,7 @@ typedef struct _GETVERSIONOUTPARAMS {
     DWORD dwReserved[4];  // For future use. 
 } GETVERSIONOUTPARAMS, *PGETVERSIONOUTPARAMS, *LPGETVERSIONOUTPARAMS; 
 
+#if 0
 typedef struct _IDEREGS { 
     BYTE bFeaturesReg;     // Used for specifying SMART "commands". 
     BYTE bSectorCountReg;  // IDE sector count register 
@@ -355,6 +355,8 @@ typedef struct _SENDCMDOUTPARAMS {
     BYTE         bBuffer[512]; // Buffer of arbitrary length 
                                // in which to store the data read from the drive. 
 } SENDCMDOUTPARAMS, *PSENDCMDOUTPARAMS, *LPSENDCMDOUTPARAMS; 
+#endif
+
 #pragma pack() 
 
 

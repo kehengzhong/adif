@@ -8,6 +8,7 @@
 #include "memory.h"
 #include "dynarr.h"
 #include "filecache.h"
+
 #include "mpatwm.h"
 
 
@@ -572,7 +573,7 @@ long wm_file_search (void * vbody, char * file)
     fca = file_cache_init(10, 8192);
     if (!fca) return -100;
  
-    file_cache_set_prefix_ratio(fca, 0.6);
+    file_cache_set_prefix_ratio(fca, (float)0.6);
     if (file_cache_setfile(fca, file, 0) < 0) {
         file_cache_clean(fca);
         return -200;
