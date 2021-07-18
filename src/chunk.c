@@ -12,6 +12,10 @@
 #include "strutil.h"
 #include "chunk.h"
 #include "patmat.h"
+#include "tsock.h"
+#ifdef _WIN32
+#include <io.h>
+#endif
 
 static char * chunk_end_flag = "0\r\n\r\n";
 
@@ -1273,7 +1277,11 @@ int chunk_add_buffer (void * vck, void * pbuf, int64 len)
     ck->size += len;
     ck->bufnum++;
 
+#ifdef _WIN32
+    sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
     ent->lenstrlen = strlen(ent->lenstr);
     strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
@@ -1331,7 +1339,11 @@ int64 chunk_prepend_strip_buffer (void * vck, void * pbuf, int64 len, char * esc
         ent->trailerlen = 0;
         ck->chunksize += ent->length;
     } else {
+#ifdef _WIN32
+        sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
         sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
         ent->lenstrlen = strlen(ent->lenstr);
         strcpy(ent->trailer, "\r\n");
         ent->trailerlen = 2;
@@ -1374,7 +1386,11 @@ int64 chunk_add_strip_buffer (void * vck, void * pbuf, int64 len, char * escch, 
 
     ck->size += ent->length;
 
+#ifdef _WIN32
+    sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
     ent->lenstrlen = strlen(ent->lenstr);
     strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
@@ -1406,7 +1422,11 @@ int64 chunk_append_strip_buffer (void * vck, void * pbuf, int64 len, char * escc
     if (ent->length >= 0)
         ((char *)ent->u.buf.pbyte)[ent->length] = '\0';
 
+#ifdef _WIN32
+    sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
     ent->lenstrlen = strlen(ent->lenstr);
     strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
@@ -1505,7 +1525,11 @@ int chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, uint8 isheader)
         ent->trailerlen = 0;
         ck->chunksize += ent->length;
     } else {
+#ifdef _WIN32
+        sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
         sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
         ent->lenstrlen = strlen(ent->lenstr);
         strcpy(ent->trailer, "\r\n");
         ent->trailerlen = 2;
@@ -1537,7 +1561,11 @@ int chunk_add_bufptr (void * vck, void * pbuf, int64 len, void * porig)
     ent->u.bufptr.pbyte = pbuf;
     ent->u.bufptr.porig = porig;
 
+#ifdef _WIN32
+    sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
     ent->lenstrlen = strlen(ent->lenstr);
     strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
@@ -1568,7 +1596,11 @@ int chunk_append_bufptr (void * vck, void * pbuf, int64 len, void * porig)
     ent->u.bufptr.pbyte = pbuf;
     ent->u.bufptr.porig = porig;
 
-    sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#ifdef _WIN32
+        sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
+        sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
     ent->lenstrlen = strlen(ent->lenstr);
     strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
@@ -1676,7 +1708,11 @@ int chunk_add_file (void * vck, char * fname, int64 offset, int64 length, int me
 
     ck->size += length;
 
+#ifdef _WIN32
+    sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
     ent->lenstrlen = strlen(ent->lenstr);
 
     strcpy(ent->trailer, "\r\n"); 
@@ -1749,7 +1785,11 @@ int64 chunk_prepend_file (void * vck, char * fname, int64 packsize)
         ent->u.filename.inode = inode;
         ent->u.filename.mtime = mtime;
 
+#ifdef _WIN32
+        sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
         sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
         ent->lenstrlen = strlen(ent->lenstr);
 
         strcpy(ent->trailer, "\r\n");
@@ -1821,7 +1861,11 @@ int64 chunk_append_file (void * vck, char * fname, int64 packsize)
         ent->u.filename.inode = inode;
         ent->u.filename.mtime = mtime;
 
+#ifdef _WIN32
+        sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
         sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
         ent->lenstrlen = strlen(ent->lenstr);
 
         strcpy(ent->trailer, "\r\n");
@@ -1895,7 +1939,11 @@ int chunk_add_filefp (void * vck, FILE * fp, int64 offset, int64 length)
     ck->size += ent->length;
     ck->filenum++;
 
+#ifdef _WIN32
+    sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
     ent->lenstrlen = strlen(ent->lenstr);
     strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
@@ -1955,7 +2003,11 @@ int chunk_add_filefd (void * vck, int fd, int64 offset, int64 length)
     ck->size += ent->length;
     ck->filenum++;
 
+#ifdef _WIN32
+    sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
     ent->lenstrlen = strlen(ent->lenstr);
     strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
@@ -1995,7 +2047,11 @@ int chunk_add_cbdata (void * vck, void * fetchfunc, void * fetchobj, int64 offse
 
     ck->size += length;
 
+#ifdef _WIN32
+    sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
+#endif
     ent->lenstrlen = strlen(ent->lenstr);
     strcpy(ent->trailer, "\r\n");
     ent->trailerlen = 2;
@@ -2224,14 +2280,26 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
                 if (ent->u.filename.hfile == NULL) {
                     ent->u.filename.hfile = native_file_open(ent->u.filename.fname, NF_READ);
 
-                    if (ent->u.filename.fsize != native_file_size(ent->u.filename.hfile))
+                    if (ent->u.filename.fsize != native_file_size(ent->u.filename.hfile)) {
+#ifdef UNIX
                         file_attr(ent->u.filename.fname,
                                   &ent->u.filename.inode,
                                   &ent->u.filename.fsize, NULL,
                                   &ent->u.filename.mtime, NULL);
+#endif
+#ifdef _WIN32
+                        native_file_attr(ent->u.filename.hfile,
+                                         &ent->u.filename.fsize,
+                                         &ent->u.filename.mtime,
+                                         &ent->u.filename.inode, NULL);
+#endif
+                    }
                 }
- 
+
                 pvec->filefd = native_file_fd(ent->u.filename.hfile);
+#ifdef _WIN32
+                pvec->hfile = native_file_handle(ent->u.filename.hfile);
+#endif
                 pvec->fpos = ent->u.filename.offset + curpos;
                 pvec->filesize = ent->u.filename.fsize;
 
@@ -2246,6 +2314,9 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
                     return (int)pvec->size;
 
                 pvec->filefd = fileno(ent->u.fileptr.fp);
+#ifdef _WIN32
+                pvec->hfile = fd_to_file_handle(pvec->filefd);
+#endif
                 pvec->fpos = ent->u.fileptr.offset + curpos;
                 pvec->filesize = ent->u.fileptr.fsize;
 
@@ -2260,6 +2331,9 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
                     return (int)pvec->size;
 
                 pvec->filefd = ent->u.filefd.fd;
+#ifdef _WIN32
+                pvec->hfile = fd_to_file_handle(pvec->filefd);
+#endif
                 pvec->fpos = ent->u.filefd.offset + curpos;
                 pvec->filesize = ent->u.filefd.fsize;
  
@@ -3256,20 +3330,20 @@ void chunk_print (void * vck, FILE * fp)
 
         } else if (ent->cktype == CKT_FILE_NAME) {
             sprintf(buf+strlen(buf), "  FILE_NAME  len=%lld hdr=%d\n", ent->length, ent->header);
-            sprintf(buf+strlen(buf), "    offset=%lld fsize=%lld inode=%lu mtime=%lu mapoff=%lu maplen=%ld\n",
+            sprintf(buf+strlen(buf), "    offset=%lld fsize=%lld inode=%lu mtime=%lu mapoff=%lld maplen=%lld\n",
                     ent->u.filename.offset, ent->u.filename.fsize, ent->u.filename.inode,
                     ent->u.filename.mtime, ent->u.filename.mapoff, ent->u.filename.maplen);
             sprintf(buf+strlen(buf), "    fname=%s\n", ent->u.filename.fname);
 
         } else if (ent->cktype == CKT_FILE_PTR) {
             sprintf(buf+strlen(buf), "  FILE_PTR   len=%lld hdr=%d\n", ent->length, ent->header);
-            sprintf(buf+strlen(buf), "    offset=%lld fsize=%lld inode=%lu mtime=%lu mapoff=%lu maplen=%ld\n",
+            sprintf(buf+strlen(buf), "    offset=%lld fsize=%lld inode=%lu mtime=%lu mapoff=%lld maplen=%lld\n",
                     ent->u.fileptr.offset, ent->u.fileptr.fsize, ent->u.fileptr.inode,
                     ent->u.fileptr.mtime, ent->u.fileptr.mapoff, ent->u.fileptr.maplen);
 
         } else if (ent->cktype == CKT_FILE_DESC) {
             sprintf(buf+strlen(buf), "  FILE_DESC  len=%lld hdr=%d\n", ent->length, ent->header);
-            sprintf(buf+strlen(buf), "    offset=%lld fsize=%lld inode=%lu mtime=%lu mapoff=%lu maplen=%ld\n",
+            sprintf(buf+strlen(buf), "    offset=%lld fsize=%lld inode=%lu mtime=%lu mapoff=%lld maplen=%lld\n",
                     ent->u.filefd.offset, ent->u.filefd.fsize, ent->u.filefd.inode,
                     ent->u.filefd.mtime, ent->u.filefd.mapoff, ent->u.filefd.maplen);
 

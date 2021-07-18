@@ -237,6 +237,16 @@ int native_file_seek (void * vhfile, int64 offset)
     return 0;
 }
 
+int native_file_copy (void * vsrc, int64 offset, int64 length, void * vdst, int64 * actnum)
+{
+    NativeFile * hsrc = (NativeFile *)vsrc;
+    NativeFile * hdst = (NativeFile *)vdst;
+
+    if (!hsrc || !hdst) return -1;
+
+    return filefd_copy(native_file_fd(hsrc), offset, length, native_file_fd(hdst), actnum);
+}
+
 int native_file_resize (void * vhfile, int64 newsize)
 {
     NativeFile * hfile = (NativeFile *)vhfile;
@@ -272,7 +282,16 @@ int native_file_resize (void * vhfile, int64 newsize)
 
     return 0;
 }
- 
+
+char * native_file_name (void * vhfile)
+{
+    NativeFile * hfile = (NativeFile *)vhfile;
+
+    if (!hfile) return "";
+
+    return hfile->name;
+}
+
 int native_file_fd (void * vhfile)
 {
     NativeFile * hfile = (NativeFile *)vhfile;
@@ -660,11 +679,11 @@ void * native_file_open   (char * nfile, int flag)
     WIN32_FILE_ATTRIBUTE_DATA  wfad;
  
     if (!nfile) return NULL;
- 
+
     if (GetFileAttributesEx(nfile, GetFileExInfoStandard, &wfad) == 0) {
         ret = -10;
     }
- 
+
     if (ret < 0) {
         if ((flag & NF_MASK_RW) == NF_READ)
             return NULL; //only read existing file
@@ -719,6 +738,8 @@ void * native_file_open   (char * nfile, int flag)
         return NULL;
     }
  
+    hfile->fd = file_handle_to_fd(hfile->hfile);
+
     return hfile;
 }
  
@@ -865,7 +886,72 @@ int native_file_seek (void * vhfile, int64 offset)
  
     return 0;
 }
- 
+
+int native_file_copy (void * vsrc, int64 offset, int64 length, void * vdst, int64 * actnum)
+{
+    NativeFile * hsrc = (NativeFile *)vsrc;
+    NativeFile * hdst = (NativeFile *)vdst;
+    int64        fsize = 0;
+
+    static int   mmapsize = 8192 * 1024;
+    void       * pbyte = NULL;
+    void       * pmap = NULL;
+    HANDLE       hmap = NULL;
+    int64        maplen = 0;
+    int64        mapoff = 0;
+
+    int          onelen = 0;
+    int64        wlen = 0;
+    int          wbytes = 0;
+
+    int          ret = 0;
+    int          errcode = 0;
+
+    if (actnum) *actnum = 0;
+
+    if (!hsrc || !hdst) return -1;
+
+    fsize = native_file_size(hsrc);
+
+    if (offset < 0) offset = 0;
+    if (offset >= fsize)
+        return -100;
+
+    if (length < 0)
+        length = fsize - offset;
+    else if (length > fsize - offset)
+        length = fsize - offset;
+
+    for (wlen = 0; wlen < length; ) {
+        onelen = length - wlen;
+        if (onelen > mmapsize) onelen = mmapsize;
+
+        pbyte = file_mmap(NULL, native_file_handle(hsrc), offset + wlen,
+                          onelen, NULL, &hmap, &pmap, &maplen, &mapoff);
+        if (!pbyte) break;
+
+        for (wbytes = 0; wbytes < onelen; ) {
+            ret = native_file_write(hdst, (uint8 *)pbyte + wbytes, onelen - wbytes);
+            if (ret > 0) {
+                wbytes += ret;
+                wlen += ret;
+                continue;
+            }
+
+            file_munmap(hmap, pmap);
+
+            if (actnum) *actnum = wlen;
+            return ret;
+        } //end for (wbytes = 0; wbytes < onelen; )
+
+        file_munmap(hmap, pmap);
+    }
+
+    if (actnum) *actnum = wlen;
+
+    return (int)wlen;
+}
+
 int native_file_resize (void * vhfile, int64 newsize)
 {
     NativeFile    * hfile = (NativeFile *)vhfile;
@@ -893,6 +979,15 @@ int native_file_resize (void * vhfile, int64 newsize)
     LeaveCriticalSection(&hfile->fileCS);
  
     return 0;
+}
+
+char * native_file_name (void * vhfile)
+{
+    NativeFile * hfile = (NativeFile *)vhfile;
+ 
+    if (!hfile) return "";
+ 
+    return hfile->name;
 }
 
 HANDLE native_file_handle (void * vhfile)

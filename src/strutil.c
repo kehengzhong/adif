@@ -26,14 +26,14 @@ void ansi_2_unicode(wchar_t * wcrt, char * pstr)
 {
     int     len = 0;
     int     unicodeLen =0;
-    wchar_t pUnicode[256];
+    wchar_t pUnicode[4096];
 
     if (wcrt && pstr) {
         len = strlen(pstr);
         unicodeLen = MultiByteToWideChar(CP_ACP, 0, pstr, -1, NULL, 0);
-        memset(pUnicode, 0, (unicodeLen+1)*sizeof(wchar_t));
+        memset(pUnicode, 0, (unicodeLen + 1) * sizeof(wchar_t));
         MultiByteToWideChar( CP_ACP, 0, pstr, -1, (LPWSTR)pUnicode, unicodeLen);
-        _tcscpy(wcrt, pUnicode);
+        wcscpy(wcrt, pUnicode);
     }
 }
 #endif

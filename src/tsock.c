@@ -37,11 +37,6 @@
 #endif
 
 #ifdef _WIN32
-#include <Iphlpapi.h>
-#pragma comment(lib, "iphlpapi.lib")
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <windows.h>
 #include <io.h>
 #include <mswsock.h>
 #endif
@@ -313,8 +308,10 @@ retry:
 }
 
 
-void sock_addr_ntop (struct sockaddr * sa, char * buf)
+void sock_addr_ntop (void * psa, char * buf)
 {
+    struct sockaddr * sa = (struct sockaddr *)psa;
+
     if (!sa || !buf) return;
 
     if (sa->sa_family == AF_INET) {
@@ -324,8 +321,10 @@ void sock_addr_ntop (struct sockaddr * sa, char * buf)
     }
 }
 
-uint16 sock_addr_port (struct sockaddr * sa)
+uint16 sock_addr_port (void * psa)
 {
+    struct sockaddr * sa = (struct sockaddr *)psa;
+
     if (!sa) return 0;
 
     if (sa->sa_family == AF_INET) {
@@ -1715,10 +1714,11 @@ int tcp_writev (SOCKET fd, void * piov, int iovcnt, int * actnum, int * perr)
     return sentnum;
 
 #else
-
+ 
     struct iovec * iov = (struct iovec *)piov;
     int  i, ret, errcode;
-    int  wlen = 0;
+    int  wlen = 0, sendLen = 0;
+    uint8 * pbyte = NULL;
  
     if (actnum) *actnum = 0;
     if (perr) *perr = 0;
@@ -1727,24 +1727,32 @@ int tcp_writev (SOCKET fd, void * piov, int iovcnt, int * actnum, int * perr)
     if (!iov || iovcnt <= 0) return 0;
 
     for (i = 0; i < iovcnt; i++) {
-        ret = send(fd, iov[i].iov_base, iov[i].iov_len, MSG_NOSIGNAL);
-        if (ret > 0) {
-            wlen += ret;
-            continue;
-        }
-
-        if (ret == -1) {
-            errcode = WSAGetLastError();
-
-            if (actnum) *actnum = wlen;
-            if (perr) *perr = errcode;
-
-#ifdef _WIN32
-            if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
-                return wlen;
-            }
+        for (sendLen = 0; sendLen < (int)iov[i].iov_len; ) {
+#ifdef UNIX
+            errno = 0;
 #endif
-            return -30;
+            pbyte = iov[i].iov_base;
+            ret = send (fd, pbyte + sendLen, iov[i].iov_len - sendLen, MSG_NOSIGNAL);
+            if (ret == -1) {
+#ifdef _WIN32
+                errcode = WSAGetLastError();
+                if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
+#else
+                errcode = errno;
+                if (errcode == EINTR || errcode == EAGAIN || errcode == EWOULDBLOCK) {
+#endif
+                    if (actnum) *actnum = wlen;
+                    if (perr) *perr = errcode;
+                    return wlen;
+                }
+
+                if (actnum) *actnum = wlen;
+                if (perr) *perr = errcode;
+                return -30;
+            } else {
+                sendLen += ret;
+                wlen += ret;
+            }
         }
     }
 
@@ -1814,8 +1822,68 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
  
     return (int)wlen;
 
+#elif defined (_WIN32)
+
+    struct _stat   st;
+    uint8          pbyte[64*1024];
+
+    int            onelen = 0;
+    int64          wlen = 0;
+    int            wbytes = 0;
+
+    int            ret = 0;
+    int            errcode = 0;
+
+    if (actnum) *actnum = 0;
+    if (perr) *perr = 0;
+
+    if (fd == INVALID_SOCKET) return -1;
+    if (srcfd < 0) return -2;
+
+    if (_fstat(srcfd, &st) < 0)
+        return -3;
+
+    if (pos >= st.st_size) return 0;
+
+    wlen = st.st_size - pos;
+    if (size > wlen) size = wlen;
+
+    for (wlen = 0 ; wlen < size; ) {
+        onelen = size - wlen;
+        if (onelen > 64*1024) onelen = 64*1024;
+
+        ret = filefd_read(srcfd, pbyte, onelen);
+        if (ret <= 0) break;
+        onelen = ret;
+
+        for (wbytes = 0; wbytes < onelen; ) {
+            ret = send(fd, pbyte + wbytes, onelen - wbytes, MSG_NOSIGNAL);
+            if (ret > 0) {
+                wbytes += ret;
+                wlen += ret;
+                continue;
+            }
+
+            errcode = WSAGetLastError();
+            if (actnum) *actnum = wlen;
+            if (perr) *perr = errcode;
+
+            if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
+                return wlen;
+            }
+            return -30;
+        } //end for (wbytes = 0; wbytes < onelen; )
+    }
+
+    if (actnum) *actnum = wlen;
+    if (perr) *perr = 0;
+
+    return wlen;
+
 #else
+
     return 0;
+
 #endif
 }
 

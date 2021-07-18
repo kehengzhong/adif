@@ -98,7 +98,7 @@ inline void sys_cpuid (uint32 i, uint32 * buf)
  
     __asm__ (
 
-        "cpuid"
+    "cpuid"
  
     : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx) : "a" (i) );
  
@@ -373,7 +373,7 @@ void hdid9x (HDiskInfo * pinfo)
     ZeroMemory(&vers, sizeof(vers)); 
     //We start in 95/98/Me 
     h = CreateFile("\\\\.\\Smartvsd", 0, 0, 0, CREATE_NEW, 0, 0); 
-    if (!h) { 
+    if (h == INVALID_HANDLE_VALUE) { 
         //open smartvsd.vxd failed 
         return; 
     } 
@@ -449,7 +449,7 @@ void hdidnt(HDiskInfo * pinfo)
         sprintf(hd, "\\\\.\\PhysicalDrive%d",j); 
         h = CreateFile(hd, GENERIC_READ|GENERIC_WRITE, 
                    FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING,0,0); 
-        if (!h) { 
+        if (h == INVALID_HANDLE_VALUE) { 
             continue; 
         } 
         if (!DeviceIoControl(h, DFP_GET_VERSION, 0, 0, &vers, sizeof(vers), &i, 0)) { 

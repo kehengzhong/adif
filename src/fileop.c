@@ -354,7 +354,6 @@ int64 file_size (char * file)
     int64        nSize = 0;
     ulong        dwHigh = 0;
     ulong        dwSize = 0;
-    TCHAR        filePath[256];
 #endif
 
     if (!file) return -1;
@@ -368,9 +367,8 @@ int64 file_size (char * file)
 #endif
 
 #ifdef _WIN32
-    ansi_2_unicode(filePath, file);
-    hFile = (HANDLE)CreateFile(filePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-    if (hFile) {
+    hFile = (HANDLE)CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    if (hFile != INVALID_HANDLE_VALUE) {
         dwSize = GetFileSize(hFile, &dwHigh);
         nSize = dwHigh;
         nSize <<= 32;
@@ -1065,6 +1063,29 @@ int file_get_absolute_path (char * relative, char * abs, int abslen)
     return len;
 }
 
+#ifdef _WIN32
+char * realpath (char * path, char * resolvpath)
+{
+    char  rpath[4096];
+    DWORD ret = 0;
+
+    ret = GetFullPathName(path, sizeof(rpath), rpath, NULL);
+    if (ret <= 0) return NULL;
+
+    rpath[ret] = '\0';
+
+    if (resolvpath) {
+        strcpy(resolvpath, rpath);
+        return resolvpath;
+    }
+
+    resolvpath = malloc(ret + 1);
+    str_secpy(resolvpath, ret, rpath, ret);
+
+    return resolvpath;
+}
+#endif
+
 int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid, uint32 * appid)
 {
     FILE   * fp = NULL;
@@ -1105,8 +1126,8 @@ int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid
 
 #ifdef UNIX
 
-void * file_mmap (void * addr, int fd, off_t offset, size_t length, int prot, int flags,
-                  void ** ppmap, size_t * pmaplen, off_t * pmapoff)
+void * file_mmap (void * addr, int fd, int64 offset, int64 length, int prot, int flags,
+                  void ** ppmap, int64 * pmaplen, int64 * pmapoff)
 {
     struct stat   st;
     void        * pmap = NULL;
@@ -1141,7 +1162,7 @@ void * file_mmap (void * addr, int fd, off_t offset, size_t length, int prot, in
     return pmap + offset - pa_off;
 }
 
-int file_munmap (void * pmap, size_t maplen)
+int file_munmap (void * pmap, int64 maplen)
 {
     return munmap(pmap, maplen);
 }
@@ -1183,14 +1204,14 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
         maplen = fsize - pa_off;
  
     hmap = OpenFileMapping(
-                   FILE_MAP_ALL_ACCESS,   /* read/write access */
+                   PAGE_READONLY,         //FILE_MAP_ALL_ACCESS,   /* read/write access */
                    FALSE,                 /* do not inherit the name */
                    mapname );             /* name of mapping object */
     if (!hmap) {
         hmap = CreateFileMapping(
                    hfile,                       /* file handle intended to map */
                    NULL,                        /* default security */
-                   PAGE_READWRITE | SEC_COMMIT, /* read/write access */
+                   PAGE_READONLY,               //PAGE_READWRITE | SEC_COMMIT, /* read/write access */
                    maplen >> 32,                /* maximum object size (high-order DWORD) */
                    maplen & 0xFFFFFFFF,         /* maximum object size (low-order DWORD) */
                    mapname);                    /* name of mapping object */
@@ -1205,7 +1226,7 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
 
     pmap = MapViewOfFileEx(
                    hmap,                   /* handle to map object */
-                   FILE_MAP_ALL_ACCESS,    /* read/write permission */
+                   FILE_MAP_READ,          /* read/write permission */
                    pa_off >> 32,           /* high-order DWORD of the file offset */
                    pa_off & 0xFFFFFFFF,    /* low-order DWORD of offset where mapping is to begin */
                    maplen,                 /* number of bytes of a file mapping to map */
@@ -1310,7 +1331,7 @@ void * fbuf_init (char * fname, int pagecount)
     hfile = CreateFile(fname, GENERIC_READ,
                        FILE_SHARE_READ, NULL,
                        OPEN_EXISTING, 0, NULL);
-    if (!hfile) return NULL;
+    if (hfile == INVALID_HANDLE_VALUE) return NULL;
 
     dwSize = GetFileSize(hfile, &dwHigh);
     fsize = dwHigh;  fsize <<= 32;

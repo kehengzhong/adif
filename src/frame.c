@@ -20,16 +20,17 @@
 #include <netdb.h>
 
 extern void * memrchr (__const void *__s, int __c, size_t __n);
-
 #endif
 
 #define  DEFAULT_SIZE  128
 
 #ifdef _WIN32
+#include <io.h>
+
 void * memrchr (const void * s, int c, size_t n)
 {
-    while ( n && (((uint8 *)s)[n - 1] != (uint8)c) ) {
-            n--;
+    while(n && (((uint8 *)s)[n - 1] != (uint8)c)) {
+        n--;
     }
 
     return(n ? (uint8 *)s + n - 1 : NULL);
@@ -297,7 +298,6 @@ void frame_print (frame_p frm, FILE * fp, int start, int count, int margin)
     }
 }
 
-
 int frame_get (frame_p frm, int pos)
 {
     int c;
@@ -326,7 +326,6 @@ int frame_get (frame_p frm, int pos)
 
     return c;
 }
-
 
 int frame_getn (frame_p frm, int pos, void * bytes, int n)
 {

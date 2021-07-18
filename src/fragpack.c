@@ -6,7 +6,7 @@
 #include "btype.h"
 #include "memory.h"
 #include "vstar.h"
-#include "fileop.h"
+#include "nativefile.h"
 #include "mthread.h"
 #include "fragpack.h"
 
@@ -172,7 +172,7 @@ int64 frag_pack_curlen (void * vfrag)
     return 0;
 }
 
-int frag_pack_read (void * vfrag, int fd, int64 pos)
+int frag_pack_read (void * vfrag, void * hfile, int64 pos)
 {
     FragPack * frag = (FragPack *)vfrag;
     FragItem * item = NULL;
@@ -181,15 +181,15 @@ int frag_pack_read (void * vfrag, int fd, int64 pos)
     void     * p = NULL;
 
     if (!frag) return -1;
-    if (fd < 0) return -2;
+    if (!hfile) return -2;
 
     EnterCriticalSection(&frag->packCS);
 
-    lseek(fd, SEEK_SET, pos);
+    native_file_seek(hfile, pos);
 
-    filefd_read(fd, &frag->length, 8);
+    native_file_read(hfile, &frag->length, 8);
 
-    filefd_read(fd, &len, 4);
+    native_file_read(hfile, &len, 4);
     if ((len % sizeof(FragItem)) != 0) {
         LeaveCriticalSection(&frag->packCS);
         return -100;
@@ -201,7 +201,7 @@ int frag_pack_read (void * vfrag, int fd, int64 pos)
     }
 
     p = kalloc(len);
-    filefd_read(fd, p, len);
+    native_file_read(hfile, p, len);
 
     vstar_zero(frag->pack_var);
     frag->rcvlen = 0;
@@ -222,22 +222,22 @@ int frag_pack_read (void * vfrag, int fd, int64 pos)
     return 0;
 }
 
-int frag_pack_write (void * vfrag, int fd, int64 pos)
+int frag_pack_write (void * vfrag, void * hfile, int64 pos)
 {
     FragPack * frag = (FragPack *)vfrag;
     int        len = 0;
  
     if (!frag) return -1;
-    if (fd < 0) return -2;
+    if (!hfile) return -2;
  
     EnterCriticalSection(&frag->packCS);
 
     len = vstar_len(frag->pack_var);
 
-    lseek(fd, SEEK_SET, pos);
-    filefd_write(fd, &frag->length, 8);
-    filefd_write(fd, &len, 4);
-    filefd_write(fd, vstar_ptr(frag->pack_var), len);
+    native_file_seek(hfile, pos);
+    native_file_write(hfile, &frag->length, 8);
+    native_file_write(hfile, &len, 4);
+    native_file_write(hfile, vstar_ptr(frag->pack_var), len);
 
     LeaveCriticalSection(&frag->packCS);
 

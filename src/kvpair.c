@@ -829,7 +829,11 @@ int kvpair_add_int64 (void * vobj, void * key, int keylen, int64 val)
     if (keylen < 0) keylen = str_len(key);
     if (keylen <= 0) return -3;
  
+#ifdef _WIN32
+    sprintf(buf, "%I64d", val);
+#else
     sprintf(buf, "%lld", val);
+#endif
     return kvpair_add(obj, key, keylen, buf, -1);
 }
 
@@ -844,7 +848,11 @@ int kvpair_add_uint64 (void * vobj, void * key, int keylen, uint64 val)
     if (keylen < 0) keylen = str_len(key);
     if (keylen <= 0) return -3;
  
+#ifdef _WIN32
+    sprintf(buf, "%I64u", val);
+#else
     sprintf(buf, "%llu", val);
+#endif
     return kvpair_add(obj, key, keylen, buf, -1);
 }
 
