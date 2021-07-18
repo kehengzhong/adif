@@ -58,8 +58,8 @@ typedef struct chunk_entity {
 #endif
             void     * pbyte;
             void     * pmap;
-            size_t     maplen;
-            off_t      mapoff;
+            int64      maplen;
+            int64      mapoff;
             int64      offset;
             int64      fsize;
             long       inode;
@@ -74,8 +74,8 @@ typedef struct chunk_entity {
 #endif
             void     * pbyte;
             void     * pmap;
-            size_t     maplen;
-            off_t      mapoff;
+            int64      maplen;
+            int64      mapoff;
             int64      offset;
             int64      fsize;
             long       inode;
@@ -89,8 +89,8 @@ typedef struct chunk_entity {
 #endif
             void     * pbyte;
             void     * pmap;
-            size_t     maplen;
-            off_t      mapoff;
+            int64      maplen;
+            int64      mapoff;
             int64      offset;
             int64      fsize;
             long       inode;
@@ -216,7 +216,7 @@ int    chunk_remove (void * vck, int64 pos, int httpchunk);
 
 
 typedef struct {
-    uint8         vectype;  //0-unknown  1-mem buffer  1-file
+    uint8         vectype;  //0-unknown  1-mem buffer  2-file
 
     int64         offset;   //offset from the begining of the chunk
     int64         size;     //available size
@@ -225,6 +225,9 @@ typedef struct {
     int           iovcnt;
 
     int           filefd;
+#ifdef _WIN32
+    HANDLE        hfile;
+#endif
     int64         fpos;      //file current offset
     int64         filesize;  //actual file size
 } chunk_vec_t;

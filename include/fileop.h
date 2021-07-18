@@ -57,6 +57,9 @@ int file_conv_charset (char * srcchst, char * dstchst, char * srcfile, char * ds
 
 int WinPath2UnixPath (char * path, int len);
 int UnixPath2WinPath (char * path, int len);
+#ifdef _WIN32
+char * realpath (char * path, char * resolvpath);
+#endif
 
 char * file_extname (char * file);
 char * file_basename (char * file);
@@ -66,9 +69,9 @@ int file_get_absolute_path (char * relative, char * abs, int abslen);
 int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid, uint32 * appid);
 
 #ifdef UNIX
-void * file_mmap (void * addr, int fd, off_t offset, size_t length, int prot, int flags,
-                  void ** ppmap, size_t * pmaplen, off_t * pmapoff);
-int file_munmap (void * pmap, size_t maplen);
+void * file_mmap (void * addr, int fd, int64 offset, int64 length, int prot, int flags,
+                  void ** ppmap, int64 * pmaplen, int64 * pmapoff);
+int file_munmap (void * pmap, int64 maplen);
 #endif
 
 #ifdef _WIN32

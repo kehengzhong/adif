@@ -8,11 +8,9 @@
 
 
 #ifdef _WIN32
-#pragma comment(lib,"Ws2_32.lib")
 #include <winsock2.h>
-#include <ws2tcpip.h>
+#pragma comment(lib,"Ws2_32.lib")
 #include <windows.h>
-#include <io.h>
 #endif
 
 #include <stdio.h>
@@ -159,10 +157,6 @@ struct iovec {
 
 #ifndef strtoull
 #define strtoull strtoul
-#endif
-
-#ifndef strcpy
-#define strcpy winstrcpy
 #endif
 
 int gettimeofday(struct timeval *tv, struct timezone *tz);

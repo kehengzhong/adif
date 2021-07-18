@@ -17,6 +17,13 @@
 #include <sys/uio.h>
 #endif
 
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#include <Iphlpapi.h>
+#pragma comment(lib, "iphlpapi.lib")
+#endif
+
+
 #if 0
 /* ======== defined in /usr/include/bits/sockaddr.h ========= */
 
@@ -54,6 +61,7 @@ typedef unsigned short int sa_family_t;
 #define PF_INET         2       /* IP protocol family.  */
 #define PF_INET6        10      /* IP version 6.  */
 #define PF_PACKET       17      /* Packet family.  */
+#define PF_IRDA         23      /* IRDA sockets.  */
 
 /* Address families.  */
 #define AF_UNSPEC       PF_UNSPEC
@@ -63,6 +71,37 @@ typedef unsigned short int sa_family_t;
 #define AF_INET         PF_INET
 #define AF_INET6        PF_INET6
 #define AF_PACKET       PF_PACKET
+
+/* Standard well-defined IP protocols.  */
+enum {
+  IPPROTO_IP = 0,               /* Dummy protocol for TCP               */
+  IPPROTO_ICMP = 1,             /* Internet Control Message Protocol    */
+  IPPROTO_IGMP = 2,             /* Internet Group Management Protocol   */
+  IPPROTO_IPIP = 4,             /* IPIP tunnels (older KA9Q tunnels use 94) */
+  IPPROTO_TCP = 6,              /* Transmission Control Protocol        */
+  IPPROTO_EGP = 8,              /* Exterior Gateway Protocol            */
+  IPPROTO_PUP = 12,             /* PUP protocol                         */
+  IPPROTO_UDP = 17,             /* User Datagram Protocol               */
+  IPPROTO_IDP = 22,             /* XNS IDP protocol                     */
+  IPPROTO_DCCP = 33,            /* Datagram Congestion Control Protocol */
+  IPPROTO_RSVP = 46,            /* RSVP protocol                        */
+  IPPROTO_GRE = 47,             /* Cisco GRE tunnels (rfc 1701,1702)    */
+ 
+  IPPROTO_IPV6   = 41,          /* IPv6-in-IPv4 tunnelling              */
+ 
+  IPPROTO_ESP = 50,            /* Encapsulation Security Payload protocol */
+  IPPROTO_AH = 51,             /* Authentication Header protocol       */
+  IPPROTO_BEETPH = 94,         /* IP option pseudo header for BEET */
+  IPPROTO_PIM    = 103,         /* Protocol Independent Multicast       */
+ 
+  IPPROTO_COMP   = 108,                /* Compression Header protocol */
+  IPPROTO_SCTP   = 132,         /* Stream Control Transport Protocol    */
+  IPPROTO_UDPLITE = 136,        /* UDP-Lite (RFC 3828)                  */
+ 
+  IPPROTO_RAW    = 255,         /* Raw IP packets                       */
+  IPPROTO_MAX
+};
+
 
 struct sockaddr {
     sa_family_t sa_family;     /* Common data: address family and length.  */ 
@@ -273,8 +312,8 @@ int sock_read_ready (SOCKET fd, int ms);
 int sock_write_ready (SOCKET fd, int ms);
 
 
-void   sock_addr_ntop (struct sockaddr * sa, char * buf);
-uint16 sock_addr_port (struct sockaddr * sa);
+void   sock_addr_ntop (void * sa, char * buf);
+uint16 sock_addr_port (void * sa);
 
 int sock_inet_addr_parse (char * text, int len, uint32 * inaddr, int * retlen);
 int sock_inet6_addr_parse (char * p, int len, char * addr, int * retlen);
@@ -306,8 +345,8 @@ SOCKET tcp_listen       (char * localip, int port, void * psockopt);
 
 SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, int * succ);
 SOCKET tcp_connect      (char * host, int port, char * lip, int lport);
-SOCKET tcp_ep_connect   (ep_sockaddr_t * addr, int nblk, char * lip, int lport, void * popt, int * succ);
 SOCKET tcp_nb_connect   (char * host, int port, char * lip, int lport, int * consucc);
+SOCKET tcp_ep_connect   (ep_sockaddr_t * addr, int nblk, char * lip, int lport, void * popt, int * succ);
 
 int    tcp_connected    (SOCKET fd);
 

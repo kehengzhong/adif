@@ -40,8 +40,8 @@ int64  frag_pack_length     (void * vfrag);
 int64  frag_pack_rcvlen     (void * vfrag, int * fragnum);
 int64  frag_pack_curlen     (void * vfrag);
 
-int    frag_pack_read (void * vfrag, int fd, int64 pos);
-int    frag_pack_write (void * vfrag, int fd, int64 pos);
+int    frag_pack_read (void * vfrag, void * hfile, int64 pos);
+int    frag_pack_write (void * vfrag, void * hfile, int64 pos);
 
 int    frag_pack_add (void * vfrag, int64 pos, int64 len);
 int    frag_pack_del (void * vfrag, int64 pos, int64 len);

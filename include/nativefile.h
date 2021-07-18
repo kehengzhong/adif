@@ -69,7 +69,10 @@ int    native_file_close  (void * hfile);
 int    native_file_read   (void * hfile, void * buf, int size);
 int    native_file_write  (void * hfile, void * buf, int size);
 int    native_file_seek   (void * hfile, int64 offset);
+int    native_file_copy   (void * vsrc, int64 offset, int64 length, void * vdst, int64 * actnum);
 int    native_file_resize (void * hfile, int64 newsize);
+
+char * native_file_name (void * vhfile);
 
 #ifdef _WIN32
 HANDLE native_file_handle (void * vhfile);
