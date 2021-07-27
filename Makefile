@@ -32,7 +32,7 @@ solib = $(dst)/$(PKG_SO_LIB)
 
 PKG_VER_MAJOR = 2
 PKG_VER_MINOR = 6
-PKG_VER_RELEASE = 25
+PKG_VER_RELEASE = 26
 PKG_VER = $(PKG_VER_MAJOR).$(PKG_VER_MINOR).$(PKG_VER_RELEASE)
 
 PKG_VERSO_LIB = $(PKG_SO_LIB).$(PKG_VER)
@@ -92,7 +92,7 @@ ifeq ($(UNAME), FreeBSD)
 endif
 
 ifeq ($(UNAME), Darwin)
-  DEFS += -DOSX
+  DEFS += -D_OSX_
 
   PKG_VERSO_LIB = $(PKGLIB).$(PKG_VER).dylib
   PKG_SONAME_LIB = $(PKGLIB).$(PKG_VER_MAJOR).dylib
