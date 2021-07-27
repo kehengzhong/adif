@@ -30,7 +30,15 @@
 
 #include <sys/stat.h>
 #include <sys/uio.h>
+#include <ifaddrs.h>
+
+#ifdef _LINUX_
 #include <sys/sendfile.h>
+#endif
+#ifdef _FREEBSD_
+#include <netinet/tcp_fsm.h>
+#include <net/if_dl.h>
+#endif
 
 #define SENDFILE_MAXSIZE  2147479552L
 
@@ -307,6 +315,23 @@ retry:
     return 0;
 }
 
+void sock_addr_to_epaddr (void * psa, ep_sockaddr_t * addr)
+{
+    struct sockaddr * sa = (struct sockaddr *)psa;
+
+    if (!sa || !addr) return;
+
+    addr->family = sa->sa_family;
+
+    if (sa->sa_family == AF_INET) {
+        addr->socklen = sizeof(addr->u.addr4);
+        addr->u.addr4 = *(struct sockaddr_in *)sa;
+
+    } else if (sa->sa_family == AF_INET6) {
+        addr->socklen = sizeof(addr->u.addr6);
+        addr->u.addr6 = *(struct sockaddr_in6 *)sa;
+    }
+}
 
 void sock_addr_ntop (void * psa, char * buf)
 {
@@ -810,11 +835,13 @@ int sock_option_set (SOCKET fd, sockopt_t * opt)
     }
 #endif
 
+#ifdef IP_PKTINFO
     if (opt->mask & SOM_IPPKTINFO) {
         opt->ip_pktinfo_ret = 
             setsockopt(fd, IPPROTO_IP, IP_PKTINFO,
                        (const void *)&opt->ip_pktinfo, sizeof(int));
     }
+#endif
 
 #ifdef IPV6_RECVPKTINFO
     if (opt->mask & SOM_IPV6RECVPKTINFO) {
@@ -1193,7 +1220,11 @@ int tcp_connected (SOCKET fd)
 
     ret = getsockopt(fd, IPPROTO_TCP, TCP_INFO, &info, (socklen_t *)&len); 
     if (ret == SOCKET_ERROR) return 0;
-    if (info.tcpi_state == TCP_ESTABLISHED) { 
+#ifdef _FREEBSD_
+    if (info.tcpi_state == TCPS_ESTABLISHED) {
+#else
+    if (info.tcpi_state == TCP_ESTABLISHED) {
+#endif
         return 1; 
     } 
 
@@ -1766,7 +1797,7 @@ int tcp_writev (SOCKET fd, void * piov, int iovcnt, int * actnum, int * perr)
 int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int * perr)
 {
 #ifdef UNIX
-    off_t       offset = pos;
+    off_t       offval = pos;
     int64       wlen = 0;
     int64       onelen = 0;
     int         ret, err;
@@ -1782,15 +1813,21 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
     if (fstat(srcfd, &st) < 0)
         return -3;
 
-    if (offset >= st.st_size) return 0;
+    if (pos >= st.st_size) return 0;
  
-    wlen = st.st_size - offset;
+    wlen = st.st_size - pos;
     if (size > wlen) size = wlen;
 
     for (wlen = 0 ; wlen < size; ) {
         onelen = min(size - wlen, SENDFILE_MAXSIZE);
 
-        ret = sendfile(fd, srcfd, &offset, onelen);
+#ifdef _FREEBSD_
+        ret = sendfile(srcfd, fd, pos, onelen, NULL, &offval, 0);
+#elif defined(_OSX_)
+        ret = sendfile(srcfd, fd, pos, &offval, NULL, 0);
+#else
+        ret = sendfile(fd, srcfd, &offval, onelen);
+#endif
  
         if (ret < 0) { 
             err = errno;
@@ -1805,8 +1842,14 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
 
             if (actnum) *actnum = wlen;
             return -30;
-
-        } else if (ret == 0) { 
+        }
+#if defined(_FREEBSD_) || defined(_OSX_) || defined(_MACOS_)
+        else {
+            wlen += offval;
+            pos += offval;
+        }
+#else
+        else if (ret == 0) { 
             /* if sendfile returns zero, then someone has truncated the file,
              * so the offset became beyond the end of the file */
 
@@ -1816,7 +1859,8 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
         } else {
             wlen += ret;  
         }
-    }    
+#endif
+    }
 
     if (actnum) *actnum = wlen;
  
@@ -1883,7 +1927,6 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
 #else
 
     return 0;
-
 #endif
 }
 
@@ -1958,9 +2001,7 @@ SOCKET udp_listen (char * localip, int port, void * psockopt)
 }
 
 
-
-#ifdef UNIX
-#ifndef _SOLARIS_
+#ifdef _LINUX_
 
 #define inaddrr(x) (*(struct in_addr *) &ifr->x[sizeof sa.sin_port])
 #define IFRSIZE   ((int)(size * sizeof (struct ifreq)))
@@ -1971,7 +2012,6 @@ int get_selfaddr (int num, AddrItem * pitem)
     int                 sockfd, size = 1;
     struct ifreq      * ifr;
     struct ifconf       ifc;
-    struct sockaddr_in  sa;
 
     if (!pitem) return -1;
 
@@ -2013,15 +2053,15 @@ int get_selfaddr (int num, AddrItem * pitem)
 
         strncpy(pitem[i].ifac, ifr->ifr_name, sizeof(pitem[i].ifac)-1);
 
-        if (ifr->ifr_addr.sa_family == AF_INET)
-            pitem[i].addr = ifr->ifr_addr;
-        else if (ifr->ifr_addr.sa_family == AF_INET6)
-            memcpy(&pitem[i].addr, &ifr->ifr_addr, sizeof(struct sockaddr_in6));
+        if (ifr->ifr_addr.sa_family == AF_INET) {
+            sock_addr_to_epaddr(&ifr->ifr_addr, &pitem[i].addr);
+            sock_addr_to_epaddr(&ifr->ifr_netmask, &pitem[i].netmask);
+        } else if (ifr->ifr_addr.sa_family == AF_INET6) {
+            sock_addr_to_epaddr(&ifr->ifr_addr, &pitem[i].addr);
+            sock_addr_to_epaddr(&ifr->ifr_netmask, &pitem[i].netmask);
+        }
 
         sock_addr_ntop(&ifr->ifr_addr, pitem[i].ipstr);
-
-        pitem[i].ip = inaddrr(ifr_addr.sa_data);
-        pitem[i].netmask = inaddrr(ifr_netmask.sa_data);
 
         /* This won't work on HP-UX 10.20 as there's no SIOCGIFHWADDR ioctl. You'll
          * need to use DLPI or the NETSTAT ioctl on /dev/lan0, etc (and you'll need
@@ -2043,13 +2083,13 @@ int get_selfaddr (int num, AddrItem * pitem)
             default:
                 break;
             case ARPHRD_NETROM:
-            case ARPHRD_ETHER:  
+            case ARPHRD_ETHER:
             case ARPHRD_EETHER:
-            case ARPHRD_IEEE802: 
+            case ARPHRD_IEEE802:
                 pitem[i].type = ADDR_TYPE_ETHERNET;
                 break;
             case ARPHRD_PPP:
-                pitem[i].type = ADDR_TYPE_PPP; 
+                pitem[i].type = ADDR_TYPE_PPP;
                 break;
             case ARPHRD_SLIP:
             case ARPHRD_CSLIP:
@@ -2080,11 +2120,8 @@ int get_selfaddr (int num, AddrItem * pitem)
     if (ifc.ifc_req) free(ifc.ifc_req);
     return i;
 }
-#endif
-#endif
 
-
-#ifdef _WIN32
+#elif defined(_WIN32)
 
 int get_selfaddr (int num, AddrItem * pitem)
 {
@@ -2096,8 +2133,8 @@ int get_selfaddr (int num, AddrItem * pitem)
     DWORD dwStatus = GetAdaptersInfo(        // Call GetAdapterInfo
         NULL,                                // [out] buffer to receive data
         &dwBufLen);                            // [in] size of receive data buffer
-    if (dwStatus != ERROR_SUCCESS && 
-        dwStatus != ERROR_BUFFER_OVERFLOW) 
+    if (dwStatus != ERROR_SUCCESS &&
+        dwStatus != ERROR_BUFFER_OVERFLOW)
         return -1;                            // Verify return value is valid, no buffer overflow
 
     porig = pAdapterInfo = malloc(dwBufLen);
@@ -2113,9 +2150,15 @@ int get_selfaddr (int num, AddrItem * pitem)
 
         strncpy(pitem[i].ipstr, pAdapterInfo->IpAddressList.IpAddress.String, sizeof(pitem[i].ipstr-1));
 
-        pitem[i].ip.S_un.S_addr = inet_addr(pAdapterInfo->IpAddressList.IpAddress.String);
-        memcpy(pitem[i].mac, 
-            (char *)pAdapterInfo->Address, 
+        sock_addr_parse(pAdapterInfo->IpAddressList.IpAddress.String,
+                        strlen(pAdapterInfo->IpAddressList.IpAddress.String),
+                        0, &pitem[i].addr);
+        sock_addr_parse(pAdapterInfo->IpAddressList.IpMask.String,
+                        strlen(pAdapterInfo->IpAddressList.IpMask.String),
+                        0, &pitem[i].netmask);
+
+        memcpy(pitem[i].mac,
+            (char *)pAdapterInfo->Address,
             pAdapterInfo->AddressLength );        // MAC address
 
         switch (pAdapterInfo->Type) {
@@ -2165,4 +2208,94 @@ int get_selfaddr (int num, AddrItem * pitem)
     return i;
 }
 
+#else
+
+static int addr_item_find (AddrItem * pitem, int num, char * name)
+{
+    int i;
+
+    if (!name) return -1;
+
+    if (!pitem || num <= 0) return 0;
+
+    for (i = 0; i < num; i++) {
+        if (strcasecmp(pitem[i].ifac, name) == 0)
+            return i;
+    }
+
+    return i;
+}
+
+int get_selfaddr (int num, AddrItem * pitem)
+{
+    struct ifaddrs     * ifa, * curifa;
+#ifdef _LINUX_
+    struct sockaddr_ll   macaddr;
+#else
+    struct sockaddr_dl   macaddr;
 #endif
+    int                  addrnum = 0;
+    int                  curind = 0;
+
+    if (num <= 0 || !pitem) return -1;
+
+    if (getifaddrs(&ifa) < 0) return -10;
+
+    for (curifa = ifa; curifa != NULL && addrnum < num; curifa = curifa->ifa_next) {
+        if (!curifa->ifa_addr)
+            continue;
+
+        if ((curifa->ifa_flags & IFF_UP) == 0)
+            continue;
+
+        if (curifa->ifa_flags & IFF_LOOPBACK)
+            continue;
+
+        curind = addr_item_find(pitem, addrnum, curifa->ifa_name);
+        if (curind < 0) continue;
+        if (curind >= addrnum) addrnum++;
+
+        str_secpy(pitem[curind].ifac, sizeof(pitem[curind].ifac)-1, curifa->ifa_name, -1);
+
+        switch (curifa->ifa_addr->sa_family) {
+        case AF_INET:
+        case AF_INET6:
+            if (pitem[curind].addr.socklen <= 0) {
+                sock_addr_to_epaddr(curifa->ifa_addr, &pitem[curind].addr);
+                sock_addr_ntop(&pitem[curind].addr, pitem[curind].ipstr);
+                sock_addr_to_epaddr(curifa->ifa_netmask, &pitem[curind].netmask);
+
+            } else {
+                sock_addr_to_epaddr(curifa->ifa_addr, &pitem[curind].addr2);
+                sock_addr_ntop(&pitem[curind].addr, pitem[curind].ipstr2);
+                sock_addr_to_epaddr(curifa->ifa_netmask, &pitem[curind].netmask2);
+            }
+            break;
+
+#ifdef _LINUX_
+        case AF_PACKET:
+            memcpy(&macaddr, curifa->ifa_addr, sizeof(struct sockaddr_ll));
+            if (macaddr.sll_halen < 6)
+                continue;
+
+            memcpy(pitem[curind].mac, macaddr.sll_addr, macaddr.sll_halen);
+            break;
+#else
+        case AF_LINK:
+            memcpy(&macaddr, curifa->ifa_addr, sizeof(struct sockaddr_dl));
+            if (macaddr.sdl_alen < 6)
+                continue;
+
+            memcpy(pitem[curind].mac, macaddr.sdl_data + macaddr.sdl_nlen, macaddr.sdl_alen);
+            break;
+#endif
+        }
+    }
+
+    freeifaddrs(ifa);
+
+    return addrnum;
+}
+
+#endif
+

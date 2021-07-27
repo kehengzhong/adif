@@ -20,10 +20,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/wait.h>
-#include <sys/io.h>
 #include <pwd.h>
 #include <unistd.h>
+#ifdef _LINUX_
+#include <sys/io.h>
 #include <sys/sysinfo.h>
+#endif
 #endif
 
 int get_cpu_num ()
@@ -38,9 +40,11 @@ int get_cpu_num ()
 
 #elif defined UNIX
     num = sysconf(_SC_NPROCESSORS_ONLN);
+#ifdef _LINUX_
     if (num <= 0) {
         num = get_nprocs();
     }
+#endif
 #endif
 
     return num;
@@ -110,6 +114,7 @@ inline void sys_cpuid (uint32 i, uint32 * buf)
  
 #endif
  
+#ifdef _LINUX_
 
 static int WaitIde()
 {
@@ -179,6 +184,7 @@ int read_harddisk_info (HDiskInfo * pinfo)
 
     return 0;
 }
+#endif
 
 
 int daemonize (char * lockfile, char * pinstalldir)

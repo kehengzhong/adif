@@ -12,8 +12,16 @@
 #include <sys/time.h>
 #include <fcntl.h>
 
+#ifdef _LINUX_
 #include <linux/sem.h>
 #include <linux/shm.h>
+#else
+#include <sys/types.h>
+#include <sys/ipc.h>
+#define _WANT_SEMUN
+#include <sys/sem.h>
+#include <sys/shm.h>
+#endif
 
 extern key_t ftok (const char * pathname, int proj_id);
 
@@ -551,12 +559,17 @@ int file_mutex_locked (char * filename)
 
 ulong get_threadid ()
 {
-    #ifdef UNIX
-        return pthread_self();
-    #endif
+#ifdef UNIX
+#ifdef _FREEBSD_
+#include <pthread_np.h>
+    return pthread_getthreadid_np();
+#else
+    return pthread_self();
+#endif
+#endif
 
-    #ifdef _WIN32
-        return GetCurrentThreadId();
-    #endif
+#ifdef _WIN32
+    return GetCurrentThreadId();
+#endif
 }
 

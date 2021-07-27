@@ -2,57 +2,64 @@
  * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
  */
-
+ 
 #include "btype.h"
 #include "fileop.h"
 #include "strutil.h"
 #include "memory.h"
 #include "filecache.h"
 #include "mimetype.h"
-
+ 
 #ifdef UNIX
 #include <iconv.h>
 #include <fcntl.h>
 #include <sys/time.h>
-#include <sys/sendfile.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
+
+#ifdef _LINUX_
+#include <sys/sendfile.h>
+#endif
+#ifdef _FREEBSD_
+#include <sys/types.h>
+#include <sys/socket.h>
 #endif
 
+#endif
+ 
 #ifdef _WIN32
 #include <direct.h>
 #include <tchar.h>
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
-
-extern void ansi_2_unicode (wchar_t * wcrt, char * pstr);
-
+ 
+ 
 int file_handle_to_fd (HANDLE hfile)
 {
     if (!hfile) return -1;
-
+ 
     return _open_osfhandle((intptr_t)hfile, _O_APPEND | _O_RDONLY);
 }
-
+ 
 HANDLE fd_to_file_handle (int fd)
 {
     return (HANDLE)_get_osfhandle(fd);
 }
-
+ 
 time_t FileTimeToUnixTime (FILETIME ft)
 {
     ULARGE_INTEGER ui;
-
+ 
     ui.LowPart  =  ft.dwLowDateTime;
     ui.HighPart =  ft.dwHighDateTime;
-
+ 
     return ( (ui.QuadPart  -  116444736000000000LL)  /  10000000 );
 }
-
+ 
 #endif
-
-
+ 
+ 
 int filefd_read (int fd, void * pbuf, int size)
 {
     int          ret = 0;
@@ -70,11 +77,11 @@ int filefd_read (int fd, void * pbuf, int size)
                 continue;
             }
             return -100;
-
+ 
         } else if (ret == 0) { //reach end of the file
             break;
         }
-
+ 
         len += ret;
     }
  
@@ -180,7 +187,7 @@ int filefd_writev (int fd, void * piov, int iovcnt, int64 * actnum)
     return wlen;
 #endif
 }
-
+ 
 int filefd_copy (int fdin, int64 offset, int64 length, int fdout, int64 * actnum)
 {
     int64        size = 0;
@@ -196,7 +203,7 @@ int filefd_copy (int fdin, int64 offset, int64 length, int fdout, int64 * actnum
 #endif
  
     if (actnum) *actnum = 0;
-
+ 
     if (fdin < 0) return -1;
     if (fdout < 0) return -2;
  
@@ -204,7 +211,7 @@ int filefd_copy (int fdin, int64 offset, int64 length, int fdout, int64 * actnum
         return -10;
  
     size = st.st_size;
-
+ 
     if (offset < 0) offset = 0;
     if (offset >= size)
         return -100;
@@ -218,24 +225,39 @@ int filefd_copy (int fdin, int64 offset, int64 length, int fdout, int64 * actnum
     toread = min(length, SENDFILE_MAXSIZE);
  
     while (offset < size) {
+#ifdef _FREEBSD_
+        ret = sendfile(fdin, fdout, offset, toread, NULL, &offval, 0);
+#elif defined(_OSX_)
+        ret = sendfile(fdin, fdout, offset, &offval, NULL, 0);
+#else
         ret = sendfile(fdout, fdin, &offval, toread);
+#endif
         if (ret < 0) {
             if (errno == EINTR || errno == EAGAIN) {
                 usleep(50);
                 continue;
             }
             return -400;
-
-        } else if (ret == 0) {
+        }
+#if defined(_FREEBSD_) || defined(_OSX_) || defined(_MACOS_)
+        else {
+            if (actnum) *actnum += offval;
+            length -= offval;
+            toread = min(length, SENDFILE_MAXSIZE);
+            offset += offval;
+        }
+#else
+        else if (ret == 0) {
             /* if sendfile returns zero, then someone has truncated the file,
              * so the offset became beyond the end of the file */
             return -500;
-
+ 
         } else {
             if (actnum) *actnum += ret;
             length -= ret;
             toread = min(length, SENDFILE_MAXSIZE);
         }
+#endif
     }
  
 #else
@@ -254,19 +276,19 @@ int filefd_copy (int fdin, int64 offset, int64 length, int fdout, int64 * actnum
                 if (actnum) *actnum += len;
             }
         }
-
+ 
         if (len < 0) return -60;
     }
 #endif
  
     return 0;
 }
-
-
+ 
+ 
 long file_read (FILE * fp, void * buf, long readlen)
 {
     long i, iRet = 0;
-
+ 
     if (!fp) return -1;
     if (!buf) return -2;
     if (readlen <= 0) return -3;
@@ -275,16 +297,16 @@ long file_read (FILE * fp, void * buf, long readlen)
         iRet = fread((uint8 *)buf + i, 1, readlen - i, fp);
         i += iRet;
     }
-
+ 
     return i;
 }
-
-
-
+ 
+ 
+ 
 long file_write (FILE * fp, void * buf, long writelen)
 {
     long i, iRet = 0;
-
+ 
     if (!fp) return -1;
     if (!buf) return -2;
     if (writelen <= 0) return -3;
@@ -294,30 +316,30 @@ long file_write (FILE * fp, void * buf, long writelen)
         i += iRet;
     }
     fflush(fp);
-
+ 
     return i;
 }
-
+ 
 int64 file_seek (FILE * fp, int64 pos, int whence)
 {
     int   ret = 0;
-
+ 
     if (!fp) return -1;
-
+ 
 #ifdef UNIX
     ret = fseeko(fp, pos, whence);
     if (ret >= 0) return ftello(fp);
 #endif
-
+ 
 #ifdef _WIN32
     ret = fseek(fp, (long)pos, whence);
     if (ret >= 0) return (int64)ftell(fp);
 #endif
-
+ 
     return -100;
 }
-
-
+ 
+ 
 int file_valid (FILE * fp)
 {
 #ifdef UNIX
@@ -326,11 +348,11 @@ int file_valid (FILE * fp)
 #ifdef _WIN32
     struct _stat st;
 #endif
-
+ 
     if (!fp) return 0;
-
+ 
     memset(&st, 0, sizeof(st));
-
+ 
 #ifdef UNIX
     if (fstat(fileno(fp), &st) != 0) return 0;
     if (S_ISREG(st.st_mode)) return 1;
@@ -339,11 +361,11 @@ int file_valid (FILE * fp)
     if (_fstat(fileno(fp), &st) != 0) return 0;
     if (!(_S_IFDIR & st.st_mode)) return 1;
 #endif
-
+ 
     return 0;
 }
-
-
+ 
+ 
 int64 file_size (char * file)
 {
 #ifdef UNIX
@@ -355,17 +377,17 @@ int64 file_size (char * file)
     ulong        dwHigh = 0;
     ulong        dwSize = 0;
 #endif
-
+ 
     if (!file) return -1;
-
+ 
 #ifdef UNIX
     if (stat(file, &fs)== -1) {
         return -2;
     }
-
+ 
     return (int64)fs.st_size;
 #endif
-
+ 
 #ifdef _WIN32
     hFile = (HANDLE)CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
     if (hFile != INVALID_HANDLE_VALUE) {
@@ -380,22 +402,22 @@ int64 file_size (char * file)
     }
 #endif
 }
-
-
+ 
+ 
 int file_stat (char * file, void * pfs)
 {
 #ifdef UNIX
     struct stat fs;
-
+ 
     if (!file) return -1;
-
+ 
     if (stat(file, &fs) < 0) {
         return -2;
     }
-
+ 
     if (pfs) *(struct stat *)pfs = fs;
 #endif
-
+ 
 #ifdef _WIN32
     struct _stat fs;
     WIN32_FILE_ATTRIBUTE_DATA  wfad;
@@ -411,49 +433,49 @@ int file_stat (char * file, void * pfs)
     fs.st_ctime = FileTimeToUnixTime(wfad.ftCreationTime);
     fs.st_atime = FileTimeToUnixTime(wfad.ftLastAccessTime);
     fs.st_mtime = FileTimeToUnixTime(wfad.ftLastWriteTime);
-
+ 
     fs.st_size = wfad.nFileSizeHigh;
     fs.st_size <<= 32;
     fs.st_size |= wfad.nFileSizeLow;
-
+ 
     if (pfs) *(struct _stat *)pfs = fs;
 #endif
-
+ 
     return 0;
 }
-
+ 
 int file_exist (char * file)
 {
 #ifdef UNIX
     struct stat fs;
 #endif
-
+ 
 #ifdef _WIN32
     WIN32_FILE_ATTRIBUTE_DATA  wfad;
 #endif
-
+ 
     if (!file) return 0;
-
+ 
 #ifdef UNIX
     if (stat(file, &fs) == -1) {
         if (errno == ENOENT) return 0;
     }
 #endif
-
+ 
 #ifdef _WIN32
     if (GetFileAttributesEx(file, GetFileExInfoStandard, &wfad) == 0) {
         return 0;
     }
-
+ 
     if ((wfad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
         return 1;
-
+ 
 #endif
-
+ 
     return 1;
 }
-
-
+ 
+ 
 int file_is_regular (char * file)
 {
 #ifdef UNIX
@@ -462,30 +484,30 @@ int file_is_regular (char * file)
 #ifdef _WIN32
     WIN32_FILE_ATTRIBUTE_DATA  wfad;
 #endif
-
+ 
     if (!file) return 0;
-
+ 
 #ifdef UNIX
     if (stat(file, &fs)== -1) {
         if (errno == ENOENT) return 0;
     }
     if (!S_ISREG(fs.st_mode)) return 0;
-
+ 
     return 1;
 #endif
-
+ 
 #ifdef _WIN32
     if (GetFileAttributesEx(file, GetFileExInfoStandard, &wfad) == 0) {
         return 0;
     }
-
+ 
     if ((wfad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
         return 1;
-
+ 
     return 0;
 #endif
 }
-
+ 
 int file_is_dir (char * file) 
 { 
 #ifdef UNIX
@@ -496,27 +518,27 @@ int file_is_dir (char * file)
 #endif
  
     if (!file) return 0; 
-
+ 
 #ifdef UNIX 
     if (stat(file, &fs)== -1) {
         if (errno == ENOENT) return 0;
     } 
     if (S_ISDIR(fs.st_mode)) return 1;
 #endif
-
+ 
 #ifdef _WIN32
     if (GetFileAttributesEx(file, GetFileExInfoStandard, &wfad) == 0) {
         return 0;
     }
-
+ 
     if (wfad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         return 1;
 #endif
  
     return 0;
 }
-
-
+ 
+ 
 int64 file_attr (char * file, long * inode, int64 * size, time_t * atime, time_t * mtime, time_t * ctime)
 {
     int64       fsize = 0;
@@ -526,51 +548,51 @@ int64 file_attr (char * file, long * inode, int64 * size, time_t * atime, time_t
 #ifdef _WIN32
     struct _stat fs;
 #endif
-
+ 
     if (!file) return -1;
-
+ 
 #ifdef UNIX
     if (stat(file, &fs)== -1) {
         return -2;
     }
 #endif
-
+ 
 #ifdef _WIN32
     if (file_stat(file, &fs)== -1) {
         return -2;
     }
 #endif
-
+ 
     fsize = fs.st_size;
-
+ 
     if (size) *size = fs.st_size;
     if (inode) *inode = fs.st_ino;
     if (atime) *atime = fs.st_atime;
     if (mtime) *mtime = fs.st_mtime;
     if (ctime) *ctime = fs.st_ctime;
-
+ 
     return fsize;
 }
-
-
+ 
+ 
 int file_dir_create (char * path, int hasfilename)
 {
     char * p = NULL, * piter = NULL;
     char * subpath = NULL;
     int    sublen = 0;
-
+ 
     if (!path) return -1;
-
+ 
     p = str_trim(path);
     if (file_exist(p)) return 0;
-
+ 
 #ifdef UNIX
     piter = strrchr(p, '/');
 #endif
 #ifdef _WIN32
     piter = strrchr(p, '\\');
 #endif
-
+ 
     sublen = piter - p;
     if (piter && sublen > 0) { 
         subpath = kzalloc(sublen+1);
@@ -581,7 +603,7 @@ int file_dir_create (char * path, int hasfilename)
         }
         if (subpath) kfree(subpath);
     }
-
+ 
     if (!hasfilename) {
     #ifdef UNIX
         mkdir(p, 0755);
@@ -590,10 +612,10 @@ int file_dir_create (char * path, int hasfilename)
         CreateDirectory(p, NULL);
     #endif
     }
-
+ 
     return 0;
 }
-
+ 
 int file_rollover (char * fname, int line)
 {
     FILE  * fp = NULL;
@@ -602,38 +624,38 @@ int file_rollover (char * fname, int line)
     char    buf[4096];
     int     seqno = 0;
     struct timeval  curt;
-
+ 
     if (!fname) return -1;
     if (line <= 0) return -2;
-
+ 
     gettimeofday(&curt, NULL);
-
+ 
     sprintf(tmpfname, "%s.%05ld", fname, curt.tv_usec);
-
+ 
     fp = fopen(fname, "r");
     if (!fp) return -3;
-
+ 
     tmpfp = fopen(tmpfname, "w");
     if (!tmpfp) { 
         fclose(fp);
         return -5;
     }
-
+ 
     for (seqno = 0; !feof(fp); seqno++) {
         memset(buf, 0, sizeof(buf));
         fgets(buf, sizeof(buf), fp);
         if (seqno < line) continue;
-
+ 
         fprintf(tmpfp, "%s", buf);
     }
     fclose(fp);
     fclose(tmpfp);
-
+ 
     rename(tmpfname, fname);
     return 0;
 }
-
-
+ 
+ 
 int file_lines (char * file)
 {
     void   * fca = NULL;
@@ -666,12 +688,12 @@ int file_lines (char * file)
  
     return line;
 }
-
-
+ 
+ 
 int file_copy (char * srcfile, int64 offset, int64 length, char * dstfile, int64 * actnum)
 {
     int64     size = 0;
-
+ 
 #ifdef UNIX
     int       fdin;
     int       fdout;
@@ -682,54 +704,54 @@ int file_copy (char * srcfile, int64 offset, int64 length, char * dstfile, int64
     uint8     inbuf[16384];
     int       ret = 0;
 #endif
-
+ 
     if (actnum) *actnum = 0;
-
+ 
     if (!srcfile) return -1;
     if (!dstfile) return -2;
-
+ 
     if ((size = file_size(srcfile)) < 0)
         return -10;
-
+ 
     if (offset < 0) offset = 0;
     if (offset >= size)
         return -100;
-
+ 
     if (length < 0)
         length = size - offset;
     else if (length > size - offset)
         length = size - offset;
-
+ 
 #ifdef UNIX
     fdin = open(srcfile, O_RDONLY);
     if (fdin == -1) return -200;
-
+ 
     fdout = open(dstfile, O_RDWR|O_CREAT|O_TRUNC, S_IWUSR|S_IRUSR);
     if (fdout == -1) {
         close(fdin);
         return -300;
     }
-
+ 
     filefd_copy(fdin, offset, length, fdout, actnum);
-
+ 
     close(fdin);
     close(fdout);
 #else
     fpin = fopen(srcfile, "rb+");
     if (!fpin) return -200;
-
+ 
     fpout = fopen(dstfile, "wb");
     if (!fpout) {
         fclose(fpin);
         return -300;
     }
-
+ 
     file_seek(fpin, offset, SEEK_SET);
-
+ 
     for (; length > 0; ) {
         if (length > sizeof(inbuf)) toread = sizeof(inbuf);
         else toread = length;
-
+ 
         ret = file_read(fpin, inbuf, toread);
         if (ret > 0) {
             ret = file_write(fpout, inbuf, ret);
@@ -738,18 +760,18 @@ int file_copy (char * srcfile, int64 offset, int64 length, char * dstfile, int64
                 if (actnum) *actnum += ret;
             }
         }
-
+ 
         if (ret < 0) return -60;
     }
-
+ 
     fclose(fpin);
     fclose(fpout);
 #endif
-
+ 
     return 0;
 }
-
-
+ 
+ 
 int file_copy2fp (char * srcfile, int64 offset, int64 length, FILE * fpout, int64 * actnum)
 { 
     int64     size = 0;
@@ -762,9 +784,9 @@ int file_copy2fp (char * srcfile, int64 offset, int64 length, FILE * fpout, int6
     char      inbuf[16384];
     int       ret = 0;
 #endif
-
+ 
     if (actnum) *actnum = 0;
-
+ 
     if (!srcfile) return -1;
     if (!fpout) return -2;
      
@@ -774,7 +796,7 @@ int file_copy2fp (char * srcfile, int64 offset, int64 length, FILE * fpout, int6
     if (offset < 0) offset = 0;
     if (offset >= size)
         return -100;
-
+ 
     if (length < 0) length = size - offset;
     if (length > size - offset)
         length = size - offset;
@@ -784,7 +806,7 @@ int file_copy2fp (char * srcfile, int64 offset, int64 length, FILE * fpout, int6
     if (fdin == -1) return -200;
  
     filefd_copy(fdin, offset, length, fileno(fpout), actnum);
-
+ 
     close(fdin);
 #else
     fpin = fopen(srcfile, "rb+");
@@ -804,7 +826,7 @@ int file_copy2fp (char * srcfile, int64 offset, int64 length, FILE * fpout, int6
                 if (actnum) *actnum += ret;
             }
         }
-
+ 
         if (ret < 0) return -60;
     }
     fclose(fpin);
@@ -831,18 +853,18 @@ int file_conv_charset (char * srcchst, char * dstchst, char * srcfile, char * ds
     size_t    inlen = 0;
     char   * pout = NULL;
     size_t    outlen = 0;
-
+ 
     if (!srcchst || !dstchst) return -1;
     if (!srcfile || !dstfile) return -2;
-
+ 
     if ((size = file_size(srcfile)) < 0) return -10;
-
+ 
     hconv = iconv_open(dstchst, srcchst);
     if (hconv == (iconv_t)-1) return -100;
-
+ 
     fpin = fopen(srcfile, "rb+");
     fpout = fopen(dstfile, "wb");
-
+ 
     inlen = 0; outlen = 0;
     for (acclen = 0; size > 0; ) {
         if (size > sizeof(inbuf) - inlen) readlen = sizeof(inbuf) - inlen;
@@ -851,13 +873,13 @@ int file_conv_charset (char * srcchst, char * dstchst, char * srcfile, char * ds
         }
         readlen = file_read(fpin, inbuf+inlen, readlen);
         size -= readlen;
-
+ 
         inbuflen = readlen + inlen;
         outbuflen = sizeof(outbuf);
-
+ 
         pin = inbuf; inlen = inbuflen;
         pout = outbuf; outlen = outbuflen;
-
+ 
 iconv_again:
         ret = iconv(hconv, (char **)&pin, (size_t *)&inlen, (char **)&pout, (size_t *)&outlen);
         if (ret < 0) {
@@ -868,7 +890,7 @@ iconv_again:
                 fclose(fpout);
                 iconv_close(hconv);
                 return acclen; //return actual converted bytes in orignal stream
-
+ 
             } else if (errno == EINVAL || errno == EILSEQ) {
                 /* EINVAL: An incomplete multibyte sequence is encountered
                  * in the input, and the input byte sequence terminates after it.*/
@@ -881,70 +903,70 @@ iconv_again:
                     inlen--; outlen--;
                     goto iconv_again;
                 }
-
+ 
             } else break;
         }
-
+ 
         if (inlen > 0) memmove(inbuf, inbuf+inbuflen-inlen, inlen);
         acclen += inbuflen - inlen;
         file_write(fpout, outbuf, outbuflen-outlen);
     }
-
+ 
     fclose(fpin);
     fclose(fpout);
     iconv_close(hconv);
-
+ 
     return acclen;
 }
 #endif
-
+ 
 int WinPath2UnixPath (char * path, int len)
 {   
     int i;
-
+ 
     if (!path) return -1;
     if (len < 0) len = (int)strlen(path);
     if (len <= 0) return -2;
-
+ 
     for (i = 0; i < len; i++) {
         if (path[i] == '\\') path[i] = '/';
     }
     return i;
 }
-
-
+ 
+ 
 int UnixPath2WinPath (char * path, int len)
 {
     int i;
-
+ 
     if (!path) return -1;
     if (len < 0) len = (int)strlen(path);
     if (len <= 0) return -2;
-
+ 
     for (i = 0; i < len; i++) {
         if (path[i] == '/') path[i] = '\\';
     }
     return i;
 }
-
+ 
 char * file_extname (char * file)
 {
     char * pbgn = NULL;
     char * pend = NULL;
     char * poct = NULL;
     int     len = 0;
-
+ 
     if (!file) return "";
-
+ 
     len = strlen(file);
     if (len <= 0) return "";
-
+ 
     pbgn = file; pend = pbgn + len;
     poct = rskipTo(pend-1, len, ".", 1);
     if (poct == NULL || poct <= pbgn) return "";
     return poct;
 }
-
+ 
 char * file_basename (char * file)
 {
     char * pbgn = NULL;
@@ -962,15 +984,15 @@ char * file_basename (char * file)
     if (poct == NULL || poct <= pbgn) return file;
     return poct+1;
 }
-
+ 
 int file_abspath (char * file, char * path, int pathlen)
 {
     char   fpath[1024];
     char * p = NULL;
     int    len = 0;
-
+ 
     file_get_absolute_path(file, fpath, sizeof(fpath)-1);
-
+ 
     len = strlen(fpath);
     p = rskipTo(fpath + len - 1, len, "/\\", 2);
     if (p && p >= fpath) {
@@ -978,11 +1000,11 @@ int file_abspath (char * file, char * path, int pathlen)
             str_secpy(path, pathlen, fpath, p - fpath + 1);
         return p - fpath + 1;
     }
-
+ 
     return -100;
 }
-
-
+ 
+ 
 int file_get_absolute_path (char * relative, char * abs, int abslen)
 {
     char   fpath[512];
@@ -991,13 +1013,13 @@ int file_get_absolute_path (char * relative, char * abs, int abslen)
     char   destpath[512];
     char * p = NULL;
     int    len = 0;
-
+ 
     if (!abs || abslen <= 0) return -2;
-
+ 
     memset(fpath, 0, sizeof(fpath));
     memset(curpath, 0, sizeof(curpath));
     memset(destpath, 0, sizeof(destpath));
-
+ 
 #ifdef UNIX
     getcwd(curpath, sizeof(curpath)-1);
     if (relative) {
@@ -1016,20 +1038,20 @@ int file_get_absolute_path (char * relative, char * abs, int abslen)
         chdir(fpath);
         getcwd(destpath, sizeof(destpath)-1);
         chdir(curpath);
-
+ 
         memset(abs, 0, abslen);
-
+ 
         snprintf(abs, abslen, "%s/%s", destpath, file);
         len = strlen(abs);
     } else {
         memset(abs, 0, abslen);
-
+ 
         len = strlen(curpath);
         if (len > abslen) len = abslen;
         memcpy(abs, curpath, len);
     }
 #endif
-
+ 
 #ifdef _WIN32
     GetCurrentDirectory(sizeof(curpath)-1, curpath);
     if (relative) {
@@ -1048,9 +1070,9 @@ int file_get_absolute_path (char * relative, char * abs, int abslen)
         SetCurrentDirectory(fpath);
         GetCurrentDirectory(sizeof(destpath)-1, destpath);
         SetCurrentDirectory(curpath);
-
+ 
         memset(abs, 0, abslen);
-
+ 
         snprintf(abs, abslen, "%s/%s", destpath, file);
         len = strlen(abs);
     } else {
@@ -1059,33 +1081,33 @@ int file_get_absolute_path (char * relative, char * abs, int abslen)
         memcpy(abs, curpath, len);
     }
 #endif
-
+ 
     return len;
 }
-
+ 
 #ifdef _WIN32
 char * realpath (char * path, char * resolvpath)
 {
     char  rpath[4096];
     DWORD ret = 0;
-
+ 
     ret = GetFullPathName(path, sizeof(rpath), rpath, NULL);
     if (ret <= 0) return NULL;
-
+ 
     rpath[ret] = '\0';
-
+ 
     if (resolvpath) {
         strcpy(resolvpath, rpath);
         return resolvpath;
     }
-
+ 
     resolvpath = malloc(ret + 1);
     str_secpy(resolvpath, ret, rpath, ret);
-
+ 
     return resolvpath;
 }
 #endif
-
+ 
 int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid, uint32 * appid)
 {
     FILE   * fp = NULL;
@@ -1123,9 +1145,9 @@ int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid
  
     return mime_type_get_by_mime(mimemgmt, p, NULL, mimeid, appid);
 }
-
+ 
 #ifdef UNIX
-
+ 
 void * file_mmap (void * addr, int fd, int64 offset, int64 length, int prot, int flags,
                   void ** ppmap, int64 * pmaplen, int64 * pmapoff)
 {
@@ -1134,43 +1156,43 @@ void * file_mmap (void * addr, int fd, int64 offset, int64 length, int prot, int
     size_t        maplen;
     off_t         pa_off = 0;
     off_t         pagesize = sysconf(_SC_PAGE_SIZE);
-
+ 
     if (!fd || fstat(fd, &st) < 0)
         return NULL;
-
+ 
     if (length <= 0) return NULL;
-
+ 
     if (offset >= st.st_size) return NULL;
-
+ 
     if (prot == 0) prot = PROT_READ | PROT_WRITE;
     if (flags == 0) flags = MAP_SHARED;
-
+ 
     pa_off = offset & ~(pagesize - 1);
     maplen = length + offset - pa_off;
-
+ 
     if (pa_off + maplen > st.st_size)
         maplen = st.st_size - pa_off;
-
+ 
     pmap = mmap(addr, maplen, prot, flags, fd, pa_off);
     if (pmap == MAP_FAILED)
         return NULL;
-
+ 
     if (ppmap) *ppmap = pmap;
     if (pmaplen) *pmaplen = maplen;
     if (pmapoff) *pmapoff = pa_off;
-
+ 
     return pmap + offset - pa_off;
 }
-
+ 
 int file_munmap (void * pmap, int64 maplen)
 {
     return munmap(pmap, maplen);
 }
-
+ 
 #endif
-
+ 
 #ifdef _WIN32
-
+ 
 void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * mapname,
                   HANDLE * phmap, void ** ppmap, int64 * pmaplen, int64 * pmapoff)
 {
@@ -1185,7 +1207,7 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
  
     if (GetFileInformationByHandle(hfile, &bhfi) == 0)
         return NULL;
-
+ 
     fsize = bhfi.nFileSizeHigh;
     fsize <<= 32;
     fsize |= bhfi.nFileSizeLow;
@@ -1196,7 +1218,7 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
  
     GetSystemInfo(&si);
     pagesize = si.dwPageSize;
-
+ 
     pa_off = offset & ~(pagesize - 1);
     maplen = length + offset - pa_off;
  
@@ -1223,7 +1245,7 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
             return NULL;
         }
     }
-
+ 
     pmap = MapViewOfFileEx(
                    hmap,                   /* handle to map object */
                    FILE_MAP_READ,          /* read/write permission */
@@ -1239,7 +1261,7 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
         CloseHandle(hmap);
         return NULL;
     }
-
+ 
     if (phmap) *phmap = hmap;
     if (ppmap) *ppmap = pmap;
     if (pmaplen) *pmaplen = maplen;
@@ -1247,30 +1269,30 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
  
     return (uint8 *)pmap + offset - pa_off;
 }
-
+ 
 int file_munmap (HANDLE hmap, void * pmap)
 {
     UnmapViewOfFile(pmap);
     CloseHandle(hmap);
     return 0;
 }
-
+ 
 #endif
-
-
+ 
+ 
 typedef struct file_buf_s {
     char        * fname;
     int           fd;
 #ifdef _WIN32
     HANDLE        hfile;
 #endif
-
+ 
     int64         fsize;
-
+ 
     int           pagecount;   //how many memory pages used, passed by initializing
     int           pagesize;
     int           mapsize;
-
+ 
     int64         mapoff;
     int64         maplen;
     uint8       * pbyte;
@@ -1278,49 +1300,49 @@ typedef struct file_buf_s {
 #ifdef _WIN32
     HANDLE        hmap;
 #endif
-
+ 
 } fbuf_t;
-
-
+ 
+ 
 void * fbuf_init (char * fname, int pagecount)
 {
 #ifdef UNIX
     fbuf_t * fbf = NULL;
     int      fd = -1;
     struct stat st;
-
+ 
     fd = open(fname, O_RDONLY);
     if (fd < 0)
         return NULL;
-
+ 
     fstat(fd, &st);
-
+ 
     fbf = kzalloc(sizeof(*fbf));
     if (!fbf) {
         close(fd);
         return NULL;
     }
-
+ 
     if (pagecount < 8) pagecount = 8;
     fbf->pagecount = pagecount;
-
+ 
     fbf->fname = str_dup(fname, strlen(fname));
     fbf->fd = fd;
     fbf->fsize = st.st_size;
-
+ 
     fbf->pagesize = sysconf(_SC_PAGE_SIZE);
     if (fbf->pagesize < 512)
         fbf->pagesize = 4096;
-
+ 
     fbf->mapsize = fbf->pagesize * fbf->pagecount; //1024;
-
+ 
     fbf->mapoff = fbf->maplen = 0;
     fbf->pbyte = NULL;
     fbf->mapaddr = NULL;
-
+ 
     return fbf;
 #endif
-
+ 
 #ifdef _WIN32
     fbuf_t     * fbf = NULL;
     SYSTEM_INFO  si;
@@ -1332,20 +1354,20 @@ void * fbuf_init (char * fname, int pagecount)
                        FILE_SHARE_READ, NULL,
                        OPEN_EXISTING, 0, NULL);
     if (hfile == INVALID_HANDLE_VALUE) return NULL;
-
+ 
     dwSize = GetFileSize(hfile, &dwHigh);
     fsize = dwHigh;  fsize <<= 32;
     fsize |= dwSize;
-
+ 
     fbf = kzalloc(sizeof(*fbf));
     if (!fbf) {
         CloseHandle(hfile);
         return NULL;
     }
-
+ 
     if (pagecount < 8) pagecount = 8;
     fbf->pagecount = pagecount;
-
+ 
     fbf->fname = str_dup(fname, strlen(fname));
     fbf->hfile = hfile;
     fbf->fsize = fsize;
@@ -1365,13 +1387,13 @@ void * fbuf_init (char * fname, int pagecount)
     return fbf;
 #endif
 }
-
+ 
 void fbuf_free (void * vfb)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
-
+ 
     if (!fbf) return;
-
+ 
     if (fbf->pbyte) {
 #ifdef UNIX
         munmap(fbf->mapaddr, fbf->maplen);
@@ -1380,44 +1402,44 @@ void fbuf_free (void * vfb)
         file_munmap(fbf->hmap, fbf->mapaddr);
 #endif
     }
-
+ 
     if (fbf->fd >= 0) {
         close(fbf->fd);
         fbf->fd = -1;
     }
-
+ 
     if (fbf->fname) {
         kfree(fbf->fname);
         fbf->fname = NULL;
     }
-
+ 
     kfree(fbf);
 }
-
+ 
 int fbuf_fd (void * vfb)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
-
+ 
     if (!fbf) return -1;
-
+ 
     return fbf->fd;
 }
-
+ 
 int64 fbuf_size (void * vfb)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
-
+ 
     if (!fbf) return 0;
-
+ 
     return fbf->fsize;
 }
-
+ 
 int fbuf_mmap (void * vfb, int64 pos)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
-
+ 
     if (!fbf) return -1;
-
+ 
     if (pos < 0 || pos >= fbf->fsize)
         return -2;
  
@@ -1448,30 +1470,30 @@ int fbuf_mmap (void * vfb, int64 pos)
         }
         fbf->mapaddr = fbf->pbyte;
 #endif
-
+ 
 #ifdef _WIN32
         fbf->pbyte = file_mmap(fbf->pbyte, fbf->hfile, fbf->mapoff, fbf->maplen, fbf->fname,
                                &fbf->hmap, (void **)&fbf->mapaddr, &fbf->maplen, &fbf->mapoff);
         if (!fbf->pbyte) return -3;
 #endif
     }
-
+ 
     return 0;
 }
-
-
+ 
+ 
 int fbuf_at (void * vfb, int64 pos)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
-
+ 
     if (!fbf) return -1;
-
+ 
     if (fbuf_mmap(fbf, pos) < 0)
         return -2;
-
+ 
     return fbf->pbyte[pos - fbf->mapoff];
 }
-
+ 
 void * fbuf_ptr (void * vfb, int64 pos, void ** ppbuf, int * plen)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
@@ -1480,13 +1502,13 @@ void * fbuf_ptr (void * vfb, int64 pos, void ** ppbuf, int * plen)
  
     if (fbuf_mmap(fbf, pos) < 0)
         return NULL;
-
+ 
     if (ppbuf) *ppbuf = fbf->pbyte + pos - fbf->mapoff;
     if (plen) *plen = fbf->maplen - (pos - fbf->mapoff);
-
+ 
     return fbf->pbyte + pos - fbf->mapoff;
 }
-
+ 
 int fbuf_read (void * vfb, int64 pos, void * pbuf, int len)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
@@ -1495,20 +1517,20 @@ int fbuf_read (void * vfb, int64 pos, void * pbuf, int len)
     if (!fbf) return -1;
  
     if (!pbuf || len <= 0) return -1;
-
+ 
     if (fbuf_mmap(fbf, pos) < 0)
         return -2;
-
+ 
     alen = fbf->maplen - (pos - fbf->mapoff);
-
+ 
     if (len > alen) len = alen;
-
+ 
     memcpy(pbuf, fbf->pbyte + pos - fbf->mapoff, len);
-
+ 
     return len;
 }
-
-
+ 
+ 
 long fbuf_skip_to (void * vfb, long pos, int skiplimit, void * vpat, int patlen)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
@@ -1526,15 +1548,15 @@ long fbuf_skip_to (void * vfb, long pos, int skiplimit, void * vpat, int patlen)
     for (i = 0; i < fsize; i++) {
         fch = fbuf_at(fbf, pos + i);
         if (fch < 0) break;
-
+ 
         for (j = 0; j < patlen; j++) {
             if (pat[j] == fch) return pos + i;
         }
     }
-
+ 
     return pos + i;
 }
-
+ 
 long fbuf_rskip_to (void * vfb, long pos, int skiplimit, void * vpat, int patlen)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
@@ -1554,15 +1576,15 @@ long fbuf_rskip_to (void * vfb, long pos, int skiplimit, void * vpat, int patlen
  
         fch = fbuf_at(fbf, pos - i);
         if (fch < 0) break;
-
+ 
         for (j = 0; j < patlen; j++) {
             if (pat[j] == fch) return pos - i;
         }
     }
-
+ 
     return pos - i;
 }
-
+ 
 long fbuf_skip_over (void * vfb, long pos, int skiplimit, void * vpat, int patlen)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
@@ -1585,13 +1607,13 @@ long fbuf_skip_over (void * vfb, long pos, int skiplimit, void * vpat, int patle
         for (j = 0; j < patlen; j++) {
             if (pat[j] == fch) break;
         }
-
+ 
         if (j >= patlen) return pos + i;
     }
-
+ 
     return pos + i;
 }
-
+ 
 long fbuf_rskip_over (void * vfb, long pos, int skiplimit, void * vpat, int patlen)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
@@ -1612,16 +1634,16 @@ long fbuf_rskip_over (void * vfb, long pos, int skiplimit, void * vpat, int patl
  
         fch = fbuf_at(fbf, pos - i);
         if (fch < 0) break;
-
+ 
         for (j = 0; j < patlen; j++) {
             if (pat[j] == fch) break;
         }
         if (j >= patlen) return pos - i;
     }
-
+ 
     return pos - i;
 }
-
+ 
 static long fbuf_quotedstrlen (void * vfb, long pos, int skiplimit)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
@@ -1641,14 +1663,14 @@ static long fbuf_quotedstrlen (void * vfb, long pos, int skiplimit)
     for (i = 1; i < skiplimit && i < fsize - pos; i++) {
         fch = fbuf_at(fbf, pos + i);
         if (fch < 0) return i;
-
+ 
         if (fch == '\\') i++;
         else if (fch == quote) return i + 1;
     }
  
     return 1;
 }
-
+ 
 long fbuf_skip_quote_to (void * vfb, long pos, int skiplimit, void * vpat, int patlen)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
@@ -1664,7 +1686,7 @@ long fbuf_skip_quote_to (void * vfb, long pos, int skiplimit, void * vpat, int p
     fsize = fbf->fsize - pos;
     if (skiplimit >= 0 && skiplimit < fsize)
         fsize = skiplimit;
-
+ 
     for (i = 0; i < fsize; ) {
         fch = fbuf_at(fbf, pos + i);
         if (fch < 0) break;
@@ -1673,7 +1695,7 @@ long fbuf_skip_quote_to (void * vfb, long pos, int skiplimit, void * vpat, int p
             i += 2;
             continue;
         }
-
+ 
         for (j = 0; j < patlen; j++) {
             if (pat[j] == fch) return pos + i;
         }
@@ -1685,10 +1707,10 @@ long fbuf_skip_quote_to (void * vfb, long pos, int skiplimit, void * vpat, int p
         }
         i++;
     }
-
+ 
     return pos + i;
 }
-
+ 
 long fbuf_skip_esc_to (void * vfb, long pos, int skiplimit, void * vpat, int patlen)
 {
     fbuf_t * fbf = (fbuf_t *)vfb;
@@ -1707,7 +1729,7 @@ long fbuf_skip_esc_to (void * vfb, long pos, int skiplimit, void * vpat, int pat
     for (i = 0; i < fsize; i++) {
         fch = fbuf_at(fbf, pos + i);
         if (fch < 0) break;
-
+ 
         if (fch == '\\') {
             i++;
             continue;
@@ -1717,8 +1739,7 @@ long fbuf_skip_esc_to (void * vfb, long pos, int skiplimit, void * vpat, int pat
             if (pat[j] == fch) return pos + i;
         }
     }
-
+ 
     return pos + i;
 }
-
 
