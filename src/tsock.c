@@ -1892,6 +1892,8 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
     wlen = st.st_size - pos;
     if (size > wlen) size = wlen;
 
+    _lseeki64(srcfd, pos, SEEK_SET);
+    
     for (wlen = 0 ; wlen < size; ) {
         onelen = size - wlen;
         if (onelen > 64*1024) onelen = 64*1024;
