@@ -17,7 +17,7 @@
 #include <sys/uio.h>
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #include <ws2tcpip.h>
 #include <Iphlpapi.h>
 #pragma comment(lib, "iphlpapi.lib")
@@ -296,7 +296,13 @@ typedef struct EP_SocketAddr_ {
     struct EP_SocketAddr_ * next;
 } ep_sockaddr_t; 
  
- 
+typedef struct sockattr_st {
+    int      family;
+    int      socktype;
+    int      protocol;
+    SOCKET   fd;
+} sockattr_t;
+
 int sock_nonblock_get (SOCKET fd);
 int sock_nonblock_set (SOCKET fd, int nbflag);
  
@@ -342,12 +348,14 @@ int sock_nodelay_unset (SOCKET fd);
 int sock_nopush_set   (SOCKET fd);
 int sock_nopush_unset (SOCKET fd);
  
+
+void addrinfo_print (void * rp);
+
+SOCKET tcp_listen       (char * localip, int port, void * psockopt, sockattr_t * fdlist, int * fdnum);
  
-SOCKET tcp_listen       (char * localip, int port, void * psockopt);
- 
-SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, int * succ);
-SOCKET tcp_connect      (char * host, int port, char * lip, int lport);
-SOCKET tcp_nb_connect   (char * host, int port, char * lip, int lport, int * consucc);
+SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, int * succ, sockattr_t * attr);
+SOCKET tcp_connect      (char * host, int port, char * lip, int lport, sockattr_t * attr);
+SOCKET tcp_nb_connect   (char * host, int port, char * lip, int lport, int * consucc, sockattr_t * attr);
 SOCKET tcp_ep_connect   (ep_sockaddr_t * addr, int nblk, char * lip, int lport, void * popt, int * succ);
  
 int    tcp_connected    (SOCKET fd);
@@ -361,7 +369,7 @@ int    tcp_nb_send (SOCKET fd, void * sendbuf, int towrite, int * actnum);
 int    tcp_writev   (SOCKET fd, void * iov, int iovcnt, int * actnum, int * perr);
 int    tcp_sendfile (SOCKET fd, int srcfd, int64 offset, int64 size, int * actnum, int * perr);
  
-SOCKET udp_listen (char * localip, int port, void * psockopt);
+SOCKET udp_listen (char * localip, int port, void * psockopt, sockattr_t * fdlist, int * fdnum);
  
  
 #define ADDR_TYPE_UNKNOWN   0

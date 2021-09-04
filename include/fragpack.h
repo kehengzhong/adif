@@ -55,7 +55,7 @@ int    frag_pack_gap (void * vfrag, int64 pos, int64 * gappos, int64 * gaplen);
                  2 - left-side partial contained,    |------!---|    !
                  3 - completely contained            |-----!----!----|
  */
-int    frag_pack_contain (void * vfrag, int64 pos, int length, int64 * datapos,
+int    frag_pack_contain (void * vfrag, int64 pos, int64 length, int64 * datapos,
                           int64 * datalen, int64 * gappos, int64 * gaplen);
 
 void   frag_pack_print (void * vfrag, FILE * fp);

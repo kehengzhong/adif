@@ -20,7 +20,7 @@
 extern "C" {
 #endif 
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 int    file_handle_to_fd (HANDLE hfile);
 HANDLE fd_to_file_handle (int fd);
 
@@ -57,7 +57,7 @@ int file_conv_charset (char * srcchst, char * dstchst, char * srcfile, char * ds
 
 int WinPath2UnixPath (char * path, int len);
 int UnixPath2WinPath (char * path, int len);
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 char * realpath (char * path, char * resolvpath);
 #endif
 
@@ -74,7 +74,7 @@ void * file_mmap (void * addr, int fd, int64 offset, int64 length, int prot, int
 int file_munmap (void * pmap, int64 maplen);
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * mapname,
                   HANDLE * phmap, void ** ppmap, int64 * pmaplen, int64 * pmapoff);
 int file_munmap (HANDLE hmap, void * pmap);

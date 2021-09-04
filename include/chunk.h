@@ -53,7 +53,7 @@ typedef struct chunk_entity {
         } bufptr;
 
         struct {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             HANDLE     hmap;
 #endif
             void     * pbyte;
@@ -69,7 +69,7 @@ typedef struct chunk_entity {
         } filename;
 
         struct {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             HANDLE     hmap;
 #endif
             void     * pbyte;
@@ -84,7 +84,7 @@ typedef struct chunk_entity {
         } fileptr;
 
         struct {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             HANDLE     hmap;
 #endif
             void     * pbyte;
@@ -225,9 +225,11 @@ typedef struct {
     int           iovcnt;
 
     int           filefd;
-#ifdef _WIN32
-    HANDLE        hfile;
+#if defined(_WIN32) || defined(_WIN64)
+    HANDLE        filehandle;
 #endif
+    void        * hfile;   //native_file handle or FILE * pointer
+
     int64         fpos;      //file current offset
     int64         filesize;  //actual file size
 } chunk_vec_t;

@@ -7,7 +7,7 @@
 #define __BTYPE_H__
 
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #include <winsock2.h>
 #pragma comment(lib,"Ws2_32.lib")
 #include <windows.h>
@@ -116,7 +116,7 @@ typedef char                int8;
 #endif /* end if UNIX */
 
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 
 struct iovec {
     void   * iov_base;    /* Starting address */

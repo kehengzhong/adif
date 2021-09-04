@@ -51,8 +51,8 @@ typedef struct native_file_ {
 #ifdef UNIX
     int                fd;
 #endif
-#ifdef _WIN32
-    HANDLE             hfile;
+#if defined(_WIN32) || defined(_WIN64)
+    HANDLE             filehandle;
     int                fd;
 #endif  
  
@@ -74,7 +74,7 @@ int    native_file_resize (void * hfile, int64 newsize);
 
 char * native_file_name (void * vhfile);
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 HANDLE native_file_handle (void * vhfile);
 #endif
 int    native_file_fd (void * vhfile);

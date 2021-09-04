@@ -35,7 +35,7 @@ void * ckstr_new(void * pbyte, int bytelen);
 int ckstr_cmp (void * a, void * b);
 int ckstr_casecmp (void * a, void * b);
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 void ansi_2_unicode(wchar_t * wcrt, char * pstr);
 #endif
 
