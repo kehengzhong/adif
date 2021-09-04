@@ -27,7 +27,7 @@
 
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #include <direct.h>
 #include <tchar.h>
 #include <windows.h>
@@ -175,7 +175,7 @@ int filefd_writev (int fd, void * piov, int iovcnt, int64 * actnum)
         if (ret == -1) {
             errcode = WSAGetLastError();
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
                 return wlen;
             }
@@ -190,10 +190,10 @@ int filefd_writev (int fd, void * piov, int iovcnt, int64 * actnum)
  
 int filefd_copy (int fdin, int64 offset, int64 length, int fdout, int64 * actnum)
 {
-    int64        size = 0;
+    int64        wlen = 0;
     int64        toread = 0;
- 
     struct stat  st;
+
 #ifdef UNIX
     off_t        offval = offset;
     ssize_t      ret;
@@ -210,52 +210,63 @@ int filefd_copy (int fdin, int64 offset, int64 length, int fdout, int64 * actnum
     if (fstat(fdin, &st) < 0)
         return -10;
  
-    size = st.st_size;
- 
     if (offset < 0) offset = 0;
-    if (offset >= size)
-        return -100;
+    if (offset >= st.st_size)
+        return 0;
  
     if (length < 0)
-        length = size - offset;
-    else if (length > size - offset)
-        length = size - offset;
+        length = st.st_size - offset;
+    else if (length > st.st_size - offset)
+        length = st.st_size - offset;
  
 #ifdef UNIX
-    toread = min(length, SENDFILE_MAXSIZE);
- 
-    while (offset < size) {
+
+    for (wlen = 0; wlen < length; ) {
+        toread = min(length - wlen, SENDFILE_MAXSIZE);
+
 #ifdef _FREEBSD_
+        offval = 0;
         ret = sendfile(fdin, fdout, offset, toread, NULL, &offval, 0);
+
+        if (offval > 0) {
+            wlen += offval;
+            offset += offval;
+        }
+
 #elif defined(_OSX_)
+        offval = 0;
         ret = sendfile(fdin, fdout, offset, &offval, NULL, 0);
+
+        if (offval > 0) {
+            wlen += offval;
+            offset += offval;
+        }
+
 #else
         ret = sendfile(fdout, fdin, &offval, toread);
 #endif
         if (ret < 0) {
-            if (errno == EINTR || errno == EAGAIN) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
                 usleep(50);
                 continue;
             }
+            if (actnum) *actnum = wlen;
             return -400;
         }
 #if defined(_FREEBSD_) || defined(_OSX_) || defined(_MACOS_)
         else {
-            if (actnum) *actnum += offval;
-            length -= offval;
-            toread = min(length, SENDFILE_MAXSIZE);
-            offset += offval;
+            /* do nothing */
         }
 #else
         else if (ret == 0) {
             /* if sendfile returns zero, then someone has truncated the file,
              * so the offset became beyond the end of the file */
+
+            if (actnum) *actnum = wlen;
             return -500;
  
         } else {
-            if (actnum) *actnum += ret;
-            length -= ret;
-            toread = min(length, SENDFILE_MAXSIZE);
+            wlen += ret;
         }
 #endif
     }
@@ -264,23 +275,26 @@ int filefd_copy (int fdin, int64 offset, int64 length, int fdout, int64 * actnum
  
     lseek(fdin, offset, SEEK_SET);
  
-    for (; length > 0; ) {
-        if (length > sizeof(inbuf)) toread = sizeof(inbuf);
-        else toread = length;
+    for (wlen = 0; wlen < length; ) {
+        toread = min(length - wlen, sizeof(inbuf));
  
         len = filefd_read(fdin, inbuf, toread);
         if (len > 0) {
             len = filefd_write(fdout, inbuf, len);
             if (len > 0) {
-                length -= len;
-                if (actnum) *actnum += len;
+                wlen += len;
             }
         }
  
-        if (len < 0) return -60;
+        if (len < 0) {
+            if (actnum) *actnum = wlen;
+            return -60;
+        }
     }
 #endif
  
+    if (actnum) *actnum = wlen;
+
     return 0;
 }
  
@@ -331,7 +345,7 @@ int64 file_seek (FILE * fp, int64 pos, int whence)
     if (ret >= 0) return ftello(fp);
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     ret = fseek(fp, (long)pos, whence);
     if (ret >= 0) return (int64)ftell(fp);
 #endif
@@ -345,7 +359,7 @@ int file_valid (FILE * fp)
 #ifdef UNIX
     struct stat st;
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     struct _stat st;
 #endif
  
@@ -357,7 +371,7 @@ int file_valid (FILE * fp)
     if (fstat(fileno(fp), &st) != 0) return 0;
     if (S_ISREG(st.st_mode)) return 1;
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     if (_fstat(fileno(fp), &st) != 0) return 0;
     if (!(_S_IFDIR & st.st_mode)) return 1;
 #endif
@@ -371,7 +385,7 @@ int64 file_size (char * file)
 #ifdef UNIX
     struct stat fs;
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     HANDLE       hFile = NULL;
     int64        nSize = 0;
     ulong        dwHigh = 0;
@@ -388,7 +402,7 @@ int64 file_size (char * file)
     return (int64)fs.st_size;
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     hFile = (HANDLE)CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
     if (hFile != INVALID_HANDLE_VALUE) {
         dwSize = GetFileSize(hFile, &dwHigh);
@@ -418,7 +432,7 @@ int file_stat (char * file, void * pfs)
     if (pfs) *(struct stat *)pfs = fs;
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     struct _stat fs;
     WIN32_FILE_ATTRIBUTE_DATA  wfad;
  
@@ -450,7 +464,7 @@ int file_exist (char * file)
     struct stat fs;
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     WIN32_FILE_ATTRIBUTE_DATA  wfad;
 #endif
  
@@ -462,7 +476,7 @@ int file_exist (char * file)
     }
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     if (GetFileAttributesEx(file, GetFileExInfoStandard, &wfad) == 0) {
         return 0;
     }
@@ -481,7 +495,7 @@ int file_is_regular (char * file)
 #ifdef UNIX
     struct stat fs;
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     WIN32_FILE_ATTRIBUTE_DATA  wfad;
 #endif
  
@@ -496,7 +510,7 @@ int file_is_regular (char * file)
     return 1;
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     if (GetFileAttributesEx(file, GetFileExInfoStandard, &wfad) == 0) {
         return 0;
     }
@@ -513,7 +527,7 @@ int file_is_dir (char * file)
 #ifdef UNIX
     struct stat fs; 
 #endif
-#ifdef _WIN32 
+#if defined(_WIN32) || defined(_WIN64)
     WIN32_FILE_ATTRIBUTE_DATA  wfad;
 #endif
  
@@ -526,7 +540,7 @@ int file_is_dir (char * file)
     if (S_ISDIR(fs.st_mode)) return 1;
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     if (GetFileAttributesEx(file, GetFileExInfoStandard, &wfad) == 0) {
         return 0;
     }
@@ -545,7 +559,7 @@ int64 file_attr (char * file, long * inode, int64 * size, time_t * atime, time_t
 #ifdef UNIX
     struct stat fs;
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     struct _stat fs;
 #endif
  
@@ -557,7 +571,7 @@ int64 file_attr (char * file, long * inode, int64 * size, time_t * atime, time_t
     }
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     if (file_stat(file, &fs)== -1) {
         return -2;
     }
@@ -589,7 +603,7 @@ int file_dir_create (char * path, int hasfilename)
 #ifdef UNIX
     piter = strrchr(p, '/');
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     piter = strrchr(p, '\\');
 #endif
  
@@ -608,7 +622,7 @@ int file_dir_create (char * path, int hasfilename)
     #ifdef UNIX
         mkdir(p, 0755);
     #endif
-    #ifdef _WIN32
+    #if defined(_WIN32) || defined(_WIN64)
         CreateDirectory(p, NULL);
     #endif
     }
@@ -1052,7 +1066,7 @@ int file_get_absolute_path (char * relative, char * abs, int abslen)
     }
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     GetCurrentDirectory(sizeof(curpath)-1, curpath);
     if (relative) {
         if (file_is_regular(relative)) {
@@ -1085,7 +1099,7 @@ int file_get_absolute_path (char * relative, char * abs, int abslen)
     return len;
 }
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 char * realpath (char * path, char * resolvpath)
 {
     char  rpath[4096];
@@ -1127,14 +1141,14 @@ int file_mime_type (void * mimemgmt, char * fname, char * pmime, uint32 * mimeid
 #ifdef UNIX
     fp = popen(cmd, "r");
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     fp = _popen(cmd, "r");
 #endif
     if (fp && !feof(fp)) fgets(mime, sizeof(mime)-1, fp);
 #ifdef UNIX
     if (fp) pclose(fp);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     if (fp) _pclose(fp);
 #endif
  
@@ -1191,7 +1205,7 @@ int file_munmap (void * pmap, int64 maplen)
  
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
  
 void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * mapname,
                   HANDLE * phmap, void ** ppmap, int64 * pmaplen, int64 * pmapoff)
@@ -1283,7 +1297,7 @@ int file_munmap (HANDLE hmap, void * pmap)
 typedef struct file_buf_s {
     char        * fname;
     int           fd;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     HANDLE        hfile;
 #endif
  
@@ -1297,7 +1311,7 @@ typedef struct file_buf_s {
     int64         maplen;
     uint8       * pbyte;
     uint8       * mapaddr;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     HANDLE        hmap;
 #endif
  
@@ -1343,7 +1357,7 @@ void * fbuf_init (char * fname, int pagecount)
     return fbf;
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     fbuf_t     * fbf = NULL;
     SYSTEM_INFO  si;
     HANDLE       hfile;
@@ -1398,7 +1412,7 @@ void fbuf_free (void * vfb)
 #ifdef UNIX
         munmap(fbf->mapaddr, fbf->maplen);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         file_munmap(fbf->hmap, fbf->mapaddr);
 #endif
     }
@@ -1449,7 +1463,7 @@ int fbuf_mmap (void * vfb, int64 pos)
 #ifdef UNIX
             munmap(fbf->mapaddr, fbf->maplen);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             file_munmap(fbf->hmap, fbf->mapaddr);
 #endif
             fbf->pbyte = NULL;
@@ -1471,7 +1485,7 @@ int fbuf_mmap (void * vfb, int64 pos)
         fbf->mapaddr = fbf->pbyte;
 #endif
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         fbf->pbyte = file_mmap(fbf->pbyte, fbf->hfile, fbf->mapoff, fbf->maplen, fbf->fname,
                                &fbf->hmap, (void **)&fbf->mapaddr, &fbf->maplen, &fbf->mapoff);
         if (!fbf->pbyte) return -3;

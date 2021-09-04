@@ -44,7 +44,7 @@
 
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #include <io.h>
 #include <mswsock.h>
 #endif
@@ -64,7 +64,7 @@ int sock_nonblock_get (SOCKET fd)
 
 int sock_nonblock_set (SOCKET fd, int nbflag)
 {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     u_long  arg;
 
     if (nbflag) arg = 1;
@@ -94,7 +94,7 @@ int sock_nonblock_set (SOCKET fd, int nbflag)
 
 int sock_unread_data (SOCKET fd)
 {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     long count = 0;
 #endif
 #ifdef UNIX
@@ -108,7 +108,7 @@ int sock_unread_data (SOCKET fd)
     return 0;
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         ret = ioctlsocket(fd, FIONREAD, (u_long *)&count);
 #endif
 #ifdef UNIX
@@ -148,7 +148,7 @@ int sock_is_open (SOCKET fd)
             return 0;
         }
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         FD_ZERO(&r); FD_ZERO(&w); FD_ZERO(&e);  
         FD_SET(fd, &e);
         tv.tv_sec = 0; tv.tv_usec = 0;
@@ -198,7 +198,7 @@ retry:
         if (ret > 0) return 1;
     }
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     FD_ZERO (&rf);
     FD_SET  (fd, &rf);
     to.tv_sec  = ms/1000;
@@ -210,7 +210,7 @@ retry:
 #endif
 
     if (ret < 0) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         errcode = WSAGetLastError();
         switch(errcode) {
         case WSAEINTR:
@@ -273,7 +273,7 @@ retry:
     }
 
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     FD_ZERO (&wf);
     FD_SET  (fd, &wf);
     to.tv_sec  = ms/1000;
@@ -285,7 +285,7 @@ retry:
 #endif
 
     if (ret < 0) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         errcode = WSAGetLastError();
         switch(errcode) {
         case WSAEINTR:
@@ -906,8 +906,9 @@ int sock_nopush_unset (SOCKET fd)
 }
 
 
-void addrinfo_print (struct addrinfo * rp)
+void addrinfo_print (void * vrp)
 {
+    struct addrinfo * rp = (struct addrinfo *)vrp;
     char buf[512];
     char ipstr[128];
 
@@ -947,7 +948,7 @@ void addrinfo_print (struct addrinfo * rp)
     printf("%s\n", buf);
 }
 
-SOCKET tcp_listen (char * localip, int port, void * psockopt)
+SOCKET tcp_listen (char * localip, int port, void * psockopt, sockattr_t * fdlist, int * fdnum)
 {
     struct addrinfo    hints;
     struct addrinfo  * result = NULL;
@@ -957,6 +958,8 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt)
 
     SOCKET             listenfd = INVALID_SOCKET;
     sockopt_t        * sockopt = NULL;
+    int                num = 0;
+    int                rpnum = 0;
     int                one = 0;
     int                backlog = 511;
     int                ret = 0;
@@ -994,6 +997,8 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt)
         addrinfo_print(rp);
 #endif
 
+        rpnum++;
+
         listenfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (listenfd == INVALID_SOCKET) {
             tolog(1, "tcp_listen socket() failed");
@@ -1020,6 +1025,7 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt)
         if (bind(listenfd, rp->ai_addr, rp->ai_addrlen) != 0) {
             tolog(1, "tcp_listen bind() failed");
             closesocket(listenfd);
+            listenfd = INVALID_SOCKET;
             continue; 
         }
 
@@ -1027,14 +1033,24 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt)
         if (listen(listenfd, backlog) == SOCKET_ERROR) {
             tolog(1, "tcp_listen fd=%d failed", listenfd);
             closesocket(listenfd);
+            listenfd = INVALID_SOCKET;
             continue; 
         }
 
-        break;
+        if (fdlist && fdnum && num < *fdnum) {
+            fdlist[num].fd = listenfd;
+            fdlist[num].family = rp->ai_family;
+            fdlist[num].socktype = rp->ai_socktype;
+            fdlist[num].protocol = rp->ai_protocol;
+            num++;
+        } else
+            break;
     }
     freeaddrinfo(result);
 
-    if (rp == NULL) {
+    if (fdnum) *fdnum = num;
+
+    if (rpnum <= 0) {
         tolog(1, "tcp_listen no addrinfo available\n");
         /* there is no address/port that bound or listened successfully! */
         return INVALID_SOCKET;
@@ -1043,7 +1059,7 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt)
     return listenfd;
 }
 
-SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, int * succ)
+SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, int * succ, sockattr_t * attr)
 {
     struct addrinfo    hints;
     struct addrinfo  * result = NULL;
@@ -1081,6 +1097,13 @@ SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lpor
         if (confd == INVALID_SOCKET)
             continue;
 
+        if (attr) {
+            attr->fd = confd;
+            attr->family = rp->ai_family;
+            attr->socktype = rp->ai_socktype;
+            attr->protocol = rp->ai_protocol;
+        }
+
         one = 1;
         setsockopt(confd, SOL_SOCKET, SO_REUSEADDR, (void *)&one, sizeof(int));
 #ifdef SO_REUSEPORT
@@ -1112,7 +1135,7 @@ SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lpor
                 continue;
             }
     #endif
-    #ifdef _WIN32
+    #if defined(_WIN32) || defined(_WIN64)
             if (WSAGetLastError() != WSAEWOULDBLOCK) { 
                 closesocket(confd);
                 confd = INVALID_SOCKET;
@@ -1133,14 +1156,14 @@ SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lpor
     return confd;
 }
 
-SOCKET tcp_connect (char * host, int port, char * lip, int lport)
+SOCKET tcp_connect (char * host, int port, char * lip, int lport, sockattr_t * attr)
 {
-    return tcp_connect_full(host, port, 0, lip, lport, NULL);
+    return tcp_connect_full(host, port, 0, lip, lport, NULL, attr);
 }
 
-SOCKET tcp_nb_connect (char * host, int port, char * lip, int lport, int * consucc)
+SOCKET tcp_nb_connect (char * host, int port, char * lip, int lport, int * consucc, sockattr_t * attr)
 {
-    return tcp_connect_full(host, port, 1, lip, lport, consucc);
+    return tcp_connect_full(host, port, 1, lip, lport, consucc, attr);
 }
 
 SOCKET tcp_ep_connect (ep_sockaddr_t * addr, int nblk, char * lip, int lport, void * popt, int * succ)
@@ -1195,7 +1218,7 @@ SOCKET tcp_ep_connect (ep_sockaddr_t * addr, int nblk, char * lip, int lport, vo
             return confd;
         }
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         if (WSAGetLastError() != WSAEWOULDBLOCK) {
             closesocket(confd);
             confd = INVALID_SOCKET;
@@ -1231,7 +1254,7 @@ int tcp_connected (SOCKET fd)
     return 0; 
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     int  ret = 0;
     int  secnum = 0;
     int  len = 0;
@@ -1311,14 +1334,14 @@ int tcp_recv (SOCKET fd, void * prcvbuf, int toread, long waitms, int * actnum)
             ret = poll(fds, 1, restms);
         }
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         FD_ZERO(&rFDs);
         FD_SET(fd, &rFDs);
 
         ret = select(0, &rFDs, NULL, NULL, ptv);
 #endif
         if (ret < 0) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             switch(errcode) {
             case WSAEINTR:
@@ -1376,7 +1399,7 @@ beginrecv:
             return -20; /* connection closed by other end */
 
         } else if (ret == -1) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
                 if (toread <= 0 && waitms <= 0) break;
@@ -1470,13 +1493,13 @@ int tcp_send (SOCKET fd, void * psendbuf, int towrite, long waitms, int * actnum
             ret = poll(fds, 1, restms);
         }
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         FD_ZERO(&wFDs);
         FD_SET(fd, &wFDs);
         ret = select(0, NULL, &wFDs, NULL, ptv);
 #endif
         if (ret < 0) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             switch(errcode) {
             case WSAEINTR:
@@ -1507,7 +1530,7 @@ int tcp_send (SOCKET fd, void * psendbuf, int towrite, long waitms, int * actnum
 #endif
         ret = send (fd, sendbuf+sendLen, towrite-sendLen, MSG_NOSIGNAL);
         if (ret == -1) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
                 continue;
@@ -1594,7 +1617,7 @@ int tcp_nb_recv (SOCKET fd, void * prcvbuf, int bufsize, int * actnum)
             return -20; /* connection closed by other end */
 
         } else if (ret == -1) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             if (errcode == WSAEINTR) {
                 continue;
@@ -1660,7 +1683,7 @@ int tcp_nb_send (SOCKET fd, void * psendbuf, int towrite, int * actnum)
 #endif
         ret = send (fd, sendbuf+sendLen, towrite-sendLen, MSG_NOSIGNAL);
         if (ret == -1) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
                 if (++errtimes >= 1) break;
@@ -1744,8 +1767,8 @@ int tcp_writev (SOCKET fd, void * piov, int iovcnt, int * actnum, int * perr)
 
     return sentnum;
 
-#else
- 
+#elif defined (_WIN32) || defined(_WIN64)
+
     struct iovec * iov = (struct iovec *)piov;
     int  i, ret, errcode;
     int  wlen = 0, sendLen = 0;
@@ -1765,7 +1788,7 @@ int tcp_writev (SOCKET fd, void * piov, int iovcnt, int * actnum, int * perr)
             pbyte = iov[i].iov_base;
             ret = send (fd, pbyte + sendLen, iov[i].iov_len - sendLen, MSG_NOSIGNAL);
             if (ret == -1) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
                 errcode = WSAGetLastError();
                 if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
 #else
@@ -1822,9 +1845,25 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
         onelen = min(size - wlen, SENDFILE_MAXSIZE);
 
 #ifdef _FREEBSD_
+        offval = 0;
+
         ret = sendfile(srcfd, fd, pos, onelen, NULL, &offval, 0);
-#elif defined(_OSX_)
+
+        if (offval > 0) {
+            wlen += offval;
+            pos += offval;
+        }
+
+#elif defined(_OSX_) || defined(_MACOS_)
+        offval = 0;
+
         ret = sendfile(srcfd, fd, pos, &offval, NULL, 0);
+
+        if (offval > 0) {
+            wlen += offval;
+            pos += offval;
+        }
+
 #else
         ret = sendfile(fd, srcfd, &offval, onelen);
 #endif
@@ -1845,8 +1884,7 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
         }
 #if defined(_FREEBSD_) || defined(_OSX_) || defined(_MACOS_)
         else {
-            wlen += offval;
-            pos += offval;
+            /* do nothing */
         }
 #else
         else if (ret == 0) { 
@@ -1866,7 +1904,7 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
  
     return (int)wlen;
 
-#elif defined (_WIN32)
+#elif defined (_WIN32) || defined(_WIN64)
 
     struct _stat   st;
     uint8          pbyte[64*1024];
@@ -1893,7 +1931,7 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
     if (size > wlen) size = wlen;
 
     _lseeki64(srcfd, pos, SEEK_SET);
-    
+
     for (wlen = 0 ; wlen < size; ) {
         onelen = size - wlen;
         if (onelen > 64*1024) onelen = 64*1024;
@@ -1927,13 +1965,12 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
     return wlen;
 
 #else
-
     return 0;
 #endif
 }
 
 
-SOCKET udp_listen (char * localip, int port, void * psockopt)
+SOCKET udp_listen (char * localip, int port, void * psockopt, sockattr_t * fdlist, int * fdnum)
 {
     struct addrinfo    hints;
     struct addrinfo  * result = NULL;
@@ -1942,6 +1979,8 @@ SOCKET udp_listen (char * localip, int port, void * psockopt)
     SOCKET             aifd = INVALID_SOCKET;
     char               buf[128];
     SOCKET             listenfd = INVALID_SOCKET;
+    int                num = 0;
+    int                rpnum = 0;
     int                one, ret;
  
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -1967,6 +2006,8 @@ SOCKET udp_listen (char * localip, int port, void * psockopt)
     }
  
     for (rp = result; rp != NULL; rp = rp->ai_next) {
+        rpnum++;
+
         listenfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (listenfd == INVALID_SOCKET)
             continue;
@@ -1988,13 +2029,24 @@ SOCKET udp_listen (char * localip, int port, void * psockopt)
 
         if (bind(listenfd, rp->ai_addr, rp->ai_addrlen) != 0) {
             closesocket(listenfd);
+            listenfd = INVALID_SOCKET;
             continue;
         }
-        break;
+
+        if (fdlist && fdnum && num < *fdnum) {
+            fdlist[num].fd = listenfd;
+            fdlist[num].family = rp->ai_family;
+            fdlist[num].socktype = rp->ai_socktype;
+            fdlist[num].protocol = rp->ai_protocol;
+            num++;
+        } else
+            break;
     }
     freeaddrinfo(result);
 
-    if (rp == NULL) {
+    if (fdnum) *fdnum = num;
+
+    if (rpnum <= 0) {
         /* there is no address/port that bound or listened successfully! */
         return INVALID_SOCKET;
     }
@@ -2123,7 +2175,7 @@ int get_selfaddr (int num, AddrItem * pitem)
     return i;
 }
 
-#elif defined(_WIN32)
+#elif defined(_WIN32) || defined(_WIN64)
 
 int get_selfaddr (int num, AddrItem * pitem)
 {
@@ -2240,6 +2292,8 @@ int get_selfaddr (int num, AddrItem * pitem)
     int                  curind = 0;
 
     if (num <= 0 || !pitem) return -1;
+
+    memset(pitem, 0, sizeof(AddrItem *) * num);
 
     if (getifaddrs(&ifa) < 0) return -10;
 

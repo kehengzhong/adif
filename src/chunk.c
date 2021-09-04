@@ -13,7 +13,7 @@
 #include "chunk.h"
 #include "patmat.h"
 #include "tsock.h"
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #include <io.h>
 #endif
 
@@ -53,7 +53,7 @@ void chunk_entity_free (void * pent)
 #ifdef UNIX
             file_munmap(ent->u.filename.pmap, ent->u.filename.maplen);
 #endif
-#ifdef _WIN32 
+#if defined(_WIN32) || defined(_WIN64)
             file_munmap(ent->u.filename.hmap, ent->u.filename.pmap);
             ent->u.filename.hmap = NULL;
 #endif
@@ -78,7 +78,7 @@ void chunk_entity_free (void * pent)
 #ifdef UNIX
             file_munmap(ent->u.fileptr.pmap, ent->u.fileptr.maplen);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             file_munmap(ent->u.fileptr.hmap, ent->u.fileptr.pmap);
             ent->u.fileptr.hmap = NULL;
 #endif
@@ -93,7 +93,7 @@ void chunk_entity_free (void * pent)
 #ifdef UNIX
             file_munmap(ent->u.filefd.pmap, ent->u.filefd.maplen);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             file_munmap(ent->u.filefd.hmap, ent->u.filefd.pmap);
             ent->u.filefd.hmap = NULL;
 #endif
@@ -1277,7 +1277,7 @@ int chunk_add_buffer (void * vck, void * pbuf, int64 len)
     ck->size += len;
     ck->bufnum++;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -1339,7 +1339,7 @@ int64 chunk_prepend_strip_buffer (void * vck, void * pbuf, int64 len, char * esc
         ent->trailerlen = 0;
         ck->chunksize += ent->length;
     } else {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
         sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -1386,7 +1386,7 @@ int64 chunk_add_strip_buffer (void * vck, void * pbuf, int64 len, char * escch, 
 
     ck->size += ent->length;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -1422,7 +1422,7 @@ int64 chunk_append_strip_buffer (void * vck, void * pbuf, int64 len, char * escc
     if (ent->length >= 0)
         ((char *)ent->u.buf.pbyte)[ent->length] = '\0';
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -1525,7 +1525,7 @@ int chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, uint8 isheader)
         ent->trailerlen = 0;
         ck->chunksize += ent->length;
     } else {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
         sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -1561,7 +1561,7 @@ int chunk_add_bufptr (void * vck, void * pbuf, int64 len, void * porig)
     ent->u.bufptr.pbyte = pbuf;
     ent->u.bufptr.porig = porig;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -1596,10 +1596,10 @@ int chunk_append_bufptr (void * vck, void * pbuf, int64 len, void * porig)
     ent->u.bufptr.pbyte = pbuf;
     ent->u.bufptr.porig = porig;
 
-#ifdef _WIN32
-        sprintf(ent->lenstr, "%I64x\r\n", ent->length);
+#if defined(_WIN32) || defined(_WIN64)
+    sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
-        sprintf(ent->lenstr, "%llx\r\n", ent->length);
+    sprintf(ent->lenstr, "%llx\r\n", ent->length);
 #endif
     ent->lenstrlen = strlen(ent->lenstr);
     strcpy(ent->trailer, "\r\n");
@@ -1688,7 +1688,7 @@ int chunk_add_file (void * vck, char * fname, int64 offset, int64 length, int me
         ent->length = length;
 
         ent->u.filename.pbyte = NULL;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         ent->u.filename.hmap = NULL;
 #endif
         ent->u.filename.pmap = NULL;
@@ -1708,7 +1708,7 @@ int chunk_add_file (void * vck, char * fname, int64 offset, int64 length, int me
 
     ck->size += length;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -1771,7 +1771,7 @@ int64 chunk_prepend_file (void * vck, char * fname, int64 packsize)
         ent->length = length;
 
         ent->u.filename.pbyte = NULL;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         ent->u.filename.hmap = NULL;
 #endif
         ent->u.filename.pmap = NULL;
@@ -1785,7 +1785,7 @@ int64 chunk_prepend_file (void * vck, char * fname, int64 packsize)
         ent->u.filename.inode = inode;
         ent->u.filename.mtime = mtime;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
         sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -1847,7 +1847,7 @@ int64 chunk_append_file (void * vck, char * fname, int64 packsize)
         ent->length = length;
 
         ent->u.filename.pbyte = NULL;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         ent->u.filename.hmap = NULL;
 #endif
         ent->u.filename.pmap = NULL;
@@ -1861,7 +1861,7 @@ int64 chunk_append_file (void * vck, char * fname, int64 packsize)
         ent->u.filename.inode = inode;
         ent->u.filename.mtime = mtime;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
         sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -1920,8 +1920,8 @@ int chunk_add_filefp (void * vck, FILE * fp, int64 offset, int64 length)
     ent->length = length;
  
     ent->u.fileptr.pbyte = NULL;
-#ifdef _WIN32
-        ent->u.fileptr.hmap = NULL;
+#if defined(_WIN32) || defined(_WIN64)
+    ent->u.fileptr.hmap = NULL;
 #endif
     ent->u.fileptr.pmap = NULL;
     ent->u.fileptr.maplen = 0;
@@ -1939,7 +1939,7 @@ int chunk_add_filefp (void * vck, FILE * fp, int64 offset, int64 length)
     ck->size += ent->length;
     ck->filenum++;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -1984,8 +1984,8 @@ int chunk_add_filefd (void * vck, int fd, int64 offset, int64 length)
     ent->length = length;
  
     ent->u.filefd.pbyte = NULL;
-#ifdef _WIN32
-        ent->u.filefd.hmap = NULL;
+#if defined(_WIN32) || defined(_WIN64)
+    ent->u.filefd.hmap = NULL;
 #endif
     ent->u.filefd.pmap = NULL;
     ent->u.filefd.maplen = 0;
@@ -2003,7 +2003,7 @@ int chunk_add_filefd (void * vck, int fd, int64 offset, int64 length)
     ck->size += ent->length;
     ck->filenum++;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -2047,7 +2047,7 @@ int chunk_add_cbdata (void * vck, void * fetchfunc, void * fetchobj, int64 offse
 
     ck->size += length;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     sprintf(ent->lenstr, "%I64x\r\n", ent->length);
 #else
     sprintf(ent->lenstr, "%llx\r\n", ent->length);
@@ -2287,7 +2287,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
                                   &ent->u.filename.fsize, NULL,
                                   &ent->u.filename.mtime, NULL);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
                         native_file_attr(ent->u.filename.hfile,
                                          &ent->u.filename.fsize,
                                          &ent->u.filename.mtime,
@@ -2297,9 +2297,11 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
                 }
 
                 pvec->filefd = native_file_fd(ent->u.filename.hfile);
-#ifdef _WIN32
-                pvec->hfile = native_file_handle(ent->u.filename.hfile);
+#if defined(_WIN32) || defined(_WIN64)
+                pvec->filehandle = native_file_handle(ent->u.filename.hfile);
 #endif
+                pvec->hfile = ent->u.filename.hfile;
+
                 pvec->fpos = ent->u.filename.offset + curpos;
                 pvec->filesize = ent->u.filename.fsize;
 
@@ -2314,9 +2316,11 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
                     return (int)pvec->size;
 
                 pvec->filefd = fileno(ent->u.fileptr.fp);
-#ifdef _WIN32
-                pvec->hfile = fd_to_file_handle(pvec->filefd);
+#if defined(_WIN32) || defined(_WIN64)
+                pvec->filehandle = fd_to_file_handle(pvec->filefd);
 #endif
+                pvec->hfile = ent->u.fileptr.fp;
+
                 pvec->fpos = ent->u.fileptr.offset + curpos;
                 pvec->filesize = ent->u.fileptr.fsize;
 
@@ -2331,9 +2335,10 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
                     return (int)pvec->size;
 
                 pvec->filefd = ent->u.filefd.fd;
-#ifdef _WIN32
-                pvec->hfile = fd_to_file_handle(pvec->filefd);
+#if defined(_WIN32) || defined(_WIN64)
+                pvec->filehandle = fd_to_file_handle(pvec->filefd);
 #endif
+
                 pvec->fpos = ent->u.filefd.offset + curpos;
                 pvec->filesize = ent->u.filefd.fsize;
  
@@ -2553,7 +2558,7 @@ int chunk_at (void * vck, int64 pos, int * ind)
                                                   &ent->u.filename.maplen,
                                                   &ent->u.filename.mapoff);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
                     if (ent->u.filename.pmap != NULL) {
                         file_munmap(ent->u.filename.hmap, ent->u.filename.pmap);
                         ent->u.filename.hmap = NULL;
@@ -2593,7 +2598,7 @@ int chunk_at (void * vck, int64 pos, int * ind)
                                                   &ent->u.fileptr.maplen,
                                                   &ent->u.fileptr.mapoff);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
                     if (ent->u.fileptr.pmap != NULL) {
                         file_munmap(ent->u.fileptr.hmap, ent->u.fileptr.pmap);
                         ent->u.fileptr.hmap = NULL;
@@ -2633,7 +2638,7 @@ int chunk_at (void * vck, int64 pos, int * ind)
                                                   &ent->u.filefd.maplen,
                                                   &ent->u.filefd.mapoff);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
                     if (ent->u.filefd.pmap != NULL) {
                         file_munmap(ent->u.filefd.hmap, ent->u.filefd.pmap);
                         ent->u.filefd.hmap = NULL;
@@ -2756,7 +2761,7 @@ void * chunk_ptr (void * vck, int64 pos, int * ind, void ** ppbuf, int64 * plen)
                                                   &ent->u.filename.maplen,
                                                   &ent->u.filename.mapoff);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
                     if (ent->u.filename.pmap != NULL) {
                         file_munmap(ent->u.filename.hmap, ent->u.filename.pmap);
                         ent->u.filename.hmap = NULL;
@@ -2802,7 +2807,7 @@ void * chunk_ptr (void * vck, int64 pos, int * ind, void ** ppbuf, int64 * plen)
                                                   &ent->u.fileptr.maplen,
                                                   &ent->u.fileptr.mapoff);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
                     if (ent->u.fileptr.pmap != NULL) {
                         file_munmap(ent->u.fileptr.hmap, ent->u.fileptr.pmap);
                         ent->u.fileptr.hmap = NULL;
@@ -2847,7 +2852,7 @@ void * chunk_ptr (void * vck, int64 pos, int * ind, void ** ppbuf, int64 * plen)
                                                   &ent->u.filefd.maplen,
                                                   &ent->u.filefd.mapoff);
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
                     if (ent->u.filefd.pmap != NULL) {
                         file_munmap(ent->u.filefd.hmap, ent->u.filefd.pmap);
                         ent->u.filefd.hmap = NULL;

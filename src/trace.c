@@ -141,7 +141,7 @@ void printOctet (FILE * fp, void * data, int start, int count, int margin)
     uint8 marginChar [MARGIN_MAX + 1];
     int   lines, i, j, hexInd, ascInd, iter;
     int   ch;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     char  trline[256];
 #endif
  
@@ -175,7 +175,7 @@ void printOctet (FILE * fp, void * data, int start, int count, int margin)
         hexbyte[CHARS_ON_LINE * 4 + 5] = '\0';
  
         fprintf(fp, "%s0x%04X   %s", marginChar, i, hexbyte);
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         sprintf(trline, "%s0x%04X   %s", marginChar, i, hexbyte);
         OutputDebugString(trline);
 #endif

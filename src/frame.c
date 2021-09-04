@@ -24,7 +24,7 @@ extern void * memrchr (__const void *__s, int __c, size_t __n);
 
 #define  DEFAULT_SIZE  128
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #include <io.h>
 
 void * memrchr (const void * s, int c, size_t n)
@@ -47,7 +47,7 @@ frame_p frame_new (int size)
         frm->len = 0;
         frm->size = 0;
         frm->start = 0;
-        frm->data = kzalloc(4 + 2);
+        frm->data = NULL;
     } else {
         frm->start = 0;
         frm->len = 0;
@@ -286,7 +286,7 @@ void frame_print (frame_p frm, FILE * fp, int start, int count, int margin)
         hexbyte[CHARS_ON_LINE * 4 + 4] = '\n';
         hexbyte[CHARS_ON_LINE * 4 + 5] = '\0';
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         if (fp == stderr || fp == stdout) {
             char trline[4096];
             sprintf(trline, "%s0x%04X   %s", marginChar, i, hexbyte);
@@ -1205,7 +1205,7 @@ int frame_tcp_recv (frame_p frm, SOCKET fd, int waitms, int * actnum)
             return -20; /* connection closed by other end */
  
         } else if (ret == -1) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
                 continue;
@@ -1280,7 +1280,7 @@ int frame_tcp_send (frame_p frm, SOCKET fd, int waitms, int * actnum)
 #endif
         ret = send (fd, (uint8 *)frameP(frm) + sendLen, frm->len - sendLen, MSG_NOSIGNAL);
         if (ret == -1) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
                 continue;
@@ -1373,7 +1373,7 @@ int frame_tcp_nbzc_recv (frame_p frm, SOCKET fd, int * actnum, int * perr)
 #ifdef UNIX
         if (perr) *perr = errno;
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         if (perr) *perr = errcode = WSAGetLastError();
 #endif
 
@@ -1382,7 +1382,7 @@ int frame_tcp_nbzc_recv (frame_p frm, SOCKET fd, int * actnum, int * perr)
             return -20;
 
         } else if (ret == SOCKET_ERROR) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             if (errcode == WSAEINTR) {
                 continue;
@@ -1455,7 +1455,7 @@ int frame_tcp_nb_recv (frame_p frm, SOCKET fd, int * actnum, int * perr)
 #ifdef UNIX
         if (perr) *perr = errno;
 #endif
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
         if (perr) *perr = errcode = WSAGetLastError();
 #endif
 
@@ -1464,7 +1464,7 @@ int frame_tcp_nb_recv (frame_p frm, SOCKET fd, int * actnum, int * perr)
             return -20;
 
         } else if (ret == SOCKET_ERROR) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             if (errcode == WSAEINTR) {
                 continue;
@@ -1528,7 +1528,7 @@ int frame_tcp_nb_send (frame_p frm, SOCKET fd, int * actnum)
 #endif
         ret = send(fd, (uint8 *)frameP(frm) + sendLen, frm->len - sendLen, MSG_NOSIGNAL);
         if (ret == -1) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
             errcode = WSAGetLastError();
             if (errcode == WSAEINTR || errcode == WSAEWOULDBLOCK) {
                 if (++errtimes >= 1) break;

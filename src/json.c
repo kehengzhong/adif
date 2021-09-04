@@ -1482,7 +1482,7 @@ int json_add_int64 (void * vobj, void * key, int keylen, int64 val, uint8 isarr)
     if (keylen < 0) keylen = str_len(key);
     if (keylen <= 0) return -3;
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     sprintf(buf, "%I64d", val);
 #else
     sprintf(buf, "%lld", val);
@@ -1501,7 +1501,7 @@ int json_add_uint64 (void * vobj, void * key, int keylen, uint64 val, uint8 isar
     if (keylen < 0) keylen = str_len(key);
     if (keylen <= 0) return -3;
  
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     sprintf(buf, "%I64u", val);
 #else
     sprintf(buf, "%llu", val);
@@ -1922,7 +1922,7 @@ int json_decode_file (void * vobj, void * fn, int fnlen, int findobjbgn, int str
     return ret;
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     JsonObj     * obj = (JsonObj *)vobj;
     char          fname[512];
     void        * hfile = NULL;

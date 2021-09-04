@@ -14,14 +14,14 @@
 #include <sys/time.h>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #include <tchar.h>
 #include <windows.h>
 #include <WinNT.h>
 #endif
 
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 void ansi_2_unicode(wchar_t * wcrt, char * pstr)
 {
     int     len = 0;

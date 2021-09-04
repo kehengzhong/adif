@@ -112,7 +112,7 @@ void * kosmalloc (size_t size)
 
     if (size <= 0) return NULL;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     ptr = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size);
 #else
     ptr = malloc(size);
@@ -125,7 +125,7 @@ void * kosrealloc (void * ptr, size_t size)
 {
     void  * oldp = ptr;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     if (ptr != NULL)
         ptr = HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ptr, size);
     else
@@ -148,7 +148,7 @@ void * kosrealloc (void * ptr, size_t size)
 
 void kosfree (void * ptr)
 {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     if (ptr) HeapFree(GetProcessHeap(), 0, ptr);
 #else
     if (ptr) free(ptr);

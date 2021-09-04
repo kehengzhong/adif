@@ -6,7 +6,7 @@
 #include "service.h"
 #include "frame.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
 #include <windef.h>
 #include <lmcons.h>
@@ -32,7 +32,7 @@ int get_cpu_num ()
 {
     int    num = 0;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     SYSTEM_INFO sysinfo;
 
     GetSystemInfo( &sysinfo );
@@ -307,7 +307,7 @@ int runas(char * user)
 #endif  //end ifdef UNIX
 
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 
 #define DFP_GET_VERSION        0x00074080 
 #define DFP_SEND_DRIVE_COMMAND 0x0007c084 

@@ -393,7 +393,7 @@ void event_destroy (void * vevent)
 #endif
 
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 
 #include "memory.h"
 
@@ -568,7 +568,7 @@ ulong get_threadid ()
 #endif
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
     return GetCurrentThreadId();
 #endif
 }
