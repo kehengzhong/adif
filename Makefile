@@ -32,7 +32,7 @@ solib = $(dst)/$(PKG_SO_LIB)
 
 PKG_VER_MAJOR = 2
 PKG_VER_MINOR = 6
-PKG_VER_RELEASE = 26
+PKG_VER_RELEASE = 28
 PKG_VER = $(PKG_VER_MAJOR).$(PKG_VER_MINOR).$(PKG_VER_RELEASE)
 
 PKG_VERSO_LIB = $(PKG_SO_LIB).$(PKG_VER)
@@ -157,7 +157,7 @@ show:
 dist: $(cnfs) $(sources)
 	cd $(ROOT)/.. && tar czvf $(PKGNAME)-$(PKG_VER).tar.gz $(PKGPATH)/src \
 	    $(PKGPATH)/include $(PKGPATH)/lib $(PKGPATH)/Makefile $(PKGPATH)/README.md \
-	    $(PKGPATH)/LICENSE
+	    $(PKGPATH)/LICENSE $(PKGPATH)/$(PKGNAME).*
 
 install: $(alib) $(solib)
 	mkdir -p $(INSTALL_INC_PATH) $(INSTALL_LIB_PATH)
