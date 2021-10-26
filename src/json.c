@@ -20,11 +20,6 @@
 
 #include "json.h"
 
-typedef struct CommKey_ {
-    uint8   * name;
-    int       namelen;
-} CommStrKey;
-
 
 #define objgets(vobj, key, keylen, val, mget, ind, signflg, func)         \
     JsonObj  * obj = (JsonObj *)vobj;                                     \
@@ -169,35 +164,26 @@ typedef struct CommKey_ {
     return ret;
 
 
-static ulong commstrkey_hash_func (void * vkey) 
-{    
-    CommStrKey * key = (CommStrKey *)vkey;
-     
-    if (!key) return 0; 
-         
-    return generic_hash(key->name, key->namelen, 0);
-}            
-
 static int json_item_cmp_key (void * a, void * b)
 {    
-    JsonItem   * item = (JsonItem *)a;
-    CommStrKey * key = (CommStrKey *)b; 
-    int          len = 0, ret;
+    JsonItem * item = (JsonItem *)a;
+    ckstr_t  * key = (ckstr_t *)b; 
+    int        len = 0, ret;
  
     if (!item || !key) return -1;
 
-    if (item->namelen != key->namelen) {
+    if (item->namelen != key->len) {
 
-        len = (item->namelen > key->namelen) ? key->namelen : item->namelen;
+        len = (item->namelen > key->len) ? key->len : item->namelen;
 
         if (len <= 0) {
             if (item->namelen > 0) return 1;
             return -1;
         }
 
-        ret = str_ncasecmp(item->name, key->name, len);
+        ret = str_ncasecmp(item->name, key->p, len);
         if (ret == 0) {
-            if (item->namelen > key->namelen) return 1;
+            if (item->namelen > key->len) return 1;
 
             else return -1;
 
@@ -207,7 +193,7 @@ static int json_item_cmp_key (void * a, void * b)
     len = item->namelen;
     if (len <= 0) return 0;
  
-    return str_ncasecmp(item->name, key->name, len);
+    return str_ncasecmp(item->name, key->p, len);
 }
 
 
@@ -301,7 +287,7 @@ void * json_init (int sptype, int cmtflag, int sibcoex)
     InitializeCriticalSection(&obj->objCS);
 
     obj->objtab = ht_new(200, json_item_cmp_key);
-    ht_set_hash_func(obj->objtab, commstrkey_hash_func);
+    ht_set_hash_func(obj->objtab, ckstr_string_hash);
 
     obj->bytenum = 0;
 
@@ -411,49 +397,6 @@ int json_size (void * vobj)
 }
 
 
-void * json_item_get (void * vobj, void * name, int namelen)
-{
-    JsonObj    * obj = (JsonObj *)vobj;
-    JsonItem   * item = NULL;
-    CommStrKey   key;
-
-    if (!obj) return NULL;
-
-    if (!name) return NULL;
-    if (namelen < 0) namelen = str_len(name);
-    if (namelen <= 0) return NULL;
-
-    key.name = name;
-    key.namelen = namelen;
-
-    EnterCriticalSection(&obj->objCS);
-    item = ht_get(obj->objtab, &key);
-    LeaveCriticalSection(&obj->objCS);
-
-    return item;
-}
-
-int json_item_add (void * vobj, void * name, int namelen, void * vitem)
-{
-    JsonObj  * obj = (JsonObj *)vobj;
-    JsonItem * item = (JsonItem *)vitem;
-    CommStrKey key;
- 
-    if (!obj) return -1;
-    if (!name) return -2;
-    if (namelen < 0) namelen = str_len(name);
-    if (namelen <= 0) return -3;
- 
-    key.name = name;
-    key.namelen = namelen;
- 
-    EnterCriticalSection(&obj->objCS);
-    ht_set(obj->objtab, &key, item);
-    LeaveCriticalSection(&obj->objCS);
- 
-    return 0;
-}
-
 int json_valuenum (void * vobj, void * key, int keylen)
 {
     JsonObj   * obj = (JsonObj *)vobj;
@@ -479,6 +422,72 @@ int json_num (void * vobj)
 
     return ht_num(obj->objtab);
 }
+
+void * json_item_get (void * vobj, void * name, int namelen)
+{
+    JsonObj    * obj = (JsonObj *)vobj;
+    JsonItem   * item = NULL;
+    ckstr_t      key;
+
+    if (!obj) return NULL;
+
+    if (!name) return NULL;
+    if (namelen < 0) namelen = str_len(name);
+    if (namelen <= 0) return NULL;
+
+    key.p = name;
+    key.len = namelen;
+
+    EnterCriticalSection(&obj->objCS);
+    item = ht_get(obj->objtab, &key);
+    LeaveCriticalSection(&obj->objCS);
+
+    return item;
+}
+
+int json_item_add (void * vobj, void * name, int namelen, void * vitem)
+{
+    JsonObj  * obj = (JsonObj *)vobj;
+    JsonItem * item = (JsonItem *)vitem;
+    ckstr_t    key;
+ 
+    if (!obj) return -1;
+    if (!name) return -2;
+    if (namelen < 0) namelen = str_len(name);
+    if (namelen <= 0) return -3;
+ 
+    key.p = name;
+    key.len = namelen;
+ 
+    EnterCriticalSection(&obj->objCS);
+    ht_set(obj->objtab, &key, item);
+    LeaveCriticalSection(&obj->objCS);
+ 
+    return 0;
+}
+
+void * json_item_del (void * vobj, void * name, int namelen)
+{
+    JsonObj    * obj = (JsonObj *)vobj;
+    JsonItem   * item = NULL;
+    ckstr_t      key;
+ 
+    if (!obj) return NULL;
+ 
+    if (!name) return NULL;
+    if (namelen < 0) namelen = str_len(name);
+    if (namelen <= 0) return NULL;
+ 
+    key.p = name;
+    key.len = namelen;
+ 
+    EnterCriticalSection(&obj->objCS);
+    item = ht_delete(obj->objtab, &key);
+    LeaveCriticalSection(&obj->objCS);
+ 
+    return item;
+}
+
 
 int json_iter (void * vobj, int ind, void ** pkey, int * keylen, void ** pval, int * vallen, void ** pobj)
 {
@@ -527,7 +536,97 @@ int json_iter (void * vobj, int ind, void ** pkey, int * keylen, void ** pval, i
 }
 
 
-/* http.server.location[0].errpage.504 */
+/* "http.server.location[0].errpage.504" : "504.html" */
+int json_mdel (void * vobj, void * key, int keylen)
+{
+    JsonObj   * obj = (JsonObj *)vobj;
+    JsonItem  * item = NULL;
+    JsonValue * jval = NULL;
+ 
+    JsonObj   * subobj = NULL;
+    char      * plist[32];
+    int         plen[32];
+    char      * name = NULL;
+    int         i, num = 0;
+    char      * sublist[3];
+    int         sublen[3];
+    int         subnum = 0;
+    int         index = 0;
+ 
+    if (!obj) return -1;
+ 
+    if (!key) return -2;
+    if (keylen < 0) keylen = str_len(key);
+    if (keylen <= 0) return -3;
+ 
+    num = string_tokenize(key, keylen, ".", 1, (void **)plist, plen, 32);
+ 
+    for (i = 0, subobj = obj; i < num && subobj; i++) {
+        name = plist[i]; keylen = plen[i];
+ 
+        if (plen[i] >= 2) {
+            if ((name[0] == '"' || name[0] == '\'') && name[keylen - 1] == name[0]) {
+                name++; keylen -= 2;
+            }
+        }
+ 
+        subnum = string_tokenize(name, keylen, "[]", 2, (void **)sublist, sublen, 3);
+ 
+        if (subnum > 1) index = atoi(sublist[1]);
+        else index = 0;
+ 
+        item = json_item_get(subobj, sublist[0], sublen[0]);
+        if (!item) return -100;
+
+        if (i == num - 1) { //last sub-item is to be deleted
+            if (subnum <= 1 || (sublist[1][0] < '0' || sublist[1][0] > '9') || item->valnum <= 1) {
+                /* delete all locations
+                   1. json_del(obj, "http.server.location", -1) or 
+                   2. json_del(obj, "http.server.location[]", -1) or
+                   3. not more than 1 item value */
+                item = json_item_del(subobj, sublist[0], sublen[0]);
+                json_item_free(item);
+                return 1;
+            }
+
+            if (index < 0) index = item->valnum - 1;
+            if (index >= 0 && index < item->valnum && item->valnum > 1) {
+                jval = arr_delete((arr_t *)item->valobj, index);
+                json_value_free(jval);
+                return 1;
+            }
+
+            return 0;
+        }
+
+        if (item->valnum <= 0)
+            return -101;
+ 
+        if (index < 0) index = item->valnum - 1;
+        if (index >= item->valnum || index < 0)
+            return -200;
+ 
+        if (index == 0 && item->valnum == 1) {
+            jval = (JsonValue *)item->valobj;
+ 
+        } else if (item->valnum > 1) {
+            jval = arr_value((arr_t *)item->valobj, index);
+        }
+ 
+        if (!jval) return -300;
+ 
+        if (jval->valtype == 0) { //generic string
+            break;
+        } else { //object
+            subobj = jval->jsonobj;
+        }
+    }
+ 
+    return -400;
+}
+
+
+/* "http.server.location[0].errpage.504" : "504.html" */
 int json_mget_value (void * vobj, void * key, int keylen, void ** pval, int * vallen, void ** pobj)
 {
     JsonObj   * obj = (JsonObj *)vobj;
@@ -555,7 +654,7 @@ int json_mget_value (void * vobj, void * key, int keylen, void ** pval, int * va
  
     num = string_tokenize(key, keylen, ".", 1, (void **)plist, plen, 32);
 
-    for (i = 0, subobj = obj; i < num; i++) {
+    for (i = 0, subobj = obj; i < num && subobj; i++) {
         name = plist[i]; keylen = plen[i];
 
         if (plen[i] >= 2) {
@@ -592,6 +691,8 @@ int json_mget_value (void * vobj, void * key, int keylen, void ** pval, int * va
             subobj = jval->jsonobj;
         }
     }
+
+    if (!jval) return -400;
 
     if (jval->valtype == 0) { //generic string
         if (pval) *pval = jval->value;
@@ -723,6 +824,26 @@ int json_mget_uint64 (void * vobj, void * key, int keylen, uint64 * val)
 int json_mget_double (void * vobj, void * key, int keylen, double * val)
 {
     objgetd(vobj, key, keylen, val, 1, 0, strtod);
+}
+
+
+int json_del (void * vobj, void * key, int keylen)
+{
+    JsonObj   * obj = (JsonObj *)vobj;
+    JsonItem  * item = NULL;
+ 
+    if (!obj) return -1;
+ 
+    if (!key) return -2;
+    if (keylen < 0) keylen = str_len(key);
+    if (keylen <= 0) return -3;
+ 
+    item = json_item_del(obj, key, keylen);
+    if (!item) return -100;
+ 
+    json_item_free(item);
+
+    return 0;
 }
 
 

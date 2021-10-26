@@ -229,8 +229,8 @@ int arr_enlarge (arr_t * ar, int scale)
     if (ar->num_alloc <= ar->num + scale) {
         s = (void **)krealloc((void *)ar->data,
                         sizeof(void *) * (ar->num + scale + MIN_NODES));
-        if (s == NULL)
-            return 0;
+        if (s == NULL) return 0;
+
         ar->data = s;
         ar->num_alloc = ar->num + scale + MIN_NODES;
     }
@@ -311,9 +311,8 @@ int arr_findloc_by (arr_t * ar, void * pattern, ArrCmp * cmp, int * found)
         if (!(result = (*cmp)(ar->data[mid], pattern))) {
             if (found) *found = 1;
             return mid;
-        }
 
-        else if (result < 0) {
+        } else if (result < 0) {
             lo = mid + 1;
             if (lo > hi) return lo;
 

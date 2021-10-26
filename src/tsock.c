@@ -92,6 +92,113 @@ int sock_nonblock_set (SOCKET fd, int nbflag)
     return 0;
 }
 
+int pipe_create (SOCKET sockfd[2])
+{
+#if defined(_WIN32) || defined(_WIN64)
+    SECURITY_ATTRIBUTES sa = {0};
+
+    sa.nLength = sizeof(sa);
+    sa.lpSecurityDescriptor = NULL;
+    sa.bInheritHandle = TRUE;
+
+    return CreatePipe((PHANDLE)&sockfd[0], (PHANDLE)&sockfd[1], &sa, 0);
+
+#else
+    if (pipe(sockfd)) {
+        return -1;
+    }
+
+    return 0;
+#endif
+}
+
+int sock_pair_create (int type, SOCKET sockfd[2])
+{
+#if defined(_WIN32) || defined(_WIN64)
+    struct sockaddr_in  saddr = { 0 };
+    struct sockaddr_in  addr = { 0 };
+    socklen_t           slen = sizeof(struct sockaddr_in);
+    SOCKET              connfd = INVALID_SOCKET;
+
+    sockfd[0] = INVALID_SOCKET;
+    sockfd[1] = INVALID_SOCKET;
+
+    do {
+        sockfd[0] = socket(AF_INET, type, 0);
+        if (INVALID_SOCKET == sockfd[0])
+            break;
+
+        sockfd[1] = socket(AF_INET, type, 0);
+        if (INVALID_SOCKET == sockfd[1])
+            break;
+
+        saddr.sin_family = AF_INET;
+        saddr.sin_port = 0;
+        saddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+        if (bind(sockfd[0], (struct sockaddr *)&saddr, sizeof(saddr)))
+            break;
+
+        if (getsockname(sockfd[0], (struct sockaddr*)&saddr, &slen))
+            break;
+
+        if (SOCK_STREAM == type) {
+            if (listen(sockfd[0], 1)) break;
+
+        } else {
+            addr.sin_family = AF_INET;
+            addr.sin_port = 0;
+            addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+            if (bind(sockfd[1], (struct sockaddr*)&addr, sizeof(addr)))
+                break;
+
+            if (getsockname(sockfd[1], (struct sockaddr*)&addr, &slen))
+                break;
+
+            if (connect(sockfd[0], (struct sockaddr*)&addr, slen))
+                break;
+        }
+
+        if (connect(sockfd[1], (struct sockaddr*)&saddr, slen))
+            break;
+
+        if (SOCK_STREAM == type) {
+            int on = 1;
+
+            connfd = accept(sockfd[0], NULL, NULL);
+            if (INVALID_SOCKET == connfd)
+                break;
+
+            closesocket(sockfd[0]);
+
+            sockfd[0] = connfd;
+            if (setsockopt(sockfd[0], IPPROTO_TCP, TCP_NODELAY, (char*)&on, sizeof(on)) ||
+                setsockopt(sockfd[1], IPPROTO_TCP, TCP_NODELAY, (char*)&on, sizeof(on)))
+            {
+                break;
+            }
+        }
+
+        return 0;
+
+    } while (0);
+
+    if (sockfd[0] != INVALID_SOCKET) {
+        closesocket(sockfd[0]);
+    }
+
+    if (sockfd[1] != INVALID_SOCKET) {
+        closesocket(sockfd[1]);
+    }
+
+    return -1;
+
+#else
+    return socketpair(AF_UNIX, type, 0, sockfd) == 0;
+#endif
+}
+
 int sock_unread_data (SOCKET fd)
 {
 #if defined(_WIN32) || defined(_WIN64)

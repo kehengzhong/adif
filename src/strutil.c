@@ -1959,6 +1959,8 @@ int json_strip (void * psrc, int size, void * pdst, int dstlen)
                         i += ret;
                         if (uval <= 0xFF) len += 1;
                         else if (uval <= 0xFFFF) len += 2;
+                    } else {
+                        len += 1;
                     }
                     break;
                 }
@@ -2055,6 +2057,8 @@ int json_strip (void * psrc, int size, void * pdst, int dstlen)
                             dst[len++] = (uval >> 8) & 0xFF; 
                         }    
                     }
+                } else {
+                    dst[len++] = ch;
                 }
                 break;
             }
@@ -2159,6 +2163,8 @@ void * json_strip_dup (void * psrc, int size)
                             dst[num++] = (uval >> 8) & 0xFF;
                         }
                     }
+                } else {
+                    dst[num++] = ch;
                 }
                 break;
             }

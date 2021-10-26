@@ -73,12 +73,12 @@ ulong string_hash (void * key, int keylen, ulong seed)
 ulong ckstr_generic_hash (void * vkey)
 {
     ckstr_t * key = (ckstr_t *)vkey;
- 
+
     if (!key) return 0;
- 
+
     return generic_hash(key->p, key->len, 0);
 }
- 
+
 ulong ckstr_string_hash (void * vkey)
 {
     ckstr_t * key = (ckstr_t *)vkey;

@@ -207,7 +207,7 @@ int conf_mgmt_read (void * vconf, char * file)
     if (file != conf->confile)
         strncpy(conf->confile, file, sizeof(conf->confile)-1);
 
-    fp = fopen(conf->confile, "r+");
+    fp = fopen(conf->confile, "r");
     if (!fp) return -3;
 
     sect = &conf->default_sect;
