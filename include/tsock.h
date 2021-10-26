@@ -306,6 +306,9 @@ typedef struct sockattr_st {
 int sock_nonblock_get (SOCKET fd);
 int sock_nonblock_set (SOCKET fd, int nbflag);
  
+int pipe_create (SOCKET sockfd[2]);
+int sock_pair_create (int type, SOCKET sockfd[2]);
+
 int sock_unread_data (SOCKET fd);
  
 /* determine socket is open or not */
