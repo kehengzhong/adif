@@ -489,7 +489,7 @@ void * json_item_del (void * vobj, void * name, int namelen)
 }
 
 
-int json_iter (void * vobj, int ind, void ** pkey, int * keylen, void ** pval, int * vallen, void ** pobj)
+int json_iter (void * vobj, int ind, int valind, void ** pkey, int * keylen, void ** pval, int * vallen, void ** pobj)
 {
     JsonObj   * obj = (JsonObj *)vobj;
     JsonItem  * item = NULL;
@@ -518,7 +518,13 @@ int json_iter (void * vobj, int ind, void ** pkey, int * keylen, void ** pval, i
         jval = (JsonValue *)item->valobj;
  
     } else if (item->valnum > 1) {
-        jval = arr_value((arr_t *)item->valobj, 0);
+        if (valind < 0 || valind >= item->valnum)
+            return -300;
+
+        jval = arr_value((arr_t *)item->valobj, valind);
+
+    } else {
+        return -301;
     }
 
     if (jval->valtype == 0) { //generic string

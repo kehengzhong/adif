@@ -1484,7 +1484,7 @@ int chunk_remove_bufptr (void * vck, void * pbuf)
     return rmnum;
 }
 
-int chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, uint8 isheader)
+int chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, void * porig, void * freefunc, uint8 isheader)
 {
     chunk_t  * ck = (chunk_t *)vck;
     ckent_t  * ent = NULL;
@@ -1514,6 +1514,8 @@ int chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, uint8 isheader)
     ent->header = isheader ? 1 : 0;
     ent->length = len;
     ent->u.bufptr.pbyte = pbuf;
+    ent->u.bufptr.porig = porig;
+    ent->u.bufptr.freefunc = freefunc;
 
     arr_insert(ck->entity_list, ent, insloc);
     ck->bufnum++;
@@ -1544,7 +1546,7 @@ int chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, uint8 isheader)
     return 0;
 }
 
-int chunk_add_bufptr (void * vck, void * pbuf, int64 len, void * porig)
+int chunk_add_bufptr (void * vck, void * pbuf, int64 len, void * porig, void * freefunc)
 {
     chunk_t  * ck = (chunk_t *)vck;
     ckent_t  * ent = NULL;
@@ -1560,6 +1562,7 @@ int chunk_add_bufptr (void * vck, void * pbuf, int64 len, void * porig)
     ent->length = len;
     ent->u.bufptr.pbyte = pbuf;
     ent->u.bufptr.porig = porig;
+    ent->u.bufptr.freefunc = freefunc;
 
 #if defined(_WIN32) || defined(_WIN64)
     sprintf(ent->lenstr, "%I64x\r\n", ent->length);
@@ -1579,7 +1582,7 @@ int chunk_add_bufptr (void * vck, void * pbuf, int64 len, void * porig)
     return 0;
 }
 
-int chunk_append_bufptr (void * vck, void * pbuf, int64 len, void * porig)
+int chunk_append_bufptr (void * vck, void * pbuf, int64 len, void * porig, void * freefunc)
 {
     chunk_t  * ck = (chunk_t *)vck;
     ckent_t  * ent = NULL;
@@ -1595,6 +1598,7 @@ int chunk_append_bufptr (void * vck, void * pbuf, int64 len, void * porig)
     ent->length = len;
     ent->u.bufptr.pbyte = pbuf;
     ent->u.bufptr.porig = porig;
+    ent->u.bufptr.freefunc = freefunc;
 
 #if defined(_WIN32) || defined(_WIN64)
     sprintf(ent->lenstr, "%I64x\r\n", ent->length);
@@ -2135,8 +2139,16 @@ int chunk_remove (void * vck, int64 pos, int httpchunk)
         }
 
         arr_delete(ck->entity_list, 0);
-        chunk_entity_free(ent);
+        i--; num--;
         rmnum++;
+
+        if (ent->u.bufptr.porig && ent->u.bufptr.freefunc &&
+            chunk_bufptr_porig_find(ck, ent->u.bufptr.porig) <= 0)
+        {
+            (*ent->u.bufptr.freefunc)(ent->u.bufptr.porig);
+        }
+
+        chunk_entity_free(ent);
     }
 
     return rmnum;
