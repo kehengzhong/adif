@@ -82,7 +82,7 @@ int    json_size (void * vobj);
 int    json_valuenum (void * vobj, void * key, int keylen);
 
 int    json_num (void * vobj);
-int    json_iter (void * vobj, int ind, void ** pkey, int * keylen, void ** pval, int * vallen, void ** pobj);
+int    json_iter (void * vobj, int ind, int valind, void ** pkey, int * keylen, void ** pval, int * vallen, void ** pobj);
 
        /* "http.server.location[0].errpage.504" : "504.html" */
 int    json_mdel (void * vobj, void * key, int keylen);

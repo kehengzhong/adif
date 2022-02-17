@@ -15,6 +15,7 @@ extern "C" {
 typedef int FetchData (void * para, int64 offset, int64 lenght, void ** ppbyte, int64 * pbytelen);
 typedef int GoAhead   (void * para, int64 offset, int64 step);
 typedef int FetchEnd  (void * para, int status);
+typedef void CKEFree  (void * obj);
 
 typedef int ProcessNotify (void * msg, void * para, uint64 cbval, int64 offset, int64 step);
 
@@ -50,6 +51,7 @@ typedef struct chunk_entity {
         struct {
             void     * pbyte;
             void     * porig;
+            CKEFree  * freefunc;
         } bufptr;
 
         struct {
@@ -193,9 +195,9 @@ int64  chunk_prepend_strip_buffer (void * vck, void * pbuf, int64 len, char * es
 int64  chunk_add_strip_buffer     (void * vck, void * pbuf, int64 len, char * escch, int chlen);
 int64  chunk_append_strip_buffer  (void * vck, void * pbuf, int64 len, char * escch, int chlen);
 
-int    chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, uint8 isheader);
-int    chunk_add_bufptr     (void * vck, void * pbuf, int64 len, void * porig);
-int    chunk_append_bufptr  (void * vck, void * pbuf, int64 len, void * porig);
+int    chunk_prepend_bufptr (void * vck, void * pbuf, int64 len, void * porig, void * freefunc, uint8 isheader);
+int    chunk_add_bufptr     (void * vck, void * pbuf, int64 len, void * porig, void * freefunc);
+int    chunk_append_bufptr  (void * vck, void * pbuf, int64 len, void * porig, void * freefunc);
 
 int    chunk_remove_bufptr  (void * vck, void * pbuf);
 int    chunk_bufptr_porig_find (void * vck, void * porig);
