@@ -1178,6 +1178,20 @@ SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lpor
     ep_sockaddr_t      addr;
     int                one = 0;
  
+    if (sock_addr_parse(host, -1, port, &addr) > 0) {
+        addr.socktype = SOCK_STREAM;
+        confd = tcp_ep_connect(&addr, nonblk, lip, lport, NULL, succ);
+
+        if (attr) {
+            attr->fd = confd;
+            attr->family = addr.family;
+            attr->socktype = addr.socktype;
+            attr->protocol = IPPROTO_TCP;
+        }
+
+        return confd;
+    }
+
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;       /* Allow IPv4 or IPv6 */
     hints.ai_socktype = SOCK_STREAM;   /* Stream socket */
