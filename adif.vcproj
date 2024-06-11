@@ -234,6 +234,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\include\kemalloc.h"
+				>
+			</File>
+			<File
 				RelativePath=".\include\kvpair.h"
 				>
 			</File>
@@ -279,6 +283,14 @@
 			</File>
 			<File
 				RelativePath=".\include\service.h"
+				>
+			</File>
+			<File
+				RelativePath=".\include\skiplist.h"
+				>
+			</File>
+			<File
+				RelativePath=".\include\ssltcp.h"
 				>
 			</File>
 			<File
@@ -402,6 +414,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\src\kemalloc.c"
+				>
+			</File>
+			<File
 				RelativePath=".\src\kvpair.c"
 				>
 			</File>
@@ -447,6 +463,14 @@
 			</File>
 			<File
 				RelativePath=".\src\service.c"
+				>
+			</File>
+			<File
+				RelativePath=".\src\skiplist.c"
+				>
+			</File>
+			<File
+				RelativePath=".\src\ssltcp.c"
 				>
 			</File>
 			<File
