@@ -1,7 +1,7 @@
 
 #################################################################
 #  Makefile for Application Development Interface Fundamental - adif
-#  Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+#  Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
 #  All rights reserved. See MIT LICENSE for redistribution.
 #################################################################
 
@@ -31,8 +31,8 @@ solib = $(dst)/$(PKG_SO_LIB)
 #  Customization of shared object library (SO)
 
 PKG_VER_MAJOR = 2
-PKG_VER_MINOR = 6
-PKG_VER_RELEASE = 30
+PKG_VER_MINOR = 8
+PKG_VER_RELEASE = 2
 PKG_VER = $(PKG_VER_MAJOR).$(PKG_VER_MINOR).$(PKG_VER_RELEASE)
 
 PKG_VERSO_LIB = $(PKG_SO_LIB).$(PKG_VER)
@@ -107,6 +107,9 @@ ifeq ($(UNAME), Solaris)
   DEFS += -DUNIX -D_SOLARIS_
 endif
  
+ifeq ($(shell test -e /usr/include/openssl/ssl.h && echo 1), 1)
+  DEFS += -DHAVE_OPENSSL
+endif
 
 #################################################################
 # Merge the rules
