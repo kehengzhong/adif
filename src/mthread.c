@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+  * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+*/ 
 
 #include "btype.h"
 #include "memory.h"
@@ -53,6 +77,11 @@ int EnterCriticalSection (CRITICAL_SECTION * cs)
     return pthread_mutex_lock(cs);
 }
 
+int TryEnterCriticalSection (CRITICAL_SECTION * cs)
+{
+    return pthread_mutex_trylock(cs);
+}
+
 int LeaveCriticalSection(CRITICAL_SECTION * cs)
 {
     return pthread_mutex_unlock(cs);
@@ -101,7 +130,7 @@ int ipc_sem_wait (int semid)
 
     sem.sem_num = 0;
     sem.sem_op = -1;
-    //mark of option��0 or IPC_NOWAIT and so on
+    //mark of option£º0 or IPC_NOWAIT and so on
     sem.sem_flg = SEM_UNDO;
 
     //the '1' in this sentence means the number of commands
@@ -118,7 +147,7 @@ int ipc_sem_signal (int semid)
 
     sem.sem_num = 0;
     sem.sem_op = 1;
-    //mark of option��0 or IPC_NOWAIT and so on
+    //mark of option£º0 or IPC_NOWAIT and so on
     sem.sem_flg = SEM_UNDO;
 
     //the '1' in this sentence means the number of commands
@@ -197,7 +226,6 @@ void * file_mutex_init (char * filename)
     fmutex->unlock_it.l_type   = F_UNLCK;  /* set exclusive/write lock */
     fmutex->unlock_it.l_pid    = 0;        /* pid not actually interesting */
 
-    //fmutex->fcntl_fd = open(filename, O_CREAT | O_WRONLY | O_EXCL, 0644);
     fmutex->fcntl_fd = open(filename, O_CREAT | O_WRONLY, 0644);
     if (fmutex->fcntl_fd == -1) {
         perror ("file_mutex_init: open lock file failed");
@@ -271,7 +299,6 @@ int file_mutex_locked (char * filename)
 
     if (!filename) return -1;
 
-    //fd = open(filename, O_CREAT | O_WRONLY | O_EXCL, 0644);
     fd = open(filename, O_CREAT | O_WRONLY, 0644);
     if (fd == -1) {
         perror ("file_mutex_locked: open lock file failed"); 
@@ -544,12 +571,6 @@ int file_mutex_unlock (void * vfmutex)
 
 int file_mutex_locked (char * filename) 
 {
-    //int            fd;
-
-    //if (!filename) return -1;
-
-    //fd = open(filename, O_CREAT | O_WRONLY | O_EXCL, 0644);
-
     return 0;
 }
 

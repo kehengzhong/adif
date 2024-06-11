@@ -1,19 +1,51 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
  */
 
 #include "btype.h"
 #include "memory.h"
+#include "kemalloc.h"
 #include "mpool.h"
 #include "strutil.h"
 #include "arfifo.h"
 #include "dynarr.h"
 #include "actrie.h"
 
-void * acnode_alloc ();
+void * acnode_alloc (int alloctype, void * mpool);
 int    acnode_free (void * vnode);
-int    acnode_recursive_free (void * vnode);
+
+int    acnode_init (void * vnode);
+
+void * acnode_fetch (void * vtrie);
+int    acnode_recycle (void * vtrie, void * vnode);
+
+int    actrie_node_free (actrie_t  * trie, void * vnode);
+int    acnode_recursive_free (actrie_t  * trie, void * vnode);
  
 static int acnode_cmp_item (void * a, void * b)
 {
@@ -31,17 +63,31 @@ static int acnode_cmp_char (void * vnode, void * vword)
     return node->ch - ch;
 }
 
-void * acnode_alloc ()
+void * acnode_alloc (int alloctype, void * mpool)
 {
     acnode_t * node = NULL;
- 
-    node = kzalloc(sizeof(*node));
+
+    node = k_mem_zalloc(sizeof(*node), alloctype, mpool);
     if (!node) return NULL;
  
-    node->alloc = 1;
+    node->alloctype = alloctype;
+    node->mpool = mpool;
+    node->needfree = 1;
+
+    node->ch = 0;
+    node->depth = 0;
+    node->phrase_end = 0;
+    node->count = 0;
+
+    node->sublist = arr_alloc(4, alloctype, mpool);
+
+    node->parent = NULL;
+    node->failjump = NULL;
+    node->para = NULL;
+ 
     return node;
 }
- 
+
 int acnode_free (void * vnode)
 {
     acnode_t * node = (acnode_t *)vnode;
@@ -53,40 +99,25 @@ int acnode_free (void * vnode)
         node->sublist = NULL;
     }
 
-    if (node->alloc) kfree(node);
+    if (node->needfree)
+        k_mem_free(node, node->alloctype, node->mpool);
  
     return 0;
 }
- 
-int acnode_recursive_free (void * vnode)
-{
-    acnode_t * node = (acnode_t *)vnode;
-    acnode_t * subnode = NULL;
- 
-    if (!node) return -1;
- 
-    while (arr_num(node->sublist) > 0) {
-        subnode = arr_pop(node->sublist);
-        acnode_recursive_free(subnode);
-    }
 
-    if (arr_num(node->sublist) <= 0) {
-        acnode_free(node);
-    }
- 
-    return 0;
-}
- 
 int acnode_init (void * vnode)
 {
     acnode_t * node = (acnode_t *)vnode;
  
     if (!node) return -1;
  
+    node->alloctype = 0;
+    node->mpool = NULL;
+    node->needfree = 0;
+
     node->ch = 0;
     node->depth = 0;
     node->phrase_end = 0;
-    node->alloc = 0;
     node->count = 0;
 
     if (node->sublist) {
@@ -101,15 +132,19 @@ int acnode_init (void * vnode)
     return 0;
 }
 
+
 void * acnode_fetch (void * vtrie) 
 {
-    actrie_t  * trie = (actrie_t *)vtrie;
+    actrie_t * trie = (actrie_t *)vtrie;
     acnode_t * node = NULL;
 
     if (!trie) return NULL;
 
-    node = mpool_fetch(trie->itempool);
-    if (!node) node = acnode_alloc();
+    if (trie->itempool)
+        node = mpool_fetch(trie->itempool);
+
+    if (!node)
+        node = acnode_alloc(trie->alloctype, trie->mpool);
 
     return node;
 }
@@ -122,11 +157,81 @@ int acnode_recycle (void * vtrie, void * vnode)
     if (!trie) return -1;
     if (!node) return -2;
 
-    if (node->alloc)
+    if (node->needfree)
         return acnode_free(node);
 
-    mpool_recycle(trie->itempool, node);
+    if (node->sublist) {
+        arr_free(node->sublist);
+        node->sublist = NULL;
+    }
+
+    if (trie->itempool && !node->needfree)
+        mpool_recycle(trie->itempool, node);
+    else
+        k_mem_free(node, node->alloctype, node->mpool);
+
     return 0;
+}
+
+int actrie_node_free (actrie_t  * trie, void * vnode)
+{
+    acnode_t * node = (acnode_t *)vnode;
+ 
+    if (!trie) return -1;
+    if (!node) return -2;
+
+    if (node->sublist) {
+        arr_free(node->sublist);
+        node->sublist = NULL;
+    }
+
+    if (trie->itempool && !node->needfree)
+        mpool_recycle(trie->itempool, node);
+    else
+        k_mem_free(node, node->alloctype, node->mpool);
+ 
+    return 0;
+}
+
+int acnode_recursive_free (actrie_t  * trie, void * vnode)
+{
+    acnode_t * node = (acnode_t *)vnode;
+    acnode_t * subnode = NULL;
+
+    if (!trie) return -1;
+    if (!node) return -2;
+
+    while (arr_num(node->sublist) > 0) {
+        subnode = arr_pop(node->sublist);
+        acnode_recursive_free(trie, subnode);
+    }
+
+    if (arr_num(node->sublist) <= 0) {
+        actrie_node_free(trie, node);
+    }
+
+    return 0;
+}
+
+void * actrie_alloc (void * matchcb, int reverse, int alloctype, void * mpool)
+{
+    actrie_t * trie = NULL;
+
+    trie = k_mem_zalloc(sizeof(*trie), alloctype, mpool);
+    if (!trie) return NULL;
+
+    trie->alloctype = alloctype;
+    trie->mpool = mpool;
+
+    trie->entries = 0;
+    trie->matchcb = matchcb;
+    trie->reverse = reverse;
+
+    trie->itempool = NULL;
+
+    trie->root = acnode_fetch(trie);
+
+    return trie;
 }
 
 void * actrie_init (int entries, void * matchcb, int reverse)
@@ -136,7 +241,10 @@ void * actrie_init (int entries, void * matchcb, int reverse)
     trie = kzalloc(sizeof(*trie));
     if (!trie) return NULL;
  
-    if (entries < 128) entries = 128;
+    trie->alloctype = 0;
+    trie->mpool = NULL;
+
+    if (entries < 32) entries = 32;
 
     trie->entries = entries;
     trie->matchcb = matchcb;
@@ -160,7 +268,7 @@ int actrie_free (void *vtrie)
     if (!trie) return -1;
  
     if (trie->root) {
-        acnode_recursive_free(trie->root);
+        acnode_recursive_free(trie, trie->root);
     }
 
     if (trie->itempool) {
@@ -168,7 +276,7 @@ int actrie_free (void *vtrie)
         trie->itempool = NULL;
     }
 
-    kfree(trie);
+    k_mem_free(trie, trie->alloctype, trie->mpool);
     return 0;
 }
  
@@ -278,7 +386,7 @@ int actrie_failjump (void * vtrie)
     acnode_t    * subnode = NULL;
     acnode_t    * failnode = NULL;
     acnode_t    * jmpnode = NULL;
-    void        * fifo = NULL;
+    arfifo_t    * fifo = NULL;
     int           i = 0;
 
     if (!trie) return -1;

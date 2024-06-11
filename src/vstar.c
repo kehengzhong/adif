@@ -1,17 +1,43 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
+#include "kemalloc.h"
 #include "dynarr.h"
+#include "strutil.h"
 #include "vstar.h"
 
 #define VAR_MIN_NODES    2
 #define CmpFP (int (*)(const void *,const void *))
 
-void * vstar_new (int unitsize, int allocnum, void * free)
+void * vstar_alloc (int unitsize, int allocnum, void * free, int alloctype, void * mpool)
 {
     vstar_t * ar = NULL;
     int       ressize = 0;
@@ -21,15 +47,18 @@ void * vstar_new (int unitsize, int allocnum, void * free)
     ressize = allocnum;
     if (ressize < VAR_MIN_NODES) ressize = VAR_MIN_NODES;
 
-    ar = kzalloc(sizeof(*ar));
+    ar = k_mem_zalloc(sizeof(*ar), alloctype, mpool);
     if (!ar) return NULL;
+
+    ar->alloctype = alloctype;
+    ar->mpool = mpool;
 
     ar->unitsize = unitsize;
     ar->sorted = 0;
     ar->num = 0;
     ar->clean = (VarUnitFree *)free;
 
-    ar->data = (void *)kzalloc(unitsize * ressize);
+    ar->data = (void *)k_mem_zalloc(unitsize * ressize, alloctype, mpool);
     if (ar->data == NULL) {
         vstar_free(ar);
         return NULL;
@@ -51,11 +80,11 @@ int vstar_free (vstar_t * ar)
     }
 
     if (ar->data) {
-        kfree(ar->data);
+        k_mem_free(ar->data, ar->alloctype, ar->mpool);
         ar->data = NULL;
     }
 
-    kfree(ar);
+    k_mem_free(ar, ar->alloctype, ar->mpool);
     return 0;
 }
  
@@ -125,8 +154,9 @@ int vstar_enlarge (vstar_t * ar, int scale)
     rest = ar->num_alloc - ar->num;
 
     if (rest < scale) {
-        s = (void *)krealloc((void *)ar->data, 
-                              ar->unitsize * (ar->num_alloc + scale));
+        s = (void *)k_mem_realloc((void *)ar->data, 
+                              ar->unitsize * (ar->num_alloc + scale),
+                              ar->alloctype, ar->mpool);
         if (s == NULL) return 0;
         ar->data = s;
         ar->num_alloc = ar->num_alloc + scale;
@@ -161,8 +191,9 @@ int vstar_insert (vstar_t * ar, void * data, int loc)
     if (ar->num_alloc <= ar->num + 1) {
         newnum = ar->num_alloc;
 
-        s = (void *)krealloc((void *)ar->data,
-                              ar->unitsize * (ar->num_alloc + newnum));
+        s = (void *)k_mem_realloc((void *)ar->data,
+                              ar->unitsize * (ar->num_alloc + newnum),
+                              ar->alloctype, ar->mpool);
         if (s == NULL) return -1;
 
         ar->data = s;
@@ -198,9 +229,9 @@ int vstar_delete (vstar_t * ar, int loc)
     if (ar->clean) (*ar->clean)(ar->data+loc*ar->unitsize);
    
     if (loc != ar->num-1) {
-        memmove(ar->data + loc * ar->unitsize,
-                ar->data + (loc + 1) * ar->unitsize,
-                (ar->num - 1 - loc) * ar->unitsize);
+        sec_memcpy(ar->data + loc * ar->unitsize,
+                   ar->data + (loc + 1) * ar->unitsize,
+                   (ar->num - 1 - loc) * ar->unitsize);
     }
     ar->num--;
 

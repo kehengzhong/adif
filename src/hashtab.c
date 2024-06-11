@@ -1,10 +1,35 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
+#include "kemalloc.h"
 #include "strutil.h"
 #include "hashtab.h"
 #include <math.h>
@@ -218,16 +243,17 @@ static ulong hash_string (void * str)
     return string_hash(str, -1, 0);
 }
 
-hashtab_t * ht_only_new (int num, HashTabCmp * cmp)
+hashtab_t * ht_only_alloc (int num, HashTabCmp * cmp, int alloctype, void * mpool)
 {
     hashtab_t * ret = NULL;
     int  i = 0;
 
-    ret = kzalloc(sizeof(*ret));
-    if (ret == NULL)
-        return NULL;
+    ret = k_mem_zalloc(sizeof(*ret), alloctype, mpool);
+    if (ret == NULL) return NULL;
 
     ret->num_requested = num;
+    ret->alloctype = alloctype;
+    ret->mpool = mpool;
     ret->len = find_a_prime (num);
     ret->num = 0;
     ret->cmp = cmp;
@@ -236,11 +262,12 @@ hashtab_t * ht_only_new (int num, HashTabCmp * cmp)
     ret->linear = 0;
     ret->nodelist = NULL;
 
-    ret->ptab = kzalloc(ret->len * sizeof(hashnode_t));
+    ret->ptab = k_mem_zalloc(ret->len * sizeof(hashnode_t), alloctype, mpool);
     if (ret->ptab == NULL) {
-        kfree(ret);
+        k_mem_free(ret, alloctype, mpool);
         return NULL;
     }
+
     for (i = 0; i < ret->len; i++) {
         ret->ptab[i].dptr = NULL;
         ret->ptab[i].count = 0;
@@ -250,11 +277,29 @@ hashtab_t * ht_only_new (int num, HashTabCmp * cmp)
     return ret;
 }
  
+hashtab_t * ht_alloc (int num, HashTabCmp * cmp, int alloctype, void * mpool)
+{
+    hashtab_t * ht = NULL;
+
+    ht = ht_only_alloc(num, cmp, alloctype, mpool);
+    if (ht) {
+        ht->linear = 1;
+        ht->nodelist = arr_alloc(4, alloctype, mpool);
+    }
+
+    return ht;
+}
+
+hashtab_t * ht_only_new (int num, HashTabCmp * cmp)
+{
+    return ht_only_alloc(num, cmp, 0, NULL);
+}
+ 
 hashtab_t * ht_new (int num, HashTabCmp * cmp)
 {
     hashtab_t * ht = NULL;
 
-    ht = ht_only_new(num, cmp);
+    ht = ht_only_alloc(num, cmp, 0, NULL);
     if (ht) {
         ht->linear = 1;
         ht->nodelist = arr_new(4);
@@ -291,8 +336,9 @@ void ht_free (hashtab_t * ht)
     }
 
     arr_free(ht->nodelist);
-    kfree(ht->ptab);
-    kfree(ht);
+
+    k_mem_free(ht->ptab, ht->alloctype, ht->mpool);
+    k_mem_free(ht, ht->alloctype, ht->mpool);
 }
 
 
@@ -317,8 +363,9 @@ void ht_free_all (hashtab_t * ht, void * vfunc)
     }
 
     arr_free(ht->nodelist);
-    kfree(ht->ptab);
-    kfree(ht);
+
+    k_mem_free(ht->ptab, ht->alloctype, ht->mpool);
+    k_mem_free(ht, ht->alloctype, ht->mpool);
 }
 
 void ht_free_member (hashtab_t * ht, void * vfunc)
@@ -506,7 +553,7 @@ int ht_set (hashtab_t * ht, void * key, void * value)
  
     case 1:
         if ((*ht->cmp)(ht->ptab[hash].dptr, key) == 0) {
-            return ht->ptab[hash].count;
+            return 0; //ht->ptab[hash].count;
         }
 
         ht->ptab[hash].count++;
@@ -612,7 +659,6 @@ void * ht_delete (hashtab_t * ht, void * key)
 }
 
 
-
 void ht_delete_pattern (hashtab_t * ht, void * usrInfo, HashTabCmp * cmp, HashTabFree * freeFunc)
 {
     int i = 0, j = 0;
@@ -657,7 +703,6 @@ void print_hashtab (void * vht, FILE * fp)
 
     if (!ht) return;
 
-    //fprintf(fp, "\n");
     fprintf(fp, "-----------------------Hash Table---------------------\n");
     fprintf(fp, "Total Bucket Number: %d\n", ht->len);
     fprintf(fp, "Req Bucket Number  : %d\n", ht->num_requested);

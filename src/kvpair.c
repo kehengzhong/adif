@@ -1,10 +1,35 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
+#include "kemalloc.h"
 #include "hashtab.h"
 #include "mthread.h"
 #include "strutil.h"
@@ -169,7 +194,7 @@ static int kvpair_item_cmp_key (void * a, void * b)
     if (!item || !key) return -1;
 
     if (item->namelen != key->namelen) {
-        len = (item->namelen > key->namelen) ? key->namelen : item->namelen;
+        len = ((int)item->namelen > key->namelen) ? key->namelen : item->namelen;
         if (len <= 0) {
             if (item->namelen > 0) return 1;
             return -1;
@@ -177,7 +202,7 @@ static int kvpair_item_cmp_key (void * a, void * b)
 
         ret = str_ncasecmp(item->name, key->name, len);
         if (ret == 0) {
-            if (item->namelen > key->namelen) return 1;
+            if ((int)item->namelen > key->namelen) return 1;
             else return -1;
 
         } else return ret;
@@ -190,11 +215,11 @@ static int kvpair_item_cmp_key (void * a, void * b)
 }
 
 
-void * kvpair_value_alloc ()
+void * kvpair_value_alloc (int alloctype, void * mpool)
 {
     KVPairValue * jval = NULL;
 
-    jval = kzalloc(sizeof(*jval));
+    jval = k_mem_zalloc(sizeof(*jval), alloctype, mpool);
     if (!jval) return NULL;
 
     jval->value = NULL;
@@ -203,28 +228,31 @@ void * kvpair_value_alloc ()
     return jval;
 }
 
-int kvpair_value_free (void * vjval)
+int kvpair_value_free (void * vjval, int alloctype, void * mpool)
 {
     KVPairValue * jval = (KVPairValue *)vjval;
 
     if (!jval) return -1;
 
     if (jval->value) {
-        kfree(jval->value);
+        k_mem_free(jval->value, alloctype, mpool);
         jval->value = NULL;
     }
 
-    kfree(jval);
+    k_mem_free(jval, alloctype, mpool);
     return 0;
 }
 
 
-void * kvpair_item_alloc ()
+void * kvpair_item_alloc (int alloctype, void * mpool)
 {
     KVPairItem * item = NULL;
 
-    item = kzalloc(sizeof(*item));
+    item = k_mem_zalloc(sizeof(*item), alloctype, mpool);
     if (!item) return NULL;
+
+    item->alloctype = alloctype;
+    item->mpool = mpool;
 
     item->name = NULL;
     item->namelen = 0;
@@ -238,26 +266,55 @@ void * kvpair_item_alloc ()
 int kvpair_item_free (void * vitem)
 {
     KVPairItem * item = (KVPairItem *)vitem;
+    arr_t      * vallist = NULL;
 
     if (!item) return -1;
 
     if (item->name) {
-        kfree(item->name);
+        k_mem_free(item->name, item->alloctype, item->mpool);
         item->name = NULL;
     }
 
     if (item->valnum > 1) {
-        arr_pop_free((arr_t *)item->valobj, kvpair_value_free);
+        vallist = (arr_t *)item->valobj;
+	while (arr_num(vallist) > 0) {
+            kvpair_value_free(arr_pop(vallist), item->alloctype, item->mpool);
+	}
+        arr_free(vallist);
 
     } else if (item->valnum == 1) {
-        kvpair_value_free(item->valobj);
+        kvpair_value_free(item->valobj, item->alloctype, item->mpool);
         item->valobj = NULL;
     }
 
-    kfree(item);
+    k_mem_free(item, item->alloctype, item->mpool);
     return 0;
 }
 
+
+void * kvpair_alloc (int htsize, char * sepa, char * kvsep, int alloctype, void * mpool)
+{
+    KVPairObj * obj = NULL;
+
+    obj = k_mem_zalloc(sizeof(*obj), alloctype, mpool);
+    if (!obj) return NULL;
+
+    obj->alloctype = alloctype;
+    obj->mpool = mpool;
+
+    if (htsize <= 0) htsize = 200;
+    obj->htsize = htsize;
+
+    InitializeCriticalSection(&obj->objCS);
+
+    obj->objtab = ht_alloc(obj->htsize, kvpair_item_cmp_key, alloctype, mpool);
+    ht_set_hash_func(obj->objtab, commstrkey_hash_func);
+
+    if (sepa) str_ncpy(obj->sepa, sepa, sizeof(obj->sepa)-1);
+    if (kvsep) str_ncpy(obj->kvsep, kvsep, sizeof(obj->kvsep)-1);
+
+    return obj;
+}
 
 void * kvpair_init (int htsize, char * sepa, char * kvsep)
 {
@@ -274,8 +331,8 @@ void * kvpair_init (int htsize, char * sepa, char * kvsep)
     obj->objtab = ht_new(obj->htsize, kvpair_item_cmp_key);
     ht_set_hash_func(obj->objtab, commstrkey_hash_func);
 
-    if (sepa) str_cpy(obj->sepa, sepa);
-    if (kvsep) str_cpy(obj->kvsep, kvsep);
+    if (sepa) str_ncpy(obj->sepa, sepa, sizeof(obj->sepa)-1);
+    if (kvsep) str_ncpy(obj->kvsep, kvsep, sizeof(obj->kvsep)-1);
 
     return obj;
 }
@@ -290,7 +347,7 @@ int kvpair_clean (void * vobj)
 
     ht_free_all(obj->objtab, kvpair_item_free);
 
-    kfree(obj);
+    k_mem_free(obj, obj->alloctype, obj->mpool);
     return 0;
 }
 
@@ -397,7 +454,7 @@ int kvpair_num (void * vobj)
 }
 
  
-int kvpair_seq_get (void * vobj, int seq, int index, void ** pval, int * vallen)
+int kvpair_seq_get (void * vobj, int seq, void ** pkey, int * keylen, int index, void ** pval, int * vallen)
 {
     KVPairObj   * obj = (KVPairObj *)vobj;
     KVPairItem  * item = NULL;
@@ -411,6 +468,11 @@ int kvpair_seq_get (void * vobj, int seq, int index, void ** pval, int * vallen)
     EnterCriticalSection(&obj->objCS);
     item = ht_value(obj->objtab, seq);
     LeaveCriticalSection(&obj->objCS);
+
+    if (item) {
+        if (pkey) *pkey = item->name;
+        if (keylen) *keylen = item->namelen;
+    }
 
     if (!item || item->valnum <= 0) return -100;
  
@@ -521,7 +583,7 @@ int kvpair_del (void * vobj, void * key, int keylen, int index)
     if (index >= item->valnum || index < 0) return -200;
      
     jval = arr_delete((arr_t *)item->valobj, index);
-    kvpair_value_free(jval);
+    kvpair_value_free(jval, item->alloctype, item->mpool);
 
     if (item->valnum == 2) {
         jval = arr_delete((arr_t *)item->valobj, 0);
@@ -608,18 +670,18 @@ int kvpair_add (void * vobj, void * key, int keylen, void * val, int vallen)
 
     item = kvpair_get_item(obj, key, keylen);
     if (!item) {
-        item = kvpair_item_alloc();
-        item->name = str_dup(key, keylen);
+        item = kvpair_item_alloc(obj->alloctype, obj->mpool);
+        item->name = k_mem_str_dup(key, keylen, obj->alloctype, obj->mpool);
         item->namelen = keylen;
         kvpair_add_item(obj, key, keylen, item);
     }
 
-    jval = kvpair_value_alloc();
+    jval = kvpair_value_alloc(obj->alloctype, obj->mpool);
     if (val && vallen > 0) {
-        jval->value = str_dup(val, vallen);
+        jval->value = k_mem_str_dup(val, vallen, obj->alloctype, obj->mpool);
         jval->valuelen = vallen;
     } else {
-        jval->value = kzalloc(1);
+        jval->value = k_mem_zalloc(1, obj->alloctype, obj->mpool);
         jval->valuelen = 0;
     }
 
@@ -627,7 +689,7 @@ int kvpair_add (void * vobj, void * key, int keylen, void * val, int vallen)
         item->valobj = jval;
 
     } else if (item->valnum == 1) {
-        vallist = arr_new(4);
+        vallist = arr_alloc(4, obj->alloctype, obj->mpool);
         arr_push(vallist, item->valobj);
         arr_push(vallist, jval);
         item->valobj = vallist;
@@ -655,22 +717,22 @@ int kvpair_add_by_fca (void * vobj, void * fca, long keypos, int keylen, long va
     if (keylen <= 0) return -3;
     if (vallen < 0) return -100;
  
-    key = kzalloc(keylen + 1);
+    key = k_mem_zalloc(keylen + 1, obj->alloctype, obj->mpool);
     file_cache_seek(fca, keypos);
     file_cache_read(fca, key, keylen, 0);
 
     item = kvpair_get_item(obj, key, keylen);
     if (!item) {
-        item = kvpair_item_alloc();
+        item = kvpair_item_alloc(obj->alloctype, obj->mpool);
         item->name = key;
         item->namelen = keylen;
         kvpair_add_item(obj, key, keylen, item);
     } else {
-        kfree(key);
+        k_mem_free(key, obj->alloctype, obj->mpool);
     }
  
-    jval = kvpair_value_alloc();
-    jval->value = kzalloc(vallen+1);
+    jval = kvpair_value_alloc(obj->alloctype, obj->mpool);
+    jval->value = k_mem_zalloc(vallen+1, obj->alloctype, obj->mpool);
     jval->valuelen = vallen;
  
     if (vallen > 0) {
@@ -682,7 +744,7 @@ int kvpair_add_by_fca (void * vobj, void * fca, long keypos, int keylen, long va
         item->valobj = jval;
 
     } else if (item->valnum == 1) {
-        vallist = arr_new(4);
+        vallist = arr_alloc(4, obj->alloctype, obj->mpool);
         arr_push(vallist, item->valobj);
         arr_push(vallist, jval);
         item->valobj = vallist;
@@ -1072,7 +1134,7 @@ int kvpair_encode (void * vobj, void * vbyte, int len)
             iter++;
         }
 
-        if (iter + item->namelen <= len)
+        if (iter + (int)item->namelen <= len)
             memcpy(pbyte+iter, item->name, item->namelen);
         iter += item->namelen;
 
@@ -1091,7 +1153,7 @@ int kvpair_encode (void * vobj, void * vbyte, int len)
                         iter++;
                     }
 
-                    if (iter + item->namelen <= len)
+                    if (iter + (int)item->namelen <= len)
                         memcpy(pbyte+iter, item->name, item->namelen);
                     iter += item->namelen;
 

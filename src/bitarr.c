@@ -1,6 +1,30 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
  */
 
 #include "btype.h"
@@ -20,7 +44,7 @@ bitarr_t * bitarr_alloc (int bitnum)
     bar = kzalloc(sizeof(*bar));
     if (!bar) return NULL;
 
-    bar->alloc = 1;
+    bar->osalloc = 0;
     bar->bitnum = bitnum;
     bar->unitnum = (bitnum + UNITBIT - 1) / UNITBIT;
 
@@ -29,16 +53,44 @@ bitarr_t * bitarr_alloc (int bitnum)
     return bar;
 }
 
-void bitarr_init (bitarr_t * bar, int bitnum)
+bitarr_t * bitarr_osalloc (int bitnum)
 {
-    if (!bar) return;
+    bitarr_t * bar = NULL;
 
-    bar->alloc = 0;
+    bar = koszmalloc(sizeof(*bar));
+    if (!bar) return NULL;
+
+    bar->osalloc = 1;
+    bar->bitnum = bitnum;
+    bar->unitnum = (bitnum + UNITBIT - 1) / UNITBIT;
+    
+    bar->bitarr = koszmalloc(bar->unitnum * UNITBYTE);
+    memset(bar->bitarr, 0, bar->unitnum * UNITBYTE);
+
+    return bar;  
+}
+
+bitarr_t * bitarr_from_fixmem (void * pmem, int memlen, int bitnum, int * psize)
+{
+    bitarr_t * bar = NULL;
+
+    if (psize) *psize = sizeof(*bar) + (bitnum + UNITBIT - 1) / UNITBIT * UNITBYTE;
+
+    if (!pmem || memlen < UNITBYTE || memlen < (int)sizeof(*bar) + bitnum / 8)
+        return NULL;
+
+    bar = (bitarr_t *)pmem;
+
+    bar->osalloc = 2;
     bar->bitnum = bitnum;
     bar->unitnum = (bitnum + UNITBIT - 1) / UNITBIT;
 
-    bar->bitarr = kzalloc(bar->unitnum * UNITBYTE);
+    bar->bitarr = (uint64 *)((uint8 *)pmem + sizeof(*bar));
+    memset(bar->bitarr, 0, bar->unitnum * UNITBYTE);
+
+    return bar;
 }
+
 
 bitarr_t * bitarr_resize (bitarr_t * bar, int bitnum)
 {
@@ -55,12 +107,17 @@ bitarr_t * bitarr_resize (bitarr_t * bar, int bitnum)
  
     unitnum = (bitnum + UNITBIT - 1) / UNITBIT;
  
-    if (bar->unitnum < unitnum) {
-        bar->bitarr = krealloc(bar->bitarr, unitnum * UNITBYTE);
+    if ((int)bar->unitnum < unitnum) {
+        if (bar->osalloc == 2)
+            return bar;
+        else if (bar->osalloc == 1)
+            bar->bitarr = kosrealloc(bar->bitarr, unitnum * UNITBYTE);
+        else
+            bar->bitarr = krealloc(bar->bitarr, unitnum * UNITBYTE);
         bar->unitnum = unitnum;
     }
  
-    /* all new allocated bits must be set 0 from original bit */
+    /* all new allocated bits must be set 0 */
 
     arrind = bar->bitnum >> DIVBIT;
     bitoff = bar->bitnum & MODBITS;
@@ -68,7 +125,7 @@ bitarr_t * bitarr_resize (bitarr_t * bar, int bitnum)
     if (bitoff > 0)
         bar->bitarr[arrind] &= (uint64)~0 >> (UNITBIT - bitoff);
 
-    for (arrind++ ; arrind < bar->unitnum; arrind++) {
+    for (arrind++ ; arrind < (int)bar->unitnum; arrind++) {
         bar->bitarr[arrind] = 0;
     }
 
@@ -82,14 +139,21 @@ void bitarr_free (bitarr_t * bar)
     if (!bar) return;
  
     if (bar->bitarr) {
-        kfree(bar->bitarr);
+        if (bar->osalloc == 2) {
+        } else if (bar->osalloc == 1)
+            kosfree(bar->bitarr);
+        else
+            kfree(bar->bitarr);
         bar->bitarr = NULL;
     }
  
     bar->bitnum = 0;
     bar->unitnum = 0;
 
-    if (bar->alloc)
+    if (bar->osalloc == 2) {
+    } else if (bar->osalloc == 1)
+        kosfree(bar);
+    else
         kfree(bar);
 }
 
@@ -354,7 +418,8 @@ int bitarr_xor (bitarr_t * dst, bitarr_t * src)
 }
 
 
-int bitarr_filled (bitarr_t * bar)
+
+int bitarr_cleared (bitarr_t * bar)
 {
     int    i = 0, arrind = 0;
     int    restbit = 0;
@@ -371,13 +436,37 @@ int bitarr_filled (bitarr_t * bar)
  
         arrind = i / UNITBIT;
  
-        if (((bar->bitarr[arrind] ^ (uint64)-1) & ((uint64)-1 >> restbit)) != 0)
+        if ((bar->bitarr[arrind] & ((uint64)-1 >> restbit)) != 0)
             return 0;
     }
  
     return 1;
 }
  
+int bitarr_filled (bitarr_t * bar)
+{
+    int    i = 0, arrind = 0;
+    int    restbit = 0;
+
+    if (!bar) return -1;
+
+    for (i = 0; i < (int)bar->bitnum; i += UNITBIT) {
+        restbit = bar->bitnum - i;
+
+        if (restbit < UNITBIT)
+            restbit = UNITBIT - restbit;
+        else
+            restbit = 0;
+
+        arrind = i / UNITBIT;
+
+        if (((bar->bitarr[arrind] ^ (uint64)-1) & ((uint64)-1 >> restbit)) != 0)
+            return 0;
+    }
+
+    return 1;
+}
+
  
 int bitarr_zero  (bitarr_t * bar)
 {
@@ -388,32 +477,43 @@ int bitarr_zero  (bitarr_t * bar)
     return 0;
 }
 
-void bitarr_print (bitarr_t * bar)
+int bitarr_fill  (bitarr_t * bar)
+{
+    if (!bar) return -1;
+
+    memset(bar->bitarr, 0xFF, sizeof(uint64) * bar->unitnum);
+
+    return 0;
+}
+
+void bitarr_print (bitarr_t * bar, FILE * fp)
 {
     int  i = 0, n = 0;
 
     if (!bar) return;
+    if (!fp) fp = stdout;
 
-    printf("bitarr: bitnum=%d  unitnum=%d\n", bar->bitnum, bar->unitnum);
+    fprintf(fp, "bitarr: bitnum=%d  unitnum=%d\n", bar->bitnum, bar->unitnum);
 
     printf("----|");
     for (i = 0; i < 32; i++) {
         if (i  % 8 == 0)
-            printf("%-2d", i);
+            fprintf(fp, "%-2d", i);
         else
-            printf("--");
+            fprintf(fp, "--");
     }
-    printf("\n");
-    printf(" 0  |");
+    fprintf(fp, "\n");
+    fprintf(fp, " 0  |");
 
+    //for (i = bar->bitnum - 1; i >= 0; i--, n++) {
     for (i = 0; i < (int)bar->bitnum; i++, n++) {
-        printf("%d ", bitarr_get(bar, i) == 0 ? 0 : 1);
+        fprintf(fp, "%d ", bitarr_get(bar, i) == 0 ? 0 : 1);
         if ((n + 1) % 32 == 0) {
-            printf("\n");
-            printf(" %-2d |", (n+1)/32);
+            fprintf(fp, "\n");
+            fprintf(fp, " %-2d |", (n+1)/32);
         }
     }
-    printf("\n");
+    fprintf(fp, "\n");
 }
 
 int bit_mask_get (uint32 * bitmap, uint8 ch)

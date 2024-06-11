@@ -1,12 +1,37 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "strutil.h"
 #include "memory.h"
 #include "patmat.h"
+#include "btime.h"
 
 #ifdef UNIX
 #include <iconv.h>
@@ -19,7 +44,6 @@
 #include <windows.h>
 #include <WinNT.h>
 #endif
-
 
 #if defined(_WIN32) || defined(_WIN64)
 void ansi_2_unicode(wchar_t * wcrt, char * pstr)
@@ -38,12 +62,12 @@ void ansi_2_unicode(wchar_t * wcrt, char * pstr)
 }
 #endif
 
-void ckstr_free(void * str)
+void ckstr_free (void * str)
 {
     kfree(str);
 }
 
-void * ckstr_new(void * pbyte, int bytelen)
+void * ckstr_new (void * pbyte, int bytelen)
 {
      ckstr_t * ps = kzalloc(bytelen);
      ps->p = pbyte;  ps->len = bytelen;
@@ -133,6 +157,8 @@ void * str_ncpy (void * pdst, void * psrc, size_t n)
     uint8  * dst = (uint8 *)pdst;
     uint8  * src = (uint8 *)psrc;
  
+    if (!src) return dst;
+
     if (n == 0 || !dst) return dst;
  
     while (n--) {
@@ -154,10 +180,10 @@ void * str_ncpy (void * pdst, void * psrc, size_t n)
 int str_secpy (void * dst, int dstlen, void * src, int srclen)
 {
     if (!dst || dstlen <= 0) return 0;
-    if (!src) return 0;
+    if (!src) { *(uint8 *)dst = '\0'; return 0; }
  
     if (srclen < 0) srclen = str_len(src);
-    if (srclen == 0) return 0;
+    if (srclen == 0) { *(uint8 *)dst = '\0'; return 0; }
  
     if (srclen > dstlen) srclen = dstlen; 
  
@@ -277,6 +303,10 @@ int str_casecmp (void * ps1, void * ps2)
     uint8 * s2 = (uint8 *)ps2;
     int     c1, c2;
  
+    if (!s1 && !s2) return 0;
+    if (!s1 && s2) return -1;
+    if (s1 && !s2) return 1;
+
     for ( ;; ) {
         c1 = (int) *s1++;
         c2 = (int) *s2++;
@@ -301,6 +331,10 @@ int str_ncasecmp (void * ps1, void * ps2, size_t n)
     uint8 * s2 = (uint8 *)ps2; 
     int     c1, c2;
   
+    if (!s1 && !s2) return 0;
+    if (!s1 && s2) return -1;
+    if (s1 && !s2) return 1;
+
     while (n > 0) {
         c1 = (int) *s1++;
         c2 = (int) *s2++; 
@@ -571,16 +605,72 @@ int str_uint2mbi (uint32 value, void * p)
 int str_atoi (void * p, int len, int * pval)
 {
     uint8  * pbyte = (uint8 *)p;
-    int      i, val = 0;
+    int      valsign = 1;
+    int      i = 0, val = 0;
 
     if (!p || len <= 0) return 0;
 
-    for (val = 0, i = 0; i < len; i++) {
+    if (pbyte[i] == '-') { valsign = -1; i++; }
+    else if (pbyte[i] == '+') { valsign = 1; i++; }
+
+    for (val = 0; i < len; i++) {
         if (pbyte[i] >= '0' && pbyte[i] <= '9')
             val = val * 10 + (pbyte[i] - '0');
         else
             break;
     }
+
+    val *= valsign;
+
+    if (pval) *pval = val;
+    return i;
+}
+
+int str_atol (void * p, int len, long * pval)
+{
+    uint8  * pbyte = (uint8 *)p;
+    int      valsign = 1;
+    int      i = 0;
+    long     val = 0;
+
+    if (!p || len <= 0) return 0;
+
+    if (pbyte[i] == '-') { valsign = -1; i++; }
+    else if (pbyte[i] == '+') { valsign = 1; i++; }
+
+    for (val = 0; i < len; i++) {
+        if (pbyte[i] >= '0' && pbyte[i] <= '9')
+            val = val * 10 + (pbyte[i] - '0');
+        else
+            break;
+    }
+
+    val *= valsign;
+
+    if (pval) *pval = val;
+    return i;
+}
+
+int str_atoll (void * p, int len, int64 * pval)
+{
+    uint8  * pbyte = (uint8 *)p;
+    int      valsign = 1;
+    int      i = 0;
+    int64    val = 0;
+
+    if (!p || len <= 0) return 0;
+
+    if (pbyte[i] == '-') { valsign = -1; i++; }
+    else if (pbyte[i] == '+') { valsign = 1; i++; }
+
+    for (val = 0; i < len; i++) {
+        if (pbyte[i] >= '0' && pbyte[i] <= '9')
+            val = val * 10 + (pbyte[i] - '0');
+        else
+            break;
+    }
+
+    val *= valsign;
 
     if (pval) *pval = val;
     return i;
@@ -589,12 +679,16 @@ int str_atoi (void * p, int len, int * pval)
 int str_hextoi (void * p, int len, int * pval)
 {
     uint8  * pbyte = (uint8 *)p;
-    int      i, val = 0;
+    int      valsign = 1;
+    int      i = 0, val = 0;
     uint8    ch;
 
     if (!p || len <= 0) return 0;
 
-    for (val = 0, i = 0; i < len; i++) {
+    if (pbyte[i] == '-') { valsign = -1; i++; }
+    else if (pbyte[i] == '+') { valsign = 1; i++; }
+
+    for (val = 0; i < len; i++) {
         ch = pbyte[i];
 
         if (ch >= '0' && ch <= '9')
@@ -605,6 +699,8 @@ int str_hextoi (void * p, int len, int * pval)
             val = val * 16 + (ch - 'A');
         else break; 
     }
+
+    val *= valsign;
 
     if (pval) *pval = val;
     return i;
@@ -652,6 +748,38 @@ int str_hextou (void * p, int len, uint32 * pval)
 
     if (pval) *pval = val;
     return i;
+}
+
+int str_to_int (void * p, int bytelen, int base, void ** pterm)
+{
+    uint8 * pbyte = (uint8 *)p;
+    uint8 * pbgn = NULL;
+    uint8 * pend = NULL;
+    int     valsign = 1;
+    int     val = 0;
+
+    if (!pbyte || bytelen <= 0) return 0;
+    if (base <= 1) base = 10;
+
+    pend = pbyte + bytelen;
+    pbgn = skipOver(pbyte, pend-pbyte, " \t", 2);
+    if (pbgn >= pend) {
+        if (pterm) *pterm = pbgn;  
+        return 0;
+    }
+
+    if (*pbgn == '-') { valsign = -1; pbgn++; }
+    else if (*pbgn == '+') { valsign = 1; pbgn++; }
+    
+    for (val=0; pbgn<pend && isxdigit(*pbgn); pbgn++) {
+        val *= base; 
+        if (*pbgn >= '0' && *pbgn <= '9') val += *pbgn - '0';
+        else if (*pbgn >= 'a' && *pbgn <= 'f') val += 10 + *pbgn - 'a';
+        else if (*pbgn >= 'A' && *pbgn <= 'F') val += 10 + *pbgn - 'A';
+    }
+
+    if (pterm) *pterm = pbgn;  
+    return val*valsign;
 }
 
 /* 2004-12-08 17:45:56+08
@@ -1042,13 +1170,6 @@ void * str_find_bytes (void * pbyte, int len, void * pattern, int patlen)
             }
             if (i >= patlen) return p; /*match the string*/
             else pos = (int)(p - pstr + 1);  /*do not match*/
-
-            /**************************************
-            if (memcmp(&pat[1], &p[1], patlen-1) == 0)
-                return p;
-            else
-                pos = p - pstr + 1;
-            **************************************/
         } else
             return p;
     } while (pos <= len - patlen);
@@ -1074,12 +1195,7 @@ void * str_rfind_bytes (void * pbyte, int pos, void * pattern, int patlen)
                     if (pat[j] != pstr[pind]) break;
                     pind ++;
                 }
-                if (j>=patlen-1) return &pstr[i-patlen+1];
-
-                /****************************************************
-                if (memcmp(&pat[0], &pstr[i-patlen+1], patlen-1) == 0)
-                    return &pstr[i-patlen+1];
-                ****************************************************/
+                if (j >= patlen-1) return &pstr[i-patlen+1];
             } else
                 return &pstr[i-patlen+1];
         }
@@ -1211,7 +1327,6 @@ int base64_to_bin (void * psrc, int asclen, void * pdst, int *binlen)
         break;
     case 1:
         warned++;
-        //warning("Bad padding in base64 encoded text.");
         break;
     }
 
@@ -1514,38 +1629,6 @@ int str_value_by_key (void * p, int bytelen, void * key, void ** pval, int * val
     if (pval) *pval = pbgn;
     if (vallen) *vallen = poct - pbgn;
     return poct - pbgn;
-}
-
-int str_to_int (void * p, int bytelen, int base, void ** pterm)
-{
-    uint8 * pbyte = (uint8 *)p;
-    uint8 * pbgn = NULL;
-    uint8 * pend = NULL;
-    int     valsign = 1;
-    int     val = 0;
-
-    if (!pbyte || bytelen <= 0) return 0;
-    if (base <= 1) base = 10;
-
-    pend = pbyte + bytelen;
-    pbgn = skipOver(pbyte, pend-pbyte, " \t", 2);
-    if (pbgn >= pend) {
-        if (pterm) *pterm = pbgn;  
-        return 0;
-    }
-
-    if (*pbgn == '-') { valsign = -1; pbgn++; }
-    else if (*pbgn == '+') { valsign = 1; pbgn++; }
-    
-    for (val=0; pbgn<pend && isxdigit(*pbgn); pbgn++) {
-        val *= base; 
-        if (*pbgn >= '0' && *pbgn <= '9') val += *pbgn - '0';
-        else if (*pbgn >= 'a' && *pbgn <= 'f') val += 10 + *pbgn - 'a';
-        else if (*pbgn >= 'A' && *pbgn <= 'F') val += 10 + *pbgn - 'A';
-    }
-
-    if (pterm) *pterm = pbgn;  
-    return val*valsign;
 }
 
 
@@ -2177,6 +2260,55 @@ void * json_strip_dup (void * psrc, int size)
     return dst;
 }
 
+int uri_uncoded_char (void * psrc, int size)
+{
+    uint8 * src = (uint8 *)psrc;
+    int     i;
+    int     chnum = 0;
+
+                    /* " ", %00-%1F, %7F-%FF */
+ 
+    static uint32   uri[] = {
+        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+ 
+                    /* ?>=< ;:98 7654 3210  /.-, +*)( '&%$ #"!  */
+        0x80000029, /* 0000 0000 0000 0000  0000 0000 0000 0001 */
+ 
+                    /* _^]\ [ZYX WVUT SRQP  ONML KJIH GFED CBA@ */
+        0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
+ 
+                    /*  ~}| {zyx wvut srqp  onml kjih gfed cba` */
+        0x80000000, /* 1000 0000 0000 0000  0000 0000 0000 0000 */
+ 
+        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+        0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+    };
+
+    /*                         character table                   */
+    /* 0x00(  0)  .... .... .... ....  .... .... .... ....  0x1F */
+    /* 0x20( 32)   !"# $%&' ()*+ ,-./  0123 4567 89:; <=>?  0x3F */
+    /* 0x40( 64)  @ABC DEFG HIJK LMNO  PQRS TUVW XYZ[ \]^_  0x5F */
+    /* 0x60( 96)  `abc defg hijk lmno  pqrs tuvw xyz{ |}~.  0x7F */
+    /* 0x80(128)  .... .... .... ....  .... .... .... ....  0x9F */
+    /* 0xA0(160)  .... .... .... ....  .... .... .... ....  0xBF */
+    /* 0xC0(192)  .... .... .... ....  .... .... .... ....  0xDF */
+    /* 0xE0(224)  .... .... .... ....  .... .... .... ....  0xFF */
+
+    if (!src) return 0;
+
+    for (i = 0; i < size; i++) {
+        if (uri[src[i] >> 5] & (1U << (src[i] & 0x1f))) {
+            chnum++;
+        }
+    }
+
+    if (chnum > 0) return 1;
+
+    return 0;
+}
+
 /*  escape type value:
       ESCAPE_URI            0
       ESCAPE_ARGS           1
@@ -2687,9 +2819,6 @@ int GetRandStr (void * rstr, int size, int type)
  
     return size;
 }
-
-
-
 
 
 #ifdef UNIX

@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
@@ -281,7 +305,7 @@ int sock_read_ready (SOCKET fd, int ms)
     int ret;
     int errcode;
 
-    if (fd == INVALID_SOCKET) return 0;
+    if (fd == INVALID_SOCKET) return -1;
 
 retry:
 #ifdef UNIX
@@ -793,6 +817,123 @@ int sock_addr_get (char * dst, int dstlen, int port, int socktype,
 }
 
 
+int sock_option_add (sockopt_t * opt, sockopt_t * src)
+{
+    int num = 0;
+
+    if (!opt) return -1;
+    if (!src) return -2;
+
+    if (src->mask == 0) return 0;
+
+    if (src->mask & SOM_BACKLOG) {
+        opt->backlog = src->backlog;
+        opt->mask |= SOM_BACKLOG; num++;
+    }
+
+    if (src->mask & SOM_REUSEADDR) {
+        opt->reuseaddr = src->reuseaddr;
+        opt->mask |= SOM_REUSEADDR; num++;
+    }
+
+    if (src->mask & SOM_REUSEPORT) {
+        opt->reuseport = src->reuseport;
+        opt->mask |= SOM_REUSEPORT; num++;
+    }
+
+    if (src->mask & SOM_KEEPALIVE) {
+        opt->keepalive = src->keepalive;
+        opt->mask |= SOM_KEEPALIVE; num++;
+    }
+
+    if (src->mask & SOM_IPV6ONLY) {
+        opt->ipv6only = src->ipv6only;
+        opt->mask |= SOM_IPV6ONLY; num++;
+    }
+
+    if (src->mask & SOM_RCVBUF) {
+        opt->rcvbuf = src->rcvbuf;
+        opt->mask |= SOM_RCVBUF; num++;
+    }
+
+    if (src->mask & SOM_SNDBUF) {
+        opt->sndbuf = src->sndbuf;
+        opt->mask |= SOM_SNDBUF; num++;
+    }
+
+    if (src->mask & SOM_RCVTIMEO) {
+        opt->rcvtimeo = src->rcvtimeo;
+        opt->mask |= SOM_RCVTIMEO; num++;
+    }
+
+    if (src->mask & SOM_SNDTIMEO) {
+        opt->sndtimeo = src->sndtimeo;
+        opt->mask |= SOM_SNDTIMEO; num++;
+    }
+
+    if (src->mask & SOM_TCPKEEPIDLE) {
+        opt->keepidle = src->keepidle;
+        opt->mask |= SOM_TCPKEEPIDLE; num++;
+    }
+
+    if (src->mask & SOM_TCPKEEPINTVL) {
+        opt->keepintvl = src->keepintvl;
+        opt->mask |= SOM_TCPKEEPINTVL; num++;
+    }
+
+    if (src->mask & SOM_TCPKEEPCNT) {
+        opt->keepcnt = src->keepcnt;
+        opt->mask |= SOM_TCPKEEPCNT; num++;
+    }
+
+    if (src->mask & SOM_SETFIB) {
+        opt->setfib = src->setfib;
+        opt->mask |= SOM_SETFIB; num++;
+    }
+
+    if (src->mask & SOM_TCPFASTOPEN) {
+        opt->fastopen = src->fastopen;
+        opt->mask |= SOM_TCPFASTOPEN; num++;
+    }
+
+    if (src->mask & SOM_TCPNODELAY) {
+        opt->nodelay = src->nodelay;
+        opt->mask |= SOM_TCPNODELAY; num++;
+    }
+
+    if (src->mask & SOM_TCPNOPUSH) {
+        opt->nopush = src->nopush;
+        opt->mask |= SOM_TCPNOPUSH; num++;
+    }
+
+    if (src->mask & SOM_ACCEPTFILTER) {
+        opt->af = src->af;
+        opt->mask |= SOM_ACCEPTFILTER; num++;
+    }
+
+    if (src->mask & SOM_TCPDEFERACCEPT) {
+        opt->defer_accept = src->defer_accept;
+        opt->mask |= SOM_TCPDEFERACCEPT; num++;
+    }
+
+    if (src->mask & SOM_IPRECVDSTADDR) {
+        opt->recv_dst_addr = src->recv_dst_addr;
+        opt->mask |= SOM_IPRECVDSTADDR; num++;
+    }
+
+    if (src->mask & SOM_IPPKTINFO) {
+        opt->ip_pktinfo = src->ip_pktinfo;
+        opt->mask |= SOM_IPPKTINFO; num++;
+    }
+
+    if (src->mask & SOM_IPV6RECVPKTINFO) {
+        opt->ipv6_recv_pktinfo = src->ipv6_recv_pktinfo;
+        opt->mask |= SOM_IPV6RECVPKTINFO; num++;
+    }
+
+    return num;
+}
+
 int sock_option_set (SOCKET fd, sockopt_t * opt)
 {
     struct timeval tv;
@@ -801,6 +942,8 @@ int sock_option_set (SOCKET fd, sockopt_t * opt)
         return -1;
 
     if (!opt) return -2;
+
+    if (opt->mask == 0) return 0;
 
     if (opt->mask & SOM_REUSEADDR) {
         opt->reuseaddr_ret = 
@@ -919,7 +1062,7 @@ int sock_option_set (SOCKET fd, sockopt_t * opt)
 #endif
 
 #ifdef SO_ACCEPTFILTER
-    if ((opt->mask & SOM_ACCEPTFILTER) && opt->af != NULL) {
+    if ((opt->mask & SOM_ACCEPTFILTER) && opt->af) {
         opt->af_ret = 
             setsockopt(fd, SOL_SOCKET, SO_ACCEPTFILTER,
                        (const void *)opt->af, sizeof(struct accept_filter_arg));
@@ -1106,7 +1249,12 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt, sockattr_t * fdlis
 
         rpnum++;
 
+#ifdef HAVE_IOCP
+        listenfd = WSASocket(rp->ai_family, rp->ai_socktype, rp->ai_protocol,
+                             NULL, 0, WSA_FLAG_OVERLAPPED);
+#else
         listenfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+#endif
         if (listenfd == INVALID_SOCKET) {
             tolog(1, "tcp_listen socket() failed");
             continue;
@@ -1130,7 +1278,9 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt, sockattr_t * fdlis
         }
 
         if (bind(listenfd, rp->ai_addr, rp->ai_addrlen) != 0) {
-            tolog(1, "tcp_listen bind() failed");
+            memset(buf, 0, sizeof(buf));
+            sock_addr_ntop(rp->ai_addr, buf);
+            tolog(1, "tcp_listen bind() %s:%d failed\n", buf, sock_addr_port(rp->ai_addr));
             closesocket(listenfd);
             listenfd = INVALID_SOCKET;
             continue; 
@@ -1138,6 +1288,10 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt, sockattr_t * fdlis
 
         if (backlog <= 0) backlog = 511;
         if (listen(listenfd, backlog) == SOCKET_ERROR) {
+            memset(buf, 0, sizeof(buf));
+            sock_addr_ntop(rp->ai_addr, buf);
+            tolog(1, "tcp_listen_all fd=%d %s:%d failed\n", listenfd, buf, sock_addr_port(rp->ai_addr));
+
             tolog(1, "tcp_listen fd=%d failed", listenfd);
             closesocket(listenfd);
             listenfd = INVALID_SOCKET;
@@ -1149,6 +1303,8 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt, sockattr_t * fdlis
             fdlist[num].family = rp->ai_family;
             fdlist[num].socktype = rp->ai_socktype;
             fdlist[num].protocol = rp->ai_protocol;
+            sock_addr_ntop(rp->ai_addr, fdlist[num].addr);
+            fdlist[num].port = sock_addr_port(rp->ai_addr);
             num++;
         } else
             break;
@@ -1166,21 +1322,24 @@ SOCKET tcp_listen (char * localip, int port, void * psockopt, sockattr_t * fdlis
     return listenfd;
 }
 
-SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, int * succ, sockattr_t * attr)
+SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, void * popt, int * succ, sockattr_t * attr)
 {
     struct addrinfo    hints;
     struct addrinfo  * result = NULL;
     struct addrinfo  * rp = NULL;
     SOCKET             aifd = INVALID_SOCKET;
     char               buf[128];
+    sockopt_t        * sockopt = NULL;
  
     SOCKET             confd = INVALID_SOCKET;
     ep_sockaddr_t      addr;
     int                one = 0;
  
+    sockopt = (sockopt_t *)popt;
+
     if (sock_addr_parse(host, -1, port, &addr) > 0) {
         addr.socktype = SOCK_STREAM;
-        confd = tcp_ep_connect(&addr, nonblk, lip, lport, NULL, succ);
+        confd = tcp_ep_connect(&addr, nonblk, lip, lport, sockopt, succ);
 
         if (attr) {
             attr->fd = confd;
@@ -1225,13 +1384,18 @@ SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lpor
             attr->protocol = rp->ai_protocol;
         }
 
-        one = 1;
-        setsockopt(confd, SOL_SOCKET, SO_REUSEADDR, (void *)&one, sizeof(int));
-#ifdef SO_REUSEPORT
-        setsockopt(confd, SOL_SOCKET, SO_REUSEPORT, (void *)&one, sizeof(int));
-#endif
-        setsockopt(confd, SOL_SOCKET, SO_KEEPALIVE, (void *)&one, sizeof(int));
+        if (sockopt) {
+            sock_option_set(confd, sockopt);
  
+        } else { //set the default options
+            one = 1;
+            setsockopt(confd, SOL_SOCKET, SO_REUSEADDR, (void *)&one, sizeof(int));
+#ifdef SO_REUSEPORT
+            setsockopt(confd, SOL_SOCKET, SO_REUSEPORT, (void *)&one, sizeof(int));
+#endif
+            setsockopt(confd, SOL_SOCKET, SO_KEEPALIVE, (void *)&one, sizeof(int));
+        }
+
         if (nonblk) sock_nonblock_set(confd, 1);
 
         if ((lip && strlen(lip) > 0) || lport > 0) {
@@ -1277,14 +1441,14 @@ SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lpor
     return confd;
 }
 
-SOCKET tcp_connect (char * host, int port, char * lip, int lport, sockattr_t * attr)
+SOCKET tcp_connect (char * host, int port, char * lip, int lport, void * popt, sockattr_t * attr)
 {
-    return tcp_connect_full(host, port, 0, lip, lport, NULL, attr);
+    return tcp_connect_full(host, port, 0, lip, lport, popt, NULL, attr);
 }
 
-SOCKET tcp_nb_connect (char * host, int port, char * lip, int lport, int * consucc, sockattr_t * attr)
+SOCKET tcp_nb_connect (char * host, int port, char * lip, int lport, void * popt, int * consucc, sockattr_t * attr)
 {
-    return tcp_connect_full(host, port, 1, lip, lport, consucc, attr);
+    return tcp_connect_full(host, port, 1, lip, lport, popt, consucc, attr);
 }
 
 SOCKET tcp_ep_connect (ep_sockaddr_t * addr, int nblk, char * lip, int lport, void * popt, int * succ)
@@ -1306,13 +1470,25 @@ SOCKET tcp_ep_connect (ep_sockaddr_t * addr, int nblk, char * lip, int lport, vo
     } else { //set the default options
         one = 1;
         ret = setsockopt(confd, SOL_SOCKET, SO_REUSEADDR, (void *)&one, sizeof(int));
-        if (ret != 0) perror("TCPConnect REUSEADDR");
+        if (ret != 0) {
+#ifdef _DEBUG
+            perror("TCPConnect REUSEADDR");
+#endif
+        }
     #ifdef SO_REUSEPORT
         ret = setsockopt(confd, SOL_SOCKET, SO_REUSEPORT, (void *)&one, sizeof(int));
-        if (ret != 0) perror("TCPConnect REUSEPORT");
+        if (ret != 0) {
+#ifdef _DEBUG
+            perror("TCPConnect REUSEPORT");
+#endif
+        }
     #endif
         ret = setsockopt(confd, SOL_SOCKET, SO_KEEPALIVE, (void *)&one, sizeof(int));
-        if (ret != 0) perror("TCPConnect KEEPALIVE");
+        if (ret != 0) {
+#ifdef _DEBUG
+            perror("TCPConnect KEEPALIVE");
+#endif
+        }
     }
 
     if (nblk) sock_nonblock_set(confd, 1);
@@ -2086,6 +2262,41 @@ int tcp_sendfile (SOCKET fd, int srcfd, int64 pos, int64 size, int * actnum, int
     return wlen;
 
 #else
+    // GUID of the TransmitPacket Winsock2 function which we will
+    // use to send the traffic at the client side.
+    GUID                   TransmitPacketsGuid = WSAID_TRANSMITPACKETS;
+    LPFN_TRANSMITPACKETS   sendfunc = NULL;
+    DWORD                  retbytes = 0;
+    int                    ret = 0;
+    struct _stat           st;
+    int64                  offset = pos;
+    int64                  wlen = 0;
+
+    if (actnum) *actnum = 0;
+    if (perr) *perr = 0;
+ 
+    if (fd == INVALID_SOCKET) return -1;
+    if (srcfd < 0) return -2;
+
+    if (_fstat(srcfd, &st) < 0)
+        return -3;
+
+    if (offset >= st.st_size) return 0;
+ 
+    wlen = st.st_size - offset;
+    if (size > wlen) size = wlen;
+
+    // Query the function pointer for the TransmitPacket function
+    ret = WSAIoctl(fd, SIO_GET_EXTENSION_FUNCTION_POINTER,
+                   &TransmitPacketsGuid, sizeof(GUID),
+                   &sendfunc, sizeof(PVOID),
+                   &retbytes, NULL, NULL);
+ 
+    if (ret == SOCKET_ERROR || sendfunc == NULL) {
+        printf("%s:%d - WSAIoctl failed (%d)\n",
+               __FILE__, __LINE__, WSAGetLastError());
+    }
+
     return 0;
 #endif
 }
@@ -2214,7 +2425,7 @@ int get_selfaddr (int num, AddrItem * pitem)
     } while (IFRSIZE <= ifc.ifc_len);
 
     ifr = ifc.ifc_req;
-    for (i=0; (char *)ifr < (char *)ifc.ifc_req+ifc.ifc_len && i<num; ++ifr) {
+    for (i = 0; (char *)ifr < (char *)ifc.ifc_req+ifc.ifc_len && i<num; ++ifr) {
         if (ifr->ifr_addr.sa_data == (ifr+1)->ifr_addr.sa_data) {
             continue;  /* duplicate, skip it */
         }

@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
  
 #include "btype.h"
 #include "fileop.h"
@@ -33,6 +57,7 @@
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
+#include "trace.h"
  
  
 int file_handle_to_fd (HANDLE hfile)
@@ -315,8 +340,6 @@ long file_read (FILE * fp, void * buf, long readlen)
     return i;
 }
  
- 
- 
 long file_write (FILE * fp, void * buf, long writelen)
 {
     long i, iRet = 0;
@@ -493,7 +516,7 @@ int file_exist (char * file)
 int file_is_regular (char * file)
 {
 #ifdef UNIX
-    struct stat fs;
+    struct stat fs = {0};
 #endif
 #if defined(_WIN32) || defined(_WIN64)
     WIN32_FILE_ATTRIBUTE_DATA  wfad;
@@ -694,8 +717,6 @@ int file_lines (char * file)
     for (iter = 0; iter < fsize; iter++) {
         if (file_cache_at(fca, iter) == '\n') {
             line++;
-            /* contiguous line is ignored */
-            //iter = file_cache_skip_over(fca, iter, 10, "\r\n", 2);
         }
     }
     file_cache_clean(fca);
@@ -1253,9 +1274,7 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
                    mapname);                    /* name of mapping object */
  
         if (!hmap) {
-#ifdef _DEBUG
-            printf( "CreateFileMapping error, Last error = %d\n", GetLastError() );
-#endif
+            tolog(1, "CreateFileMapping error, Last error = %d\n", GetLastError() );
             return NULL;
         }
     }
@@ -1269,9 +1288,7 @@ void * file_mmap (void * addr, HANDLE hfile, int64 offset, int64 length, char * 
                    addr);                  /* memory address where mapping begins */
  
     if (!pmap) {
-#ifdef _DEBUG
-        printf( "MapViewOfFile error, Last error = %d\n", GetLastError() );
-#endif
+        tolog(1, "MapViewOfFile error, Last error = %d\n", GetLastError() );
         CloseHandle(hmap);
         return NULL;
     }

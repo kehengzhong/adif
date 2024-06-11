@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
@@ -392,7 +416,6 @@ int json_size (void * vobj)
         }
     }
 
-    //size = (size + 1024)/1024 * 1024;
     return size;
 }
 
@@ -489,7 +512,8 @@ void * json_item_del (void * vobj, void * name, int namelen)
 }
 
 
-int json_iter (void * vobj, int ind, int valind, void ** pkey, int * keylen, void ** pval, int * vallen, void ** pobj)
+int json_iter (void * vobj, int ind, int valind, void ** pkey, int * keylen,
+               void ** pval, int * vallen, void ** pobj)
 {
     JsonObj   * obj = (JsonObj *)vobj;
     JsonItem  * item = NULL;
@@ -776,6 +800,30 @@ int json_mget_obj (void * jobj, void * key, int keylen, void ** pobj)
     return ret;
 }
  
+int json_mget_bool (void * jobj, void * key, int keylen, uint8 * val)
+{
+    char * value = NULL;
+    int    valuelen = 0;
+    int    ret = 0;
+
+    if (val) *val = 0;
+
+    ret = json_mgetP(jobj, key, keylen, (void **)&value, &valuelen);
+    if (ret > 0 && value && valuelen > 0) {
+        if (valuelen > 0 && value[0] > '0' && value[0] < '9') {
+            if (atoi(value) != 0 && val) *val = 1;
+        } else if ( (valuelen == 2 && strcasecmp(value, "on") == 0) ||
+                    (valuelen == 3 && strcasecmp(value, "yes") == 0) ||
+                    (valuelen == 4 && strcasecmp(value, "true") == 0))
+        {
+            if (val) *val = 1;
+        }
+    }
+
+    return ret;
+}
+
+
 int json_mget_int8 (void * vobj, void * key, int keylen, int8 * val)
 {
     objgets(vobj, key, keylen, val, 1, 0, 1, strtol);
@@ -923,9 +971,9 @@ int json_getP (void * vobj, void * key, int keylen, int index, void * pval, int 
 
 int json_get (void * vobj, void * key, int keylen, int index, void * val, int vallen)
 {
-    void      * p = NULL;
-    int         len = 0;
-    int         ret = 0;
+    void  * p = NULL;
+    int     len = 0;
+    int     ret = 0;
  
     ret = json_get_value(vobj, key, keylen, index, &p, &len, NULL);
     if (ret <= 0) {
@@ -941,8 +989,8 @@ int json_get (void * vobj, void * key, int keylen, int index, void * val, int va
 
 int json_get_obj (void * vobj, void * key, int keylen, int index, void ** pobj)
 {
-    void      * obj = NULL;
-    int         ret = 0;
+    void  * obj = NULL;
+    int     ret = 0;
  
     ret = json_get_value(vobj, key, keylen, index, NULL, NULL, &obj);
     if (ret <= 0) {
@@ -1833,6 +1881,25 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
             continue;
         }
 
+        if (*pbgn == '<' && (pkvend = find_closed_tag(pbgn, pend, "cache_check_script")) != NULL) { //<cache_check_script>
+            /* <cache_check_script>
+                 if ($query[fid]) return $query[fid]$req_file_ext;
+               </cache_check_script> */
+
+            name = (uint8 *)"cache_check_script";
+            namelen = 18;
+
+            value = skipOver(pbgn+namelen+2, pkvend-pbgn-namelen-2, " \t\r\n\f\v", 6);
+            poct = rskipOver(pkvend-namelen-4, pkvend-namelen-3-value, " \t\t\n\f\v", 6);
+            valuelen = poct + 1 - value;
+
+            if (valuelen > 0)
+                json_add(obj, name, namelen, value, valuelen, 1, strip);
+
+            pbgn = pkvend;
+            continue;
+        }
+
         /* search the separator between key and value */
         pkvsep = skipQuoteTo(pbgn, pend-pbgn, obj->keyend, obj->keyendlen);
 
@@ -1860,7 +1927,6 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
                 /* script = { if (...) ... else ... } 
                    here we name 'script' as a constant defining the script codes */
                 if (namelen == 6 && str_ncasecmp(name, "script", 6) == 0) {
-                    //pbgn = seek_closed_peer(poct, pend-poct, '{', '}');
                     pbgn = skipToPeer(poct, pend-poct, '{', '}');
 
                     value = skipOver(poct+1, pbgn-poct-1, " \t\r\n\f\v", 6);
@@ -1893,6 +1959,25 @@ int json_decode (void * vobj, void * vjson, int length, int findobjbgn, int stri
                         pbgn++;
                     }
  
+                    continue;
+                }
+
+                /* cache_check_script = { if (...) ... else ... }
+                   here we name 'cache_check_script' as a constant defining the script codes */
+                if (namelen == 18 && str_ncasecmp(name, "cache_check_script", 18) == 0) {
+                    pbgn = skipToPeer(poct, pend-poct, '{', '}');
+
+                    value = skipOver(poct+1, pbgn-poct-1, " \t\r\n\f\v", 6);
+                    poct = rskipOver(pbgn-1, pbgn-value, " \t\r\n\f\v", 6);
+                    valuelen = poct + 1 - value;
+
+                    if (valuelen > 0)
+                        json_add(obj, name, namelen, value, valuelen, 1, strip);
+
+                    if (pbgn < pend && *pbgn == '}') {
+                        pbgn++;
+                    }
+
                     continue;
                 }
 
@@ -2087,251 +2172,6 @@ int json_decode_file (void * vobj, void * fn, int fnlen, int findobjbgn, int str
 #endif
 }
 
-#if 0
-int json_decode_chunk (void * vobj, void * chunk, int64 pos, int64 length, int findobjbgn, int strip)
-{
-    JsonObj  * obj = (JsonObj *)vobj;
-    JsonObj  * subobj = NULL;
-
-    int64      bgnpos = 0;
-    int64      endpos = 0;
-    int64      kvseqpos = 0;
-    int64      kvendpos = 0;
-    int64      octpos = 0;
-
-    uint8    * name = NULL;
-    int        namelen = 0;
-    uint8    * value = NULL;
-    int        valuelen = 0;
- 
-    if (!obj) return 0;
-    if (!chunk) return 0;
-    if (pos < chunk_startpos(chunk, 0)) pos = chunk_startpos(chunk, 0);
-    if (length < 0) length = chunk_size(chunk, 0) - pos;
-    if (length <= 0) return 0;
- 
-    bgnpos = pos; endpos = bgnpos + length;
- 
-    if (findobjbgn) {
-        bgnpos = chunk_skip_quote_to(chunk, bgnpos, endpos-bgnpos, "{", 1);
-        if (bgnpos >= endpos) return bgnpos - pos;
-        pbgn += 1;
-    }
- 
-    do {
-        bgnpos = chunk_skip_over(chunk, bgnpos, endpos-bgnpos, obj->kvsp, obj->kvsplen);
-        if (bgnpos >= endpos) return bgnpos - pos;
-        if (chunk_at(chunk, bgnpos, NULL) == '}') return bgnpos - pos + 1;
- 
-        if (obj->cmtflag) {
-            if (chunk_at(chunk, bgnpos, NULL) == '#') { //comment to end of the line
-                bgnpos++;
- 
-                //find the \r\n
-                octpos = chunk_skip_to(chunk, bgnpos, endpos-bgnpos, "\r\n", 2);
-                if (obj->cmtflag > 1)
-                    json_add(obj, "cmt#", 4, pbgn, poct - pbgn, 1, 0);
- 
-                pbgn = poct;
-                continue;
- 
-            } else if (pbgn[0] == '/' && pbgn[1] == '*') {
-                pbgn += 2;
- 
-                //find the comment end * and  /
-                for (poct = pbgn; poct < pend; ) {
-                    poct = skipTo(poct, pend-poct, "*", 1);
-                    if (poct < pend - 1 && poct[1] != '/') {
-                        poct++;
-                        continue;
- 
-                    } else break;
-                }
- 
-                if (poct >= pend - 1) {
-                    if (obj->cmtflag > 1)
-                        json_add(obj, "cmt*", 4, pbgn, poct - pbgn, 1, 0);
-                    pbgn = poct;
- 
-                } else if (poct[0] == '*' && poct[1] == '/') {
-                    if (obj->cmtflag > 1)
-                        json_add(obj, "cmt*", 4, pbgn, poct - pbgn, 1, 0);
-                    pbgn = poct + 2;
-                }
-                continue;
-            }
-        } //end of if (obj->cmtflag)
- 
-        if (*pbgn == '<' && (pkvend = find_closed_tag(pbgn, pend, "script")) != NULL) { //<script>
-            /* <script>
-                 if ($query[fid]) return $query[fid]$req_file_ext;
-               </script> */
- 
-            name = (uint8 *)"script";
-            namelen = 6;
- 
-            value = skipOver(pbgn+8, pkvend-pbgn-8, " \t\r\n\f\v", 6);
-            poct = rskipOver(pkvend-10, pkvend-9-value, " \t\t\n\f\v", 6);
-            valuelen = poct + 1 - value;
- 
-            if (valuelen > 0)
-                json_add(obj, name, namelen, value, valuelen, 1, strip);
- 
-            pbgn = pkvend;
-            continue;
-        }
- 
-        /* search the separator between key and value */
-        pkvsep = skipQuoteTo(pbgn, pend-pbgn, obj->keyend, obj->keyendlen);
- 
-        if (pkvsep >= pend) return pkvsep - pjson;
-        if (*pkvsep == '}') return pkvsep - pjson + 1;
- 
-        if (*pkvsep == obj->kvsep) {
-            if (*pbgn == '"' || *pbgn == '\'') {
-                name = pbgn + 1;
-                poct = skipEscTo(pbgn+1, pkvsep-pbgn-1, pbgn, 1);
-                poct--;
- 
-            } else {
-                name = pbgn;
-                poct = rskipOver(pkvsep-1, pkvsep-pbgn, obj->sp, obj->splen);
-            }
- 
-            namelen = poct - name + 1;
- 
-            poct = skipOver(pkvsep+1, pend-pkvsep-1, obj->sp, obj->splen);
-            if (*poct == '}') return poct - pjson + 1;
- 
-            if (*poct == '{') { //sub-obj
- 
-                /* script = { if (...) ... else ... }
-                   here we name 'script' as a constant defining the script codes */
-                if (namelen == 6 && str_ncasecmp(name, "script", 6) == 0) {
-                    //pbgn = seek_closed_peer(poct, pend-poct, '{', '}');
-                    pbgn = skipToPeer(poct, pend-poct, '{', '}');
- 
-                    value = skipOver(poct+1, pbgn-poct-1, " \t\r\n\f\v", 6);
-                    poct = rskipOver(pbgn-1, pbgn-value, " \t\r\n\f\v", 6);
-                    valuelen = poct + 1 - value;
- 
-                    if (valuelen > 0)
-                        json_add(obj, name, namelen, value, valuelen, 1, strip);
- 
-                    if (pbgn < pend && *pbgn == '}') {
-                        pbgn++;
-                    }
- 
-                    continue;
-                }
- 
-                subobj = json_add_obj(obj, name, namelen, 1);
-                pbgn = poct + json_decode(subobj, poct, pend-poct, 1, strip);
- 
-            } else if (*poct == '[') { //array
-                poct++;
- 
-                do {
-                    pbgn = skipOver(poct, pend-poct, obj->arrsp, obj->arrsplen);
-                    if (pbgn >= pend) return pbgn - pjson;
-                    if (*pbgn == '}') return pbgn - pjson + 1;
- 
-                    if (*pbgn == ']') { pbgn++; break; }
- 
-                    if (*pbgn == '{') {
-                        subobj = json_add_obj(obj, name, namelen, 1);
-                        poct = pbgn + json_decode(subobj, pbgn, pend-pbgn, 1, strip);
- 
-                    } else {
-                        pkvend = skipQuoteTo(pbgn, pend-pbgn, obj->arrend, obj->arrendlen);
-                        if (*pbgn == '"' || *pbgn == '\'') {
-                            value = pbgn + 1;
-                            poct = skipEscTo(pbgn+1, pkvend-pbgn-1, pbgn, 1);
-                            poct--;
- 
-                        } else {
-                            value = pbgn;
-                            poct = rskipOver(pkvend-1, pkvend-pbgn, obj->sp, obj->splen);
-                        }
- 
-                        valuelen = poct - value + 1;
-                        json_add(obj, name, namelen, value, valuelen, 1, strip);
- 
-                        poct = pkvend;
-                    }
-                } while (pbgn < pend);
- 
-            } else if (*poct == '<' && (pkvend = find_closed_tag(poct, pend, "script")) != NULL) { //<script>
-                /* "cache_file" = <script> if ($query[fid]) return $query[fid]$req_file_ext; </script> */
- 
-                value = poct;
-                valuelen = pkvend - value;
-                json_add(obj, name, namelen, value, valuelen, 1, strip);
- 
-                pbgn = pkvend;
- 
-            } else { //generic string value
-                pkvend = skipQuoteTo(poct, pend-poct, obj->kvend, obj->kvendlen);
- 
-                /* eg. "cache_file" = "${root}${req_path}${base_name}.ext"; */
-                while (pkvend < pend && *pkvend == '}') {
-                    if (reverse_find_brace_peer(poct, pkvend) >= 0)
-                        pkvend = skipQuoteTo(pkvend+1, pend-pkvend-1, obj->kvend, obj->kvendlen);
-                    else
-                        break;
-                }
- 
-                if (*poct == '"' || *poct == '\'') {
-                    value = poct + 1;
-                    poct = skipEscTo(poct+1, pkvend-poct-1, poct, 1);
-                    poct--;
- 
-                } else {
-                    value = poct;
-                    poct = rskipOver(pkvend-1, pkvend-poct, obj->sp, obj->splen);
-                }
- 
-                valuelen = poct - value + 1;
-                json_add(obj, name, namelen, value, valuelen, 1, strip);
- 
-                pbgn = pkvend;
-            }
- 
-        } else if (*pkvsep == obj->itemsep) {
-            /* key has no corresponding value followed */
-            if (*pbgn == '"' || *pbgn == '\'') {
-                name = pbgn + 1;
-                poct = skipEscTo(pbgn+1, pkvsep-pbgn-1, pbgn, 1);
-                poct--;
- 
-            } else {
-                name = pbgn;
-                poct = rskipOver(pkvsep-1, pkvsep-pbgn, obj->sp, obj->splen);
-            }
- 
-            namelen = poct - name + 1;
- 
-            /* include cnf/mime.types; will load and parse the conf file */
- 
-            if (str_ncasecmp(name, "include", 7) == 0 && ISSPACE(name[7])) {
-                pbgn = skipOver(name + 7, poct + 1 - name - 7, obj->sp, obj->splen);
-                if (pbgn > poct) continue;
- 
-                json_decode_file(obj, pbgn,  poct + 1 - pbgn, 0, strip);
- 
-            } else {
-                json_add(obj, name, namelen, NULL, 0, 1, strip);
-            }
- 
-            pbgn = pkvsep + 1;
-        }
- 
-    } while (pbgn < pend);
- 
-    return pbgn-pjson;
-}
-#endif
-
 long json_fca_decode (void * vobj, void * fca, long startpos, long length)
 { 
     JsonObj  * obj = (JsonObj *)vobj;
@@ -2502,7 +2342,6 @@ int json_encode (void * vobj, void * vjson, int len)
         if (item->valnum <= 0) continue;
 
         if (needcomma) {
-            //if (iter + 2 <= len) memcpy(pjson+iter, ", ", 2);
             if (iter + 2 <= len) { pjson[iter] = obj->itemsep; pjson[iter+1] = ' '; }
             iter += 2;
         }
@@ -2516,7 +2355,6 @@ int json_encode (void * vobj, void * vjson, int len)
 
         if (iter + 1 <= len) pjson[iter] = '"';
         iter++;
-        //if (iter + 1 <= len) pjson[iter] = ':';
         if (iter + 1 <= len) pjson[iter] = obj->kvsep;
         iter++;
 

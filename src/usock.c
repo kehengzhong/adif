@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifdef UNIX
 
@@ -13,8 +37,10 @@
 #include <sys/stat.h>
 #include <sys/un.h>
 
+
 #define QLEN 100
 #define TMP_PATH    "/tmp/cdn.XXXXXX" 
+
 
 /* Create a server endpoint of a connection.
  * Returns fd if all OK, <0 on error. */
@@ -109,21 +135,6 @@ int usock_connect (const char *name)
     /* create a UNIX domain stream socket */
     if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
         return(-1);
-
-#if 0
-    /* fill socket address structure with our address */
-    memset(&un, 0, sizeof(un));
-    un.sun_family = AF_UNIX;
-    sprintf(un.sun_path, "%s", TMP_PATH);
-    mkstemp(un.sun_path);
-    len = sizeof(un.sun_family) + strlen(un.sun_path);
-
-    unlink(un.sun_path);        /* in case it already exists */
-    if (bind(fd, (struct sockaddr *)&un, len) < 0) {
-        rval = -2;
-        goto errout;
-    }
-#endif
 
     /* fill socket address structure with server's address */
     memset(&un, 0, sizeof(un));

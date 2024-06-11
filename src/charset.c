@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
@@ -11,16 +35,15 @@
 
 static uint8 big5_first[100];
 static uint8 big5_range[8][10] = {
-    { 0x40, 0x7E, 0xA1, 0xFE, 0 },
-    { 0x40, 0x7E, 0xA1, 0xBF, 0xE1, 0xE1, 0 },
-    { 0x40, 0x7E, 0xA1, 0xFE, 0 },
-    { 0x40, 0x7E, 0xA1, 0xfE, 0 },
-    { 0x40, 0x7E, 0xA1, 0xFE, 0 },
-    { 0x40, 0x7E, 0xA1, 0xD3, 0 },
-    { 0x40, 0x7E, 0xA1, 0xFE, 0 },
-    { 0x40, 0x7E, 0xA1, 0xD5, 0xD6, 0xDC, 0xDD, 0xFE, 0 }
+    {0x40,0x7E,0xA1,0xFE,0},
+    {0x40,0x7E,0xA1,0xBF,0xE1,0xE1,0},
+    {0x40,0x7E,0xA1,0xFE,0},
+    {0x40,0x7E,0xA1,0xfE,0},
+    {0x40,0x7E,0xA1,0xFE,0},
+    {0x40,0x7E,0xA1,0xD3,0},
+    {0x40,0x7E,0xA1,0xFE,0},
+    {0x40,0x7E,0xA1,0xD5,0xD6,0xDC,0xDD,0xFE,0}
 };
-
 static uint8 big5_first_init = 0;
 static uint8 big5_second[8][200];
 static uint8 big5_second_init = 0;
@@ -68,23 +91,22 @@ int coding_big5_check (void * p, int len)
 
     if (big5_first_init == 0) {
         memset(big5_first, 0xFF, sizeof(big5_first));
-        for (i = 0xA1; i <= 0xA2; i++) big5_first[i-0xA1] = 0;
-        for (i = 0xA3; i <= 0xA3; i++) big5_first[i-0xA1] = 1;
-        for (i = 0xA4; i <= 0xC5; i++) big5_first[i-0xA1] = 2;
-        for (i = 0xC6; i <= 0xC6; i++) big5_first[i-0xA1] = 3;
-        for (i = 0xC7; i <= 0xC7; i++) big5_first[i-0xA1] = 4;
-        for (i = 0xC8; i <= 0xC8; i++) big5_first[i-0xA1] = 5;
-        for (i = 0xC9; i <= 0xF8; i++) big5_first[i-0xA1] = 6;
-        for (i = 0xF9; i <= 0xF9; i++) big5_first[i-0xA1] = 7;
+        for (i=0xA1; i<=0xA2; i++) big5_first[i-0xA1] = 0;
+        for (i=0xA3; i<=0xA3; i++) big5_first[i-0xA1] = 1;
+        for (i=0xA4; i<=0xC5; i++) big5_first[i-0xA1] = 2;
+        for (i=0xC6; i<=0xC6; i++) big5_first[i-0xA1] = 3;
+        for (i=0xC7; i<=0xC7; i++) big5_first[i-0xA1] = 4;
+        for (i=0xC8; i<=0xC8; i++) big5_first[i-0xA1] = 5;
+        for (i=0xC9; i<=0xF8; i++) big5_first[i-0xA1] = 6;
+        for (i=0xF9; i<=0xF9; i++) big5_first[i-0xA1] = 7;
         big5_first_init = 1;
     }
 
     i = big5_first[pbyte[0] - 0xA1];
     if (i == 0xFF) return 0;
 
-    for (j = 0; j < 10; j += 2) {
+    for (j=0; j<10; j+=2) {
         if (big5_range[i][j] == 0) return 0;
-
         if (pbyte[1] >= big5_range[i][j] && pbyte[1] <= big5_range[i][j+1])
             return 2;
     }
@@ -104,35 +126,32 @@ int coding_big5_lookup (void * p, int len)
 
     if (big5_first_init == 0) {
         memset(big5_first, 0xFF, sizeof(big5_first));
-        for (i = 0xA1; i < 0xA2; i++) big5_first[i-0xA1] = 0;
-        for (i = 0xA3; i < 0xA3; i++) big5_first[i-0xA1] = 1;
-        for (i = 0xA4; i < 0xC5; i++) big5_first[i-0xA1] = 2;
-        for (i = 0xC6; i < 0xC6; i++) big5_first[i-0xA1] = 3;
-        for (i = 0xC7; i < 0xC7; i++) big5_first[i-0xA1] = 4;
-        for (i = 0xC8; i < 0xC8; i++) big5_first[i-0xA1] = 5;
-        for (i = 0xC9; i < 0xF8; i++) big5_first[i-0xA1] = 6;
-        for (i = 0xF9; i < 0xF9; i++) big5_first[i-0xA1] = 7;
+        for (i=0xA1; i<=0xA2; i++) big5_first[i-0xA1] = 0;
+        for (i=0xA3; i<=0xA3; i++) big5_first[i-0xA1] = 1;
+        for (i=0xA4; i<=0xC5; i++) big5_first[i-0xA1] = 2;
+        for (i=0xC6; i<=0xC6; i++) big5_first[i-0xA1] = 3;
+        for (i=0xC7; i<=0xC7; i++) big5_first[i-0xA1] = 4;
+        for (i=0xC8; i<=0xC8; i++) big5_first[i-0xA1] = 5;
+        for (i=0xC9; i<=0xF8; i++) big5_first[i-0xA1] = 6;
+        for (i=0xF9; i<=0xF9; i++) big5_first[i-0xA1] = 7;
         big5_first_init = 1;
     }
-
     if (big5_second_init == 0) {
         memset(big5_second, 0, sizeof(big5_second));
-
-        for (i = 0; i < 7; i++) {
-            for (j = 0x40; j <= 0x7E; j++) big5_second[i][j-0x40] = 1;
+        for (i=0; i<7; i++) {
+            for (j=0x40; j<=0x7E; j++) big5_second[i][j-0x40] = 1;
         }
+        for (j=0xA1; j<=0xFE; j++) big5_second[0][j-0x40] = 1;
 
-        for (j = 0xA1; j <= 0xFE; j++) big5_second[0][j-0x40] = 1;
+        for (j=0xA1; j<=0xBF; j++) big5_second[1][j-0x40] = 1;
+        for (j=0xE1; j<=0xE1; j++) big5_second[1][j-0x40] = 1;
 
-        for (j = 0xA1; j <= 0xBF; j++) big5_second[1][j-0x40] = 1;
-        for (j = 0xE1; j <= 0xE1; j++) big5_second[1][j-0x40] = 1;
-
-        for (j = 0xA1; j <= 0xFE; j++) big5_second[2][j-0x40] = 1;
-        for (j = 0xA1; j <= 0xFE; j++) big5_second[3][j-0x40] = 1;
-        for (j = 0xA1; j <= 0xFE; j++) big5_second[4][j-0x40] = 1;
-        for (j = 0xA1; j <= 0xD3; j++) big5_second[5][j-0x40] = 1;
-        for (j = 0xA1; j <= 0xFE; j++) big5_second[6][j-0x40] = 1;
-        for (j = 0xA1; j <= 0xFE; j++) big5_second[7][j-0x40] = 1;
+        for (j=0xA1; j<=0xFE; j++) big5_second[2][j-0x40] = 1;
+        for (j=0xA1; j<=0xFE; j++) big5_second[3][j-0x40] = 1;
+        for (j=0xA1; j<=0xFE; j++) big5_second[4][j-0x40] = 1;
+        for (j=0xA1; j<=0xD3; j++) big5_second[5][j-0x40] = 1;
+        for (j=0xA1; j<=0xFE; j++) big5_second[6][j-0x40] = 1;
+        for (j=0xA1; j<=0xFE; j++) big5_second[7][j-0x40] = 1;
 
         big5_second_init = 1;
     }
@@ -140,9 +159,7 @@ int coding_big5_lookup (void * p, int len)
     i = big5_first[pbyte[0] - 0xA1];
     if (i == 0xFF) return 0;
 
-    if (big5_second[pbyte[1] - 0x40])
-        return 2;
-
+    if (big5_second[pbyte[1] - 0x40]) return 2;
     return 0;
 }
 
@@ -157,26 +174,26 @@ int coding_gb2312_lookup (void * p, int len)
 
     if (gb2312_second_init == 0) {
         memset(gb2312_second, 0, sizeof(gb2312_second));
-        for (i = 0xA1; i < 0xFE; i++) gb2312_second[0][i-0xA1] = 1;
+        for (i=0xA1; i<=0xFE; i++) gb2312_second[0][i-0xA1] = 1;
 
-        for (i = 0xB1; i < 0xE2; i++) gb2312_second[1][i-0xA1] = 1;
-        for (i = 0xE5; i < 0xEE; i++) gb2312_second[1][i-0xA1] = 1;
-        for (i = 0xF1; i < 0xFC; i++) gb2312_second[1][i-0xA1] = 1;
+        for (i=0xB1; i<=0xE2; i++) gb2312_second[1][i-0xA1] = 1;
+        for (i=0xE5; i<=0xEE; i++) gb2312_second[1][i-0xA1] = 1;
+        for (i=0xF1; i<=0xFC; i++) gb2312_second[1][i-0xA1] = 1;
 
-        for (i = 0xA1; i < 0xFE; i++) gb2312_second[2][i-0xA1] = 1;
-        for (i = 0xA1; i < 0xF3; i++) gb2312_second[3][i-0xA1] = 1;
-        for (i = 0xA1; i < 0xF6; i++) gb2312_second[4][i-0xA1] = 1;
+        for (i=0xA1; i<=0xFE; i++) gb2312_second[2][i-0xA1] = 1;
+        for (i=0xA1; i<=0xF3; i++) gb2312_second[3][i-0xA1] = 1;
+        for (i=0xA1; i<=0xF6; i++) gb2312_second[4][i-0xA1] = 1;
 
-        for (i = 0xA1; i < 0xB8; i++) gb2312_second[5][i-0xA1] = 1;
-        for (i = 0xC1; i < 0xD8; i++) gb2312_second[5][i-0xA1] = 1;
+        for (i=0xA1; i<=0xB8; i++) gb2312_second[5][i-0xA1] = 1;
+        for (i=0xC1; i<=0xD8; i++) gb2312_second[5][i-0xA1] = 1;
 
-        for (i = 0xA1; i < 0xC1; i++) gb2312_second[6][i-0xA1] = 1;
-        for (i = 0xD1; i < 0xF1; i++) gb2312_second[6][i-0xA1] = 1;
+        for (i=0xA1; i<=0xC1; i++) gb2312_second[6][i-0xA1] = 1;
+        for (i=0xD1; i<=0xF1; i++) gb2312_second[6][i-0xA1] = 1;
 
-        for (i = 0xA1; i < 0xBA; i++) gb2312_second[7][i-0xA1] = 1;
-        for (i = 0xC5; i < 0xE9; i++) gb2312_second[7][i-0xA1] = 1;
+        for (i=0xA1; i<=0xBA; i++) gb2312_second[7][i-0xA1] = 1;
+        for (i=0xC5; i<=0xE9; i++) gb2312_second[7][i-0xA1] = 1;
 
-        for (i = 0xA4; i < 0xEF; i++) gb2312_second[8][i-0xA1] = 1;
+        for (i=0xA4; i<=0xEF; i++) gb2312_second[8][i-0xA1] = 1;
         gb2312_second_init = 1;
     }
 
@@ -190,7 +207,6 @@ int coding_gb2312_lookup (void * p, int len)
 
     if (pbyte[0] >= 0xB0 && pbyte[0] <= 0xF7 && pbyte[1] >= 0xA1 && pbyte[1] <= 0xFE)
         return 2;
-
     return 0;
 }
 
@@ -203,7 +219,6 @@ int coding_gbk_check (void * p, int len)
     if (pbyte[0] < 0x81 || pbyte[0] == 0xFF) return 0;
     if (pbyte[1] < 0x40 || pbyte[1] == 0xFF) return 0;
     if (pbyte[1] == 0x7F) return 0;
-
     return 2;
 }
 
@@ -217,7 +232,6 @@ int coding_gb18030_check (void * p, int len)
     if (pbyte[1] < 0x30 || pbyte[1] > 0x39) return 0;
     if (pbyte[2] < 0x81 || pbyte[2] == 0xFF) return 0;
     if (pbyte[3] < 0x30 || pbyte[3] > 0x39) return 0;
-
     return 4;
 }
 
@@ -228,11 +242,9 @@ int coding_utf8_check (void * p, int len)
 
     int i, count = 0;
 
-    if (!pbyte || len < 1)
-        return 0;
+    if (!pbyte || len < 1) return 0;
 
-    if (pbyte[0] < 0xC0 || pbyte[0] > 0xFD)
-        return 0;
+    if (pbyte[0] < 0xC0 || pbyte[0] > 0xFD) return 0;
 
     if (pbyte[0] > 0xFC) count = 5;
     else if (pbyte[0] > 0xF8) count = 4;
@@ -242,9 +254,8 @@ int coding_utf8_check (void * p, int len)
 
     if (count + 1 > len) return 0;
 
-    for (i = 0; i < count; i++) {
-        if (pbyte[i+1] < 0x80 || pbyte[i+1] > 0xBF)
-            return 0;;
+    for (i=0; i<count; i++) {
+        if (pbyte[i+1] < 0x80 || pbyte[i+1] > 0xBF) return 0;;
     }
 
     return count + 1;
@@ -302,13 +313,11 @@ int coding_string_trunc (void * srcstr, int srclen, void * dststr, int dstlen, i
 
     for (i=0, num=0; i<srclen && num < dstlen; ) {
         count = (*check)(psrc+i, srclen-i);
-
         if (count > 0) {
             if (num + count > dstlen) return num;
             
             for (j=0; j<count; j++) pdst[num++] = psrc[i++];
             continue;
-
         } else if (count == 0) {
             if (psrc[i] <= 0x7F && (
                  chset == CHARSET_UTF8 ||
@@ -321,6 +330,7 @@ int coding_string_trunc (void * srcstr, int srclen, void * dststr, int dstlen, i
             }
             break;
         }
+        //pdst[num++] = psrc[i++];
     }
 
     return num;
@@ -452,30 +462,25 @@ int coding_charset_detect (void * p, int len, int * chset, void * chname)
     unicoderatio = unicode;//(float)unicode/(float)len * 100.;
 
     if (utf8 > 0) {
-        utf8ratio = utf8;
+        utf8ratio = utf8;//(float)(utf8/* + ascii*/)/(float)len * 100.;
         contained++;
     }
-
     if (gb18030 > 0) {
-        gb18030ratio = gb18030 + gbk;
+        gb18030ratio = gb18030+gbk;//(float)(gb18030 + gbk /*+ ascii*/)/(float)len * 100.;
         contained++;
     }
-
     if (gb2312 > 0) {
-        gb2312ratio = gb2312;
+        gb2312ratio = gb2312;//(float)(gb2312/* + ascii*/)/(float)len * 100.;
         contained++;
     }
-
     if (gbk > 0 && gbk > gb2312) {
-        gbkratio = gbk;
+        gbkratio = gbk;//(float)(gbk/* + ascii*/)/(float)len * 100.;
         contained++;
     }
-
     if (big5 > 0) {
-        big5ratio = big5;
+        big5ratio = big5;//(float)(big5/* + ascii*/)/(float)len * 100.;
         contained++;
     }
-
     unknownratio = unknown;//(float)unknown/(float)len * 100.;
 
     if (!contained) {
@@ -484,31 +489,24 @@ int coding_charset_detect (void * p, int len, int * chset, void * chname)
     
     maxratio = asciiratio;
     detectchset = CHARSET_ASCII;
-
     if (maxratio < unicoderatio) { 
         maxratio = unicoderatio; detectchset = CHARSET_UNICODE;
     }
-
     if (maxratio < utf8ratio) {
         maxratio = utf8ratio; detectchset = CHARSET_UTF8;
     }
-
     if (maxratio < gb2312ratio) {
         maxratio = gb2312ratio; detectchset = CHARSET_GB2312;
     }
-
     if (maxratio < big5ratio) {
         maxratio = big5ratio; detectchset = CHARSET_BIG5;
     }
-
     if (maxratio < gbkratio) {
         maxratio = gbkratio; detectchset = CHARSET_GBK;
     }
-
     if (maxratio < gb18030ratio) {
         maxratio = gb18030ratio; detectchset = CHARSET_GB18030;
     }
-
     if (maxratio < unknownratio) {
         maxratio = unknownratio; detectchset = CHARSET_UNKNOWN;
     }
@@ -516,14 +514,14 @@ int coding_charset_detect (void * p, int len, int * chset, void * chname)
     if (chset) *chset = detectchset;
     if (chsetname) {
         switch (detectchset) {
-        case CHARSET_ASCII:   str_cpy(chsetname, "ASCII");   break;
-        case CHARSET_UNICODE: str_cpy(chsetname, "UCS-2");   break;
-        case CHARSET_UTF8:    str_cpy(chsetname, "UTF-8");   break;
+        case CHARSET_ASCII: str_cpy(chsetname, "ASCII"); break;
+        case CHARSET_UNICODE: str_cpy(chsetname, "UCS-2"); break;
+        case CHARSET_UTF8: str_cpy(chsetname, "UTF-8"); break;
         case CHARSET_GB18030: str_cpy(chsetname, "GB18030"); break;
-        case CHARSET_GBK:     str_cpy(chsetname, "GBK");     break;
-        case CHARSET_GB2312:  str_cpy(chsetname, "GB2312");  break;
-        case CHARSET_BIG5:    str_cpy(chsetname, "BIG5");    break;
-        default:              str_cpy(chsetname, "ASCII");   break;
+        case CHARSET_GBK: str_cpy(chsetname, "GBK"); break;
+        case CHARSET_GB2312: str_cpy(chsetname, "GB2312"); break;
+        case CHARSET_BIG5: str_cpy(chsetname, "BIG5"); break;
+        default: str_cpy(chsetname, "ASCII"); break;
         }
     }
 
@@ -533,13 +531,13 @@ int coding_charset_detect (void * p, int len, int * chset, void * chname)
 char * coding_charset_name (int chset)
 {
     switch (chset) {
-    case CHARSET_ASCII:   return "ASCII";
+    case CHARSET_ASCII: return "ASCII";
     case CHARSET_UNICODE: return "UCS-2";
-    case CHARSET_UTF8:    return "UTF-8";
+    case CHARSET_UTF8: return "UTF-8";
     case CHARSET_GB18030: return "GB18030";
-    case CHARSET_GBK:     return "GBK";
-    case CHARSET_GB2312:  return "GB2312";
-    case CHARSET_BIG5:    return "BIG5";
+    case CHARSET_GBK: return "GBK";
+    case CHARSET_GB2312: return "GB2312";
+    case CHARSET_BIG5: return "BIG5";
     }
     return "ASCII"; 
 }
@@ -560,26 +558,21 @@ int coding_charset_convert (void * p, int len, int maxsize, int dstchset)
  
     coding_charset_detect(pstr, len, &chset, chsetname);
     if (chset != dstchset && chset != CHARSET_ASCII) {
-
         if (len < sizeof(buf) * 2/3) {
             dstlen = sizeof(buf); dst = buf;
-
         } else {
             dstlen = len * 3/2;
             dst = kzalloc(dstlen);
             alloc = 1;
         }
-
         conv_charset(chsetname, coding_charset_name(dstchset),
                      pstr, len,
                      dst, &dstlen);
-
         if (dstlen > 0) {
             if (maxsize < dstlen) dstlen = maxsize;
             memcpy(pstr, dst, dstlen);
             pstr[dstlen] = '\0';
         }
-
         if (alloc) kfree(dst);
     }
  
@@ -603,33 +596,68 @@ int coding_charset_convert_frame(frame_p pfrm, int srcchset, int dstchset)
     chset = srcchset;
     if (chset == CHARSET_UNKNOWN)
         coding_charset_detect(frameP(pfrm), len, &chset, chsetname);
-
     else
         str_cpy(chsetname, coding_charset_name(chset));
-
     if (chset != dstchset && chset != CHARSET_ASCII) {
-
         if (len < sizeof(buf) * 2/3) {
             dstlen = sizeof(buf); dst = buf;
-
         } else {
             dstlen = len * 3/2;
             dst = kzalloc(dstlen);
             alloc = 1;
         }
-
         conv_charset(chsetname, coding_charset_name(dstchset),
                      frameP(pfrm), len,
                      dst, &dstlen);
-
         if (dstlen > 0) {
             frame_empty(pfrm);
             frame_put_nlast(pfrm, dst, dstlen);
         }
-
         if (alloc) kfree(dst);
     }
  
     return 0;
 }
  
+
+
+#if 0
+int main (int argc, char ** argv)
+{
+    uint8       * pbyte = NULL;
+    struct stat   fs;
+    int           fsize = 0;
+    FILE        * fp = NULL;
+    int           chset = 0;
+    uint8         chsetname[32];
+
+    if (argc < 2) {
+        printf("%s <byte file>\n", argv[0]);
+        return 0;
+    }
+
+    if (stat(argv[1], &fs) != 0) {
+        printf("file %s not exist\n", argv[1]);
+        return -2;
+    }
+    fsize = fs.st_size;
+
+    fp = fopen(argv[1], "rb");
+    if (!fp) {
+        printf("file %s open error\n", argv[1]);
+        return -2;
+    }
+
+    pbyte = malloc(fsize);
+    if (pbyte) {
+        fread(pbyte, 1, fsize, fp);
+        coding_charset_detect(pbyte, fsize, &chset, chsetname);
+        printf("Detect Result: charset=%d name=%s\n", chset, chsetname);
+    }
+    free(pbyte);
+
+    fclose(fp);
+    return 0;
+}
+#endif
+

@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include <math.h>
@@ -162,6 +186,7 @@ void fast_ht_free_member (void * vht, void * vfunc)
 }
  
  
+ 
 void fast_ht_zero (void * vht)
 {
     FastHashTab * ht = (FastHashTab *)vht;
@@ -177,6 +202,7 @@ void fast_ht_zero (void * vht)
     ht->num = 0;
 }
  
+ 
 int fast_ht_num (void * vht)
 {
     FastHashTab * ht = (FastHashTab *)vht;
@@ -185,6 +211,7 @@ int fast_ht_num (void * vht)
  
     return ht->num;
 }
+ 
  
 void * fast_ht_get (void * vht, void * key, int keylen, void ** pval, int * vallen)
 {
@@ -253,6 +280,7 @@ int fast_ht_set (void * vht, void * key, int keylen, void * value, int valuelen)
     ht->ptab[hash].hashB = hashB;
     ht->ptab[hash].value = value;
     ht->ptab[hash].valuelen = valuelen;
+    ht->num++;
     return 1;
 }
 
@@ -282,6 +310,7 @@ void * fast_ht_del (void * vht, void * key, int keylen, void ** pval, int * vall
             old = ht->ptab[hash].value;
 
             memset(&ht->ptab[hash], 0, sizeof(ht->ptab[hash]));
+            ht->num--;
             return old;
         }
 

@@ -1,12 +1,37 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
  */
 
 #include "btype.h"
 #include "btime.h"
 
-#ifdef _WIN32
+
+#if defined(_WIN32) || defined(_WIN64)
 int gettimeofday(struct timeval * tv, struct timezone * tz)
 {
     union {
@@ -99,6 +124,20 @@ long btime_diff_ms (btime_t * tp0, btime_t * tp1)
  
     ms = (tp1->s - tp0->s) * 1000;
     ms += tp1->ms - tp0->ms;
+    return ms;
+}
+
+long btime_diff_now (btime_t * tp)
+{
+    btime_t now;
+    long ms = 0;
+
+    if (!tp) return 0;
+
+    btime(&now);
+
+    ms = (now.s - tp->s) * 1000;
+    ms += now.ms - tp->ms;
     return ms;
 }
 

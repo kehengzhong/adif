@@ -1,11 +1,37 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               浣涘姏鍔犳寔      浣涘厜鏅収              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
-#include "arfifo.h"
+#include "kemalloc.h"
+#include "mpool.h"
+#include "trace.h"
 #include "rbtree.h"
  
 
@@ -34,7 +60,9 @@ void * rbtnode_max (void * vnode)
 }
 
 
-/* 找结点node的前驱结点predecessor, 即查找红黑树中数据值小于该结点的最大结点 */
+/* find the predecessor of the node, that is, find the maximum node in the
+   red-black tree whose data value is less than this node. */
+
 void * rbtnode_prev (void * vnode)
 {
     rbtnode_t  * node = (rbtnode_t *)vnode;
@@ -43,15 +71,17 @@ void * rbtnode_prev (void * vnode)
     if (!node)
         return NULL;
  
-    /* 如果node存在左孩子，则其前驱结点为 "以其左孩子为根的子树的最大结点" */
+    /* if the node has a left child, its predecessor is the maximm node of
+       the subtree with its left child as the root" */
 
     if (node->left != NULL)
         return rbtnode_max(node->left);
 
-    /* 如果node没有左孩子。则有以下两种可能：
-     * (1)node是一个右孩子，则其前驱结点为它的父结点
-     * (2)node是一个左孩子，则查找node的最低的父结点，并且该父结点要具有右孩子，
-     *    找到的这个"最低的父结点"就是"node的前驱结点 */
+    /* If the node has no left children. There are two possibilities:
+     * (1) If the node is a right child, its predecessor is its parent node.
+     * (2) If the node is a left child, find the lowest parent of the node, 
+     *     and the parent node should have a right child. The found parent
+     *     node is the predecessor of the node */
 
     prev = node->parent;
 
@@ -63,7 +93,9 @@ void * rbtnode_prev (void * vnode)
     return prev;
 }
 
-/* 找结点node的后继结点successor, 即查找红黑树中数据值大于该结点的最小结点 */
+/* find the successor of the node, that is, find the minimum node whose data
+   value is greater than this node in the red-black tree. */
+
 void * rbtnode_next (void * vnode)
 {
     rbtnode_t  * node = (rbtnode_t *)vnode;
@@ -71,15 +103,17 @@ void * rbtnode_next (void * vnode)
  
     if (!node) return NULL;
  
-    /* 如果node存在右孩子，则其后继结点为 "以其右孩子为根的子树的最小结点" */
+    /* if the node has a right child, its successor is the minimum node of the
+       subtree with its right child as the root */
 
     if (node->right != NULL)
         return rbtnode_min(node->right);
  
-    /* 如果node没有右孩子。则有以下两种可能：
-     * (1)node是一个左孩子，则其后继结点为它的父结点
-     * (2)node是一个右孩子，则查找node的最低的父结点，并且该父结点要具有左孩子，
-     *    找到的这个"最低的父结点"就是"node的后继结点 */
+    /* If the node has no right child. There are two possibilities:
+     * (1) If the node is a left child, its successor is its parent node.
+     * (2) If the node is a right child, find the lowest parent of the node, and
+           the parent node should have a left child. The "lowest parent node"
+           found is the successor of the node */
 
     next = node->parent;
 
@@ -96,8 +130,7 @@ void * rbtnode_get (void * vnode, void * key, int (*cmp)(void *,void *))
     rbtnode_t * node = (rbtnode_t *)vnode;
     int         ret = 0;
  
-    if (!node|| !key)
-        return NULL;
+    if (!node) return NULL;
  
     while (node != NULL) {
         ret = (*cmp)(node, key);
@@ -113,79 +146,117 @@ void * rbtnode_get (void * vnode, void * key, int (*cmp)(void *,void *))
     return NULL;
 }
 
-
-
-void * rbtnode_alloc ()
+void * rbtnode_alloc (rbtree_t * rbt)
 {
     rbtnode_t * node = NULL;
  
-    node = kzalloc(sizeof(*node));
+    if (rbt->rbtnode_pool) {
+        node = mpool_fetch((mpool_t *)rbt->rbtnode_pool);
+        if (node) memset(node, 0, sizeof(*node));
+    } else {
+	node = k_mem_zalloc(sizeof(*node), rbt->alloctype, rbt->mpool);
+    }
+
+    if (node) node->alloc = rbt->alloc_node;
+
     return node;
 }
 
-
-int rbtnode_free (void * vnode, rbtfree_t * freefunc, int alloc_node)
+int rbtnode_free (void * vtree, void * vnode, rbtfree_t * freefunc)
 {
+    rbtree_t * rbt = (rbtree_t *)vtree;
     rbtnode_t * node = (rbtnode_t *)vnode;
 
-    if (node != NULL) {
+    if (!rbt) return -1;
+    if (!node) return -2;
 
-        if (alloc_node) {
-            if (freefunc)
-                (*freefunc)(node->obj);
+    if (rbt->alloc_node) {
+        if (freefunc)
+            (*freefunc)(node->obj);
 
-            kfree(node);
-
+        if (rbt->rbtnode_pool) {
+            mpool_recycle((mpool_t *)rbt->rbtnode_pool, node);
         } else {
-
-            if (freefunc)
-                (*freefunc)(node);
+	    k_mem_free(node, rbt->alloctype, rbt->mpool);
         }
+
+    } else {
+        if (freefunc)
+            (*freefunc)(node);
     }
 
     return 0;
 }
 
-
-static void rbtree_free_node (rbtnode_t * node, rbtfree_t * freefunc, int alloc_node)
+static void rbtree_free_node (rbtree_t * rbt, rbtnode_t * node, rbtfree_t * freefunc)
 {
-    if (!node) return;
+    if (!rbt || !node) return;
 
     if (node->left)
-        rbtree_free_node(node->left, freefunc, alloc_node);
+        rbtree_free_node(rbt, node->left, freefunc);
 
     if (node->right)
-        rbtree_free_node(node->right, freefunc, alloc_node);
+        rbtree_free_node(rbt, node->right, freefunc);
 
-    rbtnode_free(node, freefunc, alloc_node);
+    rbtnode_free(rbt, node, freefunc);
 }
 
-/* alloc_node = 1 means that:
-          the caller's data object contains no space for rbtree-node pointer.
-          when inserting a new node, an memory block for rbtnode_t will be allocated
-          and one of member pointers is assigned the caller's data object.
-   alloc_node = 0 means:
-          the caller's data object must reserved 40-bytes at the begining for rbtnode_t.
-*/
+/* The definition about alloc_node paramenter:
+   The red-black tree is composed of many internal nodes including key and data, which
+   establish tree-type relations through their internal pointers. Internal nodes contain
+   pointers to parent, left subtree, right subtree, and other data members. When adding
+   data to the red-black tree, it is necessary to allocate memory space for internal nodes,
+   in which case the alloc_node value is 1. However, if the memory space required by the
+   internal node is already included in the data object to be added, there is no need to
+   allocate additional memory for the internal node. In this case, the alloc_node value is 0. */
 
-void * rbtree_new (rbtcmp_t * cmp, int alloc_node)
+int rbtree_init (void * vptree, rbtcmp_t * cmp, int alloc_node, int alloctype, void * mpool, void * nodepool)
 {
-    rbtree_t * rbt = NULL;
+    rbtree_t * rbt = (rbtree_t *)vptree;
 
-    rbt = kzalloc(sizeof(*rbt));
-    if (!rbt) return rbt;
+    if (!rbt) return -1;
 
     rbt->root = NULL;
     rbt->num = 0;
     rbt->cmp = cmp;
-    rbt->alloc_node = alloc_node;
+    rbt->alloc_node = alloc_node > 0 ? 1 : 0;
+
+    rbt->alloc_tree = 0;
+    rbt->alloctype = alloctype;
+
+    rbt->mpool = mpool;
+    rbt->rbtnode_pool = nodepool;
 
     rbt->depth = 0;
     memset(rbt->layer, 0, sizeof(rbt->layer));
     rbt->lwidth = 0;
     rbt->rwidth = 0;
 
+    return 0;
+}
+
+void * rbtree_alloc (rbtcmp_t * cmp, int alloc_node, int alloctype, void * mpool, void * nodepool)
+{
+    rbtree_t * rbt = NULL;
+
+    rbt = k_mem_zalloc(sizeof(*rbt), alloctype, mpool);
+    if (!rbt) return rbt;
+
+    rbtree_init(rbt, cmp, alloc_node, alloctype, mpool, nodepool);
+
+    rbt->alloc_tree = 1;
+
     return rbt;
+}
+
+void * rbtree_new (rbtcmp_t * cmp, int alloc_node)
+{
+    return rbtree_alloc(cmp, alloc_node, 0, NULL, NULL);
+}
+
+void * rbtree_osalloc (rbtcmp_t * cmp, int alloc_node, void * nodepool)
+{
+    return rbtree_alloc(cmp, alloc_node, 1, NULL, nodepool);
 }
 
 void rbtree_free (void * vptree)
@@ -195,23 +266,28 @@ void rbtree_free (void * vptree)
     if (!ptree) return;
 
     if (ptree->alloc_node)
-        rbtree_free_node(ptree->root, NULL, ptree->alloc_node);
+        rbtree_free_node(ptree, ptree->root, NULL);
 
-    kfree(ptree);
+    if (!ptree->alloc_tree) 
+       return;
+
+    k_mem_free(ptree, ptree->alloctype, ptree->mpool);
 }
  
-
-void rbtree_free_all (void * vptree, rbtfree_t * freefunc)
+void rbtree_free_all (void * vptree, void * vfunc)
 {
     rbtree_t  * ptree = (rbtree_t *)vptree;
+    rbtfree_t * freefunc = (rbtfree_t *)vfunc;
 
     if (!ptree) return;
 
-    rbtree_free_node(ptree->root, freefunc, ptree->alloc_node);
+    rbtree_free_node(ptree, ptree->root, freefunc);
 
-    kfree(ptree);
+    if (!ptree->alloc_tree) 
+       return;
+
+    k_mem_free(ptree, ptree->alloctype, ptree->mpool);
 }
- 
  
 void rbtree_zero (void * vptree)
 {
@@ -220,7 +296,7 @@ void rbtree_zero (void * vptree)
     if (!rbt) return;
 
     if (rbt->alloc_node)
-        rbtree_free_node(rbt->root, NULL, rbt->alloc_node);
+        rbtree_free_node(rbt, rbt->root, NULL);
 
     rbt->root = NULL;
     rbt->num = 0;
@@ -230,7 +306,6 @@ void rbtree_zero (void * vptree)
     rbt->lwidth = 0;
     rbt->rwidth = 0;
 }
-
 
 int rbtree_num (void * ptree)
 {
@@ -247,8 +322,7 @@ void * rbtree_get_node (void * vptree, void * key)
     rbtnode_t * node = NULL;
     int         ret = 0;
 
-    if (!ptree || !key)
-        return NULL;
+    if (!ptree) return NULL;
 
     node = ptree->root;
 
@@ -258,13 +332,12 @@ void * rbtree_get_node (void * vptree, void * key)
         else
             ret = (*ptree->cmp)(node, key);
 
-        if (ret == 0)
-            return node;
-
         if (ret > 0)
             node = node->left;
-        else
+        else if (ret < 0)
             node = node->right;
+        else
+            return node;
     }
 
     return NULL;
@@ -276,7 +349,7 @@ void * rbtree_get (void * vptree, void * key)
     rbtnode_t * node = NULL;
     int         ret = 0;
 
-    if (!ptree || !key)
+    if (!ptree)
         return NULL;
 
     node = ptree->root;
@@ -287,122 +360,138 @@ void * rbtree_get (void * vptree, void * key)
         else
             ret = (*ptree->cmp)(node, key);
 
-        if (ret == 0) 
-            return ptree->alloc_node ? node->obj : node;
-
         if (ret > 0)
             node = node->left;
-        else
+        else if (ret < 0)
             node = node->right;
+        else
+            return ptree->alloc_node ? node->obj : node;
+    }
+
+    return NULL;
+}
+
+void * rbtree_get_node_pn (void * vptree, void * key, void ** pprev, void ** pnext)
+{
+    rbtree_t  * ptree = (rbtree_t *)vptree;
+    rbtnode_t * parent = NULL;
+    rbtnode_t * node = NULL;
+    int         ret = 0;
+
+    if (pprev) *pprev = NULL;
+    if (pnext) *pnext = NULL;
+
+    if (!ptree) return NULL;
+
+    node = ptree->root;
+
+    while (node != NULL) {
+        parent = node;
+
+        if (ptree->alloc_node)
+            ret = (*ptree->cmp)(node->obj, key);
+        else
+            ret = (*ptree->cmp)(node, key);
+
+        if (ret > 0) {
+            node = node->left;
+        } else if (ret < 0) {
+            node = node->right;
+        } else {
+            if (pprev) *pprev = rbtnode_prev(node);
+            if (pnext) *pnext = rbtnode_next(node);
+            return node;
+        }
+    }
+
+    if (ret > 0) {
+        if (pprev) *pprev = rbtnode_prev(parent);
+        if (pnext) *pnext = parent;
+    } else if (ret < 0) {
+        if (pprev) *pprev = parent;
+        if (pnext) *pnext = rbtnode_next(parent);
     }
 
     return NULL;
 }
 
 
-int rbtree_mget_node (void * vptree, void * key, void ** plist, int listsize)
+void * rbtree_get_gemin (void * vptree, void * key)
 {
     rbtree_t  * ptree = (rbtree_t *)vptree;
+    rbtnode_t * parent = NULL;
     rbtnode_t * node = NULL;
-    rbtnode_t * iter = NULL;
     int         ret = 0;
-    int         num = 0;
- 
-    if (!ptree || !key) return -1;
- 
-    node = rbtree_get_node(ptree, key);
-    if (!node) return 0;
 
-    if (plist && num < listsize)
-        plist[num] = node;
-    num++;
+    if (!ptree) return NULL;
 
-    for (iter = node; iter != NULL; ) {
-        iter = rbtnode_prev(iter);
-        if (!iter) break;
+    node = ptree->root;
+
+    while (node != NULL) {
+        parent = node;
 
         if (ptree->alloc_node)
-            ret = (*ptree->cmp)(iter->obj, key);
+            ret = (*ptree->cmp)(node->obj, key);
         else
-            ret = (*ptree->cmp)(iter, key);
+            ret = (*ptree->cmp)(node, key);
 
-        if (ret != 0) break;
-
-        if (plist && num < listsize)
-            plist[num] = iter;
-        num++;
+        if (ret > 0) {
+            node = node->left;
+        } else if (ret < 0) {
+            node = node->right;
+        } else {
+            return ptree->alloc_node ? node->obj : node;
+        }
     }
 
-    for (iter = node; iter != NULL; ) {
-        iter = rbtnode_next(iter);
-        if (!iter) break;
-
-        if (ptree->alloc_node)
-            ret = (*ptree->cmp)(iter->obj, key);
-        else
-            ret = (*ptree->cmp)(iter, key);
-
-        if (ret != 0) break;
-     
-        if (plist && num < listsize)
-            plist[num] = iter;
-        num++;
+    if (ret > 0) {
+        return ptree->alloc_node ? parent->obj : parent;
+    } else if (ret < 0) {
+        node = rbtnode_next(parent);
+        if (node)
+            return ptree->alloc_node ? node->obj : node;
     }
 
-    return num;
+    return NULL;
 }
 
-int rbtree_mget (void * vptree, void * key, void ** plist, int listsize)
+void * rbtree_get_node_gemin (void * vptree, void * key)
 {
     rbtree_t  * ptree = (rbtree_t *)vptree;
+    rbtnode_t * parent = NULL;
     rbtnode_t * node = NULL;
-    rbtnode_t * iter = NULL;
     int         ret = 0;
-    int         num = 0;
- 
-    if (!ptree || !key) return -1;
- 
-    node = rbtree_get_node(ptree, key);
-    if (!node) return 0;
 
-    if (plist && num < listsize)
-        plist[num] = ptree->alloc_node ? node->obj : node;
-    num++;
+    if (!ptree) return NULL;
 
-    for (iter = node; iter != NULL; ) {
-        iter = rbtnode_prev(iter);
-        if (!iter) break;
+    node = ptree->root;
+
+    while (node != NULL) {
+        parent = node;
 
         if (ptree->alloc_node)
-            ret = (*ptree->cmp)(iter->obj, key);
+            ret = (*ptree->cmp)(node->obj, key);
         else
-            ret = (*ptree->cmp)(iter, key);
+            ret = (*ptree->cmp)(node, key);
 
-        if (ret != 0) break;
-
-        if (plist && num < listsize)
-            plist[num] = ptree->alloc_node ? iter->obj : iter;
-        num++;
+        if (ret > 0) {
+            node = node->left;
+        } else if (ret < 0) {
+            node = node->right;
+        } else {
+            return node;
+        }
     }
 
-    for (iter = node; iter != NULL; ) {
-        iter = rbtnode_next(iter);
-        if (!iter) break;
-
-        if (ptree->alloc_node)
-            ret = (*ptree->cmp)(iter->obj, key);
-        else
-            ret = (*ptree->cmp)(iter, key);
-
-        if (ret != 0) break;
-     
-        if (plist && num < listsize)
-            plist[num] = ptree->alloc_node ? iter->obj : iter;
-        num++;
+    if (ret > 0) {
+        return parent;
+    } else if (ret < 0) {
+        return rbtnode_next(parent);
     }
 
-    return num;
+    return NULL;
 }
+
 
 void * rbtree_min_node (void * vptree)
 {
@@ -473,11 +562,11 @@ void * rbtree_max (void * vptree)
 }
 
 
-/* 对红黑树的节点(x)进行左旋转
+/* Rotate the node (x) of the red-black tree to the left.
  *      px                              px
  *     /                               /
  *    x                               y
- *   /  \      --(左旋)-->           / \                #
+ *   /  \    --(left rotation)-->    / \                #
  *  lx   y                          x  ry
  *     /   \                       /  \
  *    ly   ry                     lx  ly   
@@ -486,42 +575,45 @@ static void rbtree_left_rotate (rbtree_t * ptree, rbtnode_t * x)
 {
     rbtnode_t  * y = NULL;
 
-    if (!ptree || !x) return;
+    if (!ptree || !x || !x->right) return;
 
     y = x->right;
 
-    /* 将y的左孩子设为x的右孩子, 如果y的左孩子非空，将x设为y的左孩子的父亲 */
+    /* Set the left child of Y as the right child of X. If the left child of Y is not
+       NULL, set X as the parent of the left child of Y. */
     x->right = y->left;
     if (y->left != NULL)
         y->left->parent = x;
  
-    /* 将x的父亲设为y的父亲 */
+    /* Set the parent of x as the parent of y */
     y->parent = x->parent;
     if (x->parent == NULL) {
-        /* 如果x的父亲是空节点，则将y设为根节点 */
+        /* If the parent of X is NULL, set Y as the root node. */
         ptree->root = y;
     } else {
         if (x->parent->left == x) {
-            /* 如果x是它父节点的左孩子，则将y设为x的父节点的左孩子 */
+            /* If X is the left child of its parent, set Y as the left child of
+               X's parent */
             x->parent->left = y;
         } else {
-            /* 如果x是它父节点的右孩子，则将y设为x的父节点的右孩子 */
+            /* If X is the right child of its parent, set Y as the right child of
+               X's parent */
             x->parent->right = y;
         }
     }
  
-    /* 将x设为y的左孩子 */
+    /* Set X as the left child of Y */
     y->left = x;
 
-    /* 将x的父节点设为y */
+    /* Set the parent of X to Y */
     x->parent = y;
 }
 
-/* 对红黑树的节点y进行右旋转
+/* Rotate the node y of the red-black tree to the right.
  *            py                               py
  *           /                                /
  *          y                                x
- *         /  \      --(右旋)-->            /  \                     #
+ *         /  \    --(right rotation)-->    /  \                     #
  *        x   ry                           lx   y
  *       / \                                   / \                   #
  *      lx  rx                                rx  ry
@@ -530,34 +622,35 @@ static void rbtree_right_rotate (rbtree_t * ptree, rbtnode_t * y)
 {
     rbtnode_t * x = NULL;
 
-    if (!ptree || !y) return;
+    if (!ptree || !y || !y->left) return;
  
     x = y->left;
 
-    /* 将x的右孩子设为y的左孩子, 如果x的右孩子非空，将y设为x的右孩子的父亲 */
+    /* Set the right child of X as the left child of Y. If the right child of X is not
+       NULL, set Y as the parent of the right child of X */
     y->left = x->right;
     if (x->right != NULL)
         x->right->parent = y;
  
-    /* 将y的父亲设为x的父亲 */
+    /* Set y's parent as x's parent. */
     x->parent = y->parent;
     if (y->parent == NULL) {
-        /* 如果y的父亲是空节点，则将x设为根节点 */
+        /* If Y's parent is NULL, set X as the root node */
         ptree->root = x;
     } else {
         if (y == y->parent->right) {
-            /* 如果y是它父节点的右孩子，则将x设为y的父节点的右孩子 */
+            /* If Y is the right child of its parent, set X as the right child of Y's parent */
             y->parent->right = x;
         } else {
-            /* 如果y是它父节点的左孩子, 将x设为y的父节点的左孩子 */
+            /* If Y is the left child of its parent, set X as the left child of Y's parent */
             y->parent->left = x;
         }
     }
  
-    /* 将y设为x的右孩子 */
+    /* Set y as the right child of x */
     x->right = y;
  
-    /* 将y的父节点设为x */
+    /* Set the parent of y to x */
     y->parent = x;
 }
 
@@ -570,13 +663,13 @@ static void rbtree_insert_fixup (rbtree_t * ptree, rbtnode_t * node)
 
     if (!ptree || !node) return;
 
-    /* 若父节点存在, 并且父节点的颜色是红色 */
+    /* If the parent node exists and the color of the parent node is red */
     while ((parent = node->parent) && parent->color == RBT_RED) {
         gparent = parent->parent;
  
-        /* 若父节点是祖父节点的左孩子 */
+        /* If the parent node is the left child of the grandparent node */
         if (parent == gparent->left) {
-            /* Case 1条件：叔叔节点是红色 */
+            /* Case 1: Uncle node is red */
             uncle = gparent->right;
             if (uncle && uncle->color == RBT_RED) {
                 uncle->color = RBT_BLACK;
@@ -586,7 +679,7 @@ static void rbtree_insert_fixup (rbtree_t * ptree, rbtnode_t * node)
                 continue;
             }
 
-            /* Case 2条件：叔叔是黑色，且当前节点是右孩子 */
+            /* Case 2: Uncle is black and the current node is the right child */
             if (parent->right == node) {
                 rbtree_left_rotate(ptree, parent);
                 tmp = parent;
@@ -594,13 +687,13 @@ static void rbtree_insert_fixup (rbtree_t * ptree, rbtnode_t * node)
                 node = tmp;
             }
  
-            /* Case 3条件：叔叔是黑色，且当前节点是左孩子 */
+            /* Case 3: Uncle is black and the current node is the left child */
             parent->color = RBT_BLACK;
             gparent->color = RBT_RED;
             rbtree_right_rotate(ptree, gparent);
 
-        } else { /* 若z的父节点是z的祖父节点的右孩子 */
-            /* Case 1条件：叔叔节点是红色 */
+        } else { /* if the parent of z is the right child of the grandparent of z */
+            /* Case 1: Uncle node is red */
             uncle = gparent->left;
             if (uncle && uncle->color == RBT_RED) {
                 uncle->color = RBT_BLACK;
@@ -610,7 +703,7 @@ static void rbtree_insert_fixup (rbtree_t * ptree, rbtnode_t * node)
                 continue;
             }
  
-            /* Case 2条件：叔叔是黑色，且当前节点是左孩子 */
+            /* Case 2: Uncle is black and the current node is the left child */
             if (parent->left == node) {
                 rbtree_right_rotate(ptree, parent);
                 tmp = parent;
@@ -618,14 +711,14 @@ static void rbtree_insert_fixup (rbtree_t * ptree, rbtnode_t * node)
                 node = tmp;
             }
  
-            /* Case 3条件：叔叔是黑色，且当前节点是右孩子 */
+            /* Case 3: Uncle is black and the current node is the right child */
             parent->color = RBT_BLACK;
             gparent->color = RBT_RED;
             rbtree_left_rotate(ptree, gparent);
         }
     }
  
-    /* 将根节点设为黑色 */
+    /* Set the root node to black */
     ptree->root->color = RBT_BLACK;
 }
 
@@ -637,8 +730,7 @@ int rbtree_insert (void * vptree, void * key, void * obj, void ** pnode)
     rbtnode_t * newnode = NULL;
     int         ret = 0;
 
-    if (!ptree || !key || !obj)
-        return -1;
+    if (!ptree) return -1;
 
     node = ptree->root;
 
@@ -656,19 +748,12 @@ int rbtree_insert (void * vptree, void * key, void * obj, void ** pnode)
             node = node->right;
         else {
             if (pnode) *pnode = node;
-
-            if (ptree->alloc_node) {
-                if (node->obj == obj) return 0;
-            } else {
-                if (node == obj) return 0;
-            }
-
-            node = node->left;
+            return 0;
         }
     }
 
     if (ptree->alloc_node) {
-        newnode = rbtnode_alloc();
+        newnode = rbtnode_alloc(ptree);
         if (!newnode)
             return -100;
 
@@ -679,6 +764,7 @@ int rbtree_insert (void * vptree, void * key, void * obj, void ** pnode)
     }
 
     newnode->parent = parent;
+    newnode->left = newnode->right = NULL;
     newnode->color = RBT_RED;
 
     if (parent != NULL) {
@@ -708,29 +794,35 @@ static void rbtree_delete_fixup (rbtree_t * ptree, rbtnode_t * node, rbtnode_t *
         if (parent->left == node) { //left child
             other = parent->right;
             if (other && other->color == RBT_RED) {
-                /* Case 1: x的兄弟w是红色的 */
+                /* Case 1: x's brother w is red */
                 other->color = RBT_BLACK;
                 parent->color = RBT_RED;
                 rbtree_left_rotate(ptree, parent);
                 other = parent->right;
             }
 
+            if (!other) {
+                tolog(1, "Panic: rbtree_delete_fixup deleted left black has no right brother, "
+                         "tree=%p node=%p parent=%p\n",
+                      ptree, node, parent);
+            }
+
             if ( (!other->left || other->left->color == RBT_BLACK) && 
                  (!other->right || other->right->color == RBT_BLACK) ) {
-                /* Case 2: x的兄弟w是黑色，且w的俩个孩子也都是黑色的 */
+                /* Case 2: x's brother w is black, and both of w's children are black */
                 other->color = RBT_RED;
                 node = parent;
                 parent = node->parent;
             } else {
                 if (!other->right || other->right->color == RBT_BLACK) {
-                    /* Case 3: x的兄弟w是黑色的，并且w的左孩子是红色，右孩子为黑色 */
+                    /* Case 3: x's brother w is black, and w's left child is red and its right child is black */
                     other->left->color = RBT_BLACK;
                     other->color = RBT_RED;
                     rbtree_right_rotate(ptree, other);
                     other = parent->right;
                 }
 
-                /* Case 4: x的兄弟w是黑色的；并且w的右孩子是红色的，左孩子任意颜色 */
+                /* Case 4: x's brother w is black, and w's right child is red, and his left child is any color */
                 other->color = parent->color;
                 parent->color = RBT_BLACK;
                 other->right->color = RBT_BLACK;
@@ -741,29 +833,35 @@ static void rbtree_delete_fixup (rbtree_t * ptree, rbtnode_t * node, rbtnode_t *
         } else {
             other = parent->left;
             if (other && other->color == RBT_RED) {
-                /* Case 1: x的兄弟w是红色的 */
+                /* Case 1: x's brother w is red */
                 other->color = RBT_BLACK;
                 parent->color = RBT_RED;
                 rbtree_right_rotate(ptree, parent);
                 other = parent->left;
             }
 
+            if (!other) {
+                tolog(1, "Panic: rbtree_delete_fixup deleted right black has no left brother "
+                         "tree=%p node=%p parent=%p\n",
+                      ptree, node, parent);
+            }
+
             if ( (!other->left || other->left->color == RBT_BLACK) && 
                  (!other->right || other->right->color == RBT_BLACK) ) {
-                /* Case 2: x的兄弟w是黑色，且w的俩个孩子也都是黑色的 */
+                /* Case 2: x's brother w is black, and both of w's children are black */
                 other->color = RBT_RED;
                 node = parent;
                 parent = node->parent;
             } else {
                 if (!other->left || other->left->color == RBT_BLACK) {
-                    /* Case 3: x的兄弟w是黑色的，并且w的左孩子是红色，右孩子为黑色 */
+                    /* Case 3: x's brother w is black, and w's right child is red and its left child is black */
                     other->right->color = RBT_BLACK;
                     other->color = RBT_RED;
                     rbtree_left_rotate(ptree, other);
                     other = parent->left;
                 }
 
-                /* Case 4: x的兄弟w是黑色的；并且w的右孩子是红色的，左孩子任意颜色 */
+                /* Case 4: x's brother w is black, and w's left child is red, and its right child is any color */
                 other->color = parent->color;
                 parent->color = RBT_BLACK;
                 other->left->color = RBT_BLACK;
@@ -788,18 +886,42 @@ int rbtree_delete_node (void * vptree, void * vnode)
 
     if (!ptree || !node) return -1;
 
+    if (!node->parent && !node->left && !node->right && ptree->root != node) {
+        tolog(1, "Panic: rbtree_delete_node parent/left/right are NULL, num=%d tree=%p root=%p node=%p\n",
+              ptree->num, ptree, ptree->root, node);
+        return -40;
+    }
+
     /* check if node is in rbtree roughly */
 
     parent = node->parent;
 
-    if (!parent && node != ptree->root)
-         return -100;
+    if (!parent && node != ptree->root) {
+        tolog(1, "Panic: rbtree_delete_node parent NULL, num=%d tree=%p root=%p node=%p\n",
+              ptree, ptree->num, ptree->root, node);
+        return -100;
+    }
 
-    else if (parent && parent->left != node && parent->right != node)
-         return -101;
+    if (parent && parent->left != node && parent->right != node) {
+        tolog(1, "Panic: rbtree_delete_node is not son of parent, num=%d tree=%p root=%p parent=%p node=%p\n",
+              ptree->num, ptree, ptree->root, parent, node);
+        return -101;
+    }
+
+    if (node->left && node->left->parent != node) {
+        tolog(1, "Panic: rbtree_delete_node parent of left son is not self, num=%d tree=%p root=%p node=%p\n",
+              ptree->num, ptree, ptree->root, node);
+        return -102;
+    }
+
+    if (node->right && node->right->parent != node) {
+        tolog(1, "Panic: rbtree_delete_node parent of right son is not self, num=%d tree=%p root=%p node=%p\n",
+              ptree->num, ptree, ptree->root, node);
+        return -103;
+    }
 
     if (node->left != NULL && node->right != NULL) {
-        /* 被删节点的后继节点, 用它来取代"被删节点"的位置，然后再将"被删节点"去掉 */
+        /* Replaces the "deleted node" with the successor of the deleted node, and then removes the "deleted node" */
         replace = node->right;
         while (replace->left != NULL) replace = replace->left;
 
@@ -838,7 +960,7 @@ int rbtree_delete_node (void * vptree, void * vnode)
         node->color = node->depth = node->width = 0;
 
         if (ptree->alloc_node)
-            rbtnode_free(node, NULL, ptree->alloc_node);
+            rbtnode_free(ptree, node, NULL);
 
         return 1;
     }
@@ -866,7 +988,7 @@ int rbtree_delete_node (void * vptree, void * vnode)
     node->color = node->depth = node->width = 0;
 
     if (ptree->alloc_node)
-        rbtnode_free(node, NULL, ptree->alloc_node);
+        rbtnode_free(ptree, node, NULL);
 
     return 0;
 }
@@ -876,44 +998,51 @@ void * rbtree_delete (void * vptree, void * key)
     rbtree_t   * ptree = (rbtree_t *)vptree;
     rbtnode_t  * node = NULL;
     void       * obj = NULL;
+    int          ret = -5;
 
-    if (!ptree || !key) return NULL;
+    if (!ptree) return NULL;
 
     node = rbtree_get_node(ptree, key);
     if (node) {
         if (ptree->alloc_node)
             obj = node->obj;
 
-        if (rbtree_delete_node(ptree, node) >= 0) {
+        ret = rbtree_delete_node(ptree, node);
+        if (ret >= 0) {
             return ptree->alloc_node ? obj : node;
         }
     }
 
+    if (node)
+        tolog(1, "Panic: rbtree_delete ret=%d num=%d tree=%p root=%p node=%p\n",
+              ret, ptree->num, ptree, ptree->root, node);
+
     return NULL;
 }
  
-int rbtree_mdelete (void * vptree, void * key, void ** plist, int listnum)
+void * rbtree_delete_gemin (void * vptree, void * key)
 {
     rbtree_t   * ptree = (rbtree_t *)vptree;
     rbtnode_t  * node = NULL;
-    int          num = 0;
     void       * obj = NULL;
- 
-    if (!ptree || !key) return -1;
- 
-    while ((node = rbtree_get_node(ptree, key)) != NULL) {
+    int          ret = -5;
+
+    if (!ptree) return NULL;
+
+    node = rbtree_get_node_gemin(ptree, key);
+    if (node) {
         if (ptree->alloc_node)
             obj = node->obj;
 
-        if (rbtree_delete_node(ptree, node) >= 0) {
-            if (plist && num < listnum)
-                plist[num] = ptree->alloc_node ? obj : node;
-            num++;
-        } else
-            break;
+        ret = rbtree_delete_node(ptree, node);
+        if (ret >= 0) {
+            return ptree->alloc_node ? obj : node;
+        }
     }
- 
-    return num;
+
+    //tolog(1, "Panic: rbtree_delete_gemin ret=%d num=%d\n", ret, ptree->num);
+
+    return NULL;
 }
 
 
@@ -963,21 +1092,28 @@ void * rbtree_delete_max (void * vptree)
 static int rbtree_preorder_node (rbtnode_t * node, rbtcb_t * cb, 
                    void * cbpara, int index, int alloc_node)
 {
-    if (node != NULL) {
-        if (cb) {
-            if (alloc_node)
-                (*cb)(cbpara, node->key, node->obj, index);
-            else
-                (*cb)(cbpara, node, node, index);
-        }
-        index++;
+    rbtnode_t * left = NULL;
+    rbtnode_t * right = NULL;
 
-        if (node->left)
-            index = rbtree_preorder_node(node->left, cb, cbpara, index, alloc_node);
+    if (!node) return index;
 
-        if (node->right)
-            index = rbtree_preorder_node(node->right, cb, cbpara, index, alloc_node);
+    left = node->left;
+    right = node->right;
+
+    if (cb) {
+        if (alloc_node)
+            (*cb)(cbpara, node->key, node->obj, index);
+        else
+            (*cb)(cbpara, node, node, index);
     }
+
+    index++;
+
+    if (left)
+        index = rbtree_preorder_node(left, cb, cbpara, index, alloc_node);
+
+    if (node->right)
+        index = rbtree_preorder_node(right, cb, cbpara, index, alloc_node);
 
     return index;
 }
@@ -995,21 +1131,29 @@ int rbtree_preorder (void * vptree, rbtcb_t * cb, void * cbpara)
 static int rbtree_inorder_node (rbtnode_t * node, rbtcb_t * cb,
               void * cbpara, int index, int alloc_node)
 {
-    if (node != NULL) {
-        if (node->left)
-            index = rbtree_inorder_node(node->left, cb, cbpara, index, alloc_node);
+    rbtnode_t * left = NULL;
+    rbtnode_t * right = NULL;
 
-        if (cb) {
-            if (alloc_node)
-                (*cb)(cbpara, node->key, node->obj, index);
-            else
-                (*cb)(cbpara, node, node, index);
-        }
-        index++;
+    if (!node) return index;
 
-        if (node->right)
-            index = rbtree_inorder_node(node->right, cb, cbpara, index, alloc_node);
+    left = node->left;
+    right = node->right;
+
+    if (left)
+        index = rbtree_inorder_node(left, cb, cbpara, index, alloc_node);
+
+    if (cb) {
+        if (alloc_node)
+            (*cb)(cbpara, node->key, node->obj, index);
+        else
+            (*cb)(cbpara, node, node, index);
     }
+
+    index++;
+
+    if (right)
+        index = rbtree_inorder_node(right, cb, cbpara, index, alloc_node);
+
     return index;
 }
 
@@ -1027,21 +1171,23 @@ int rbtree_inorder  (void * vptree, rbtcb_t * cb, void * cbpara)
 static int rbtree_postorder_node (rbtnode_t * node, rbtcb_t * cb,
              void * cbpara, int index, int alloc_node)
 {
-    if (node != NULL) {
-        if (node->left)
-            index = rbtree_postorder_node(node->left, cb, cbpara, index, alloc_node);
+    if (!node) return index;
 
-        if (node->right)
-            index = rbtree_postorder_node(node->right, cb, cbpara, index, alloc_node);
+    if (node->left)
+        index = rbtree_postorder_node(node->left, cb, cbpara, index, alloc_node);
 
-        if (cb) {
-            if (alloc_node)
-                (*cb)(cbpara, node->key, node->obj, index);
-            else
-                (*cb)(cbpara, node, node, index);
-        }
-        index++;
+    if (node->right)
+        index = rbtree_postorder_node(node->right, cb, cbpara, index, alloc_node);
+
+    if (cb) {
+        if (alloc_node)
+            (*cb)(cbpara, node->key, node->obj, index);
+        else
+            (*cb)(cbpara, node, node, index);
     }
+
+    index++;
+
     return index;
 }
 
@@ -1060,30 +1206,30 @@ void rbtnode_set_dimen (void * vptree, void * vnode, int depth, int width)
     rbtree_t  * ptree = (rbtree_t *)vptree;
     rbtnode_t * node = (rbtnode_t *)vnode;
 
-    if (node != NULL) {
-        node->depth = depth;
-        node->width = width;
+    if (!node) return;
 
-        if (ptree) {
-            if (ptree->depth < depth)
-                ptree->depth = depth;
+    node->depth = depth;
+    node->width = width;
 
-            if (depth < sizeof(ptree->layer)/sizeof(int))
-                ptree->layer[depth]++;
+    if (ptree) {
+        if (ptree->depth < depth)
+            ptree->depth = depth;
 
-            if (width < 0 && ptree->lwidth > width)
-                ptree->lwidth = width;
+        if (depth < sizeof(ptree->layer)/sizeof(int))
+            ptree->layer[depth]++;
 
-            if (width > 0 && ptree->rwidth < width)
-                ptree->rwidth = width;
-        }
- 
-        if (node->left)
-            rbtnode_set_dimen(ptree, node->left, depth+1, width-1);
- 
-        if (node->right)
-            rbtnode_set_dimen(ptree, node->right, depth+1, width+1);
+        if (width < 0 && ptree->lwidth > width)
+            ptree->lwidth = width;
+
+        if (width > 0 && ptree->rwidth < width)
+            ptree->rwidth = width;
     }
+
+    if (node->left)
+        rbtnode_set_dimen(ptree, node->left, depth+1, width-1);
+
+    if (node->right)
+        rbtnode_set_dimen(ptree, node->right, depth+1, width+1);
 }
  
 void rbtree_set_dimen (void * vptree)

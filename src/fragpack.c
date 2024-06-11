@@ -1,13 +1,38 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
 #include "vstar.h"
 #include "nativefile.h"
 #include "mthread.h"
+#include "kemalloc.h"
 #include "fragpack.h"
 
 int fragitem_cmp_offset (void * a, void * b)
@@ -35,12 +60,15 @@ int fragitem_cmp_by_offset (void * a, void * b)
     return 0;
 }
 
-void * frag_pack_alloc ()
+void * frag_pack_alloc (int alloctype, void * mpool)
 {
     FragPack * frag = NULL;
 
-    frag = kalloc(sizeof(*frag));
+    frag = k_mem_alloc(sizeof(*frag), alloctype, mpool);
     if (!frag) return NULL;
+
+    frag->alloctype = alloctype;
+    frag->mpool = mpool;
 
     frag->complete = 0;
     frag->length = 0;
@@ -48,7 +76,7 @@ void * frag_pack_alloc ()
 
     InitializeCriticalSection(&frag->packCS);
 
-    frag->pack_var = vstar_new(sizeof(FragItem), 4, NULL);
+    frag->pack_var = vstar_alloc(sizeof(FragItem), 4, NULL, alloctype, mpool);
 
     return frag;
 }
@@ -63,7 +91,7 @@ void frag_pack_free (void * vfrag)
 
     vstar_free(frag->pack_var);
 
-    kfree(frag);
+    k_mem_free(frag, frag->alloctype, frag->mpool);
 }
  
 int frag_pack_zero (void * vfrag)
@@ -200,7 +228,7 @@ int frag_pack_read (void * vfrag, void * hfile, int64 pos)
         return -101;
     }
 
-    p = kalloc(len);
+    p = k_mem_alloc(len, frag->alloctype, frag->mpool);
     native_file_read(hfile, p, len);
 
     vstar_zero(frag->pack_var);
@@ -213,7 +241,7 @@ int frag_pack_read (void * vfrag, void * hfile, int64 pos)
 
         vstar_push(frag->pack_var, item);
     }
-    kfree(p);
+    k_mem_free(p, frag->alloctype, frag->mpool);
 
     LeaveCriticalSection(&frag->packCS);
 

@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "service.h"
 #include "frame.h"
@@ -144,7 +168,6 @@ static int ReadIDE(frame_p frame, uint8 swap)
 
     for (i = 0; i < 256; i++) {
         pw = inw(0x1F0);
-        //if (swap) pw = swap2(pw);
         frame_put_nlast(frame, &pw, 2);
     }
 
@@ -237,7 +260,7 @@ int daemonize (char * lockfile, char * pinstalldir)
 }
 
 
-int exec_cmd (char *cmdstr, char * argv[], int waitchild)
+int exec_cmd (char * cmdstr, char * argv[], int waitchild)
 {
     pid_t   pid = 0;
     int     status = 0;
@@ -250,11 +273,6 @@ int exec_cmd (char *cmdstr, char * argv[], int waitchild)
     if ((pid = fork()) < 0) {
         status = -1;    /* probably out of processes */
     } else if (pid == 0) { /* child */
-        //long i, maxfd = sysconf(_SC_OPEN_MAX);
-        //for (i=0; i<maxfd; ++i)
-        //    close(i);
-
-
         if (waitchild == 0) {
             if ((pid = fork()) < 0) exit(-1);
             else if (pid > 0) exit(0);
@@ -322,46 +340,6 @@ typedef struct _GETVERSIONOUTPARAMS {
     DWORD fCapabilities;  // Bit mask of driver capabilities. 
     DWORD dwReserved[4];  // For future use. 
 } GETVERSIONOUTPARAMS, *PGETVERSIONOUTPARAMS, *LPGETVERSIONOUTPARAMS; 
-
-#if 0
-typedef struct _IDEREGS { 
-    BYTE bFeaturesReg;     // Used for specifying SMART "commands". 
-    BYTE bSectorCountReg;  // IDE sector count register 
-    BYTE bSectorNumberReg; // IDE sector number register 
-    BYTE bCylLowReg;       // IDE low order cylinder value 
-    BYTE bCylHighReg;      // IDE high order cylinder value 
-    BYTE bDriveHeadReg;    // IDE drive/head register 
-    BYTE bCommandReg;      // Actual IDE command. 
-    BYTE bReserved;        // reserved for future use.  Must be zero. 
-} IDEREGS, *PIDEREGS, *LPIDEREGS; 
-
-typedef struct _SENDCMDINPARAMS { 
-    DWORD   cBufferSize;    // Buffer size in bytes 
-    IDEREGS irDriveRegs;    // Structure with drive register values. 
-    BYTE    bDriveNumber;   // Physical drive number to send 
-                            // command to (0,1,2,3). 
-    BYTE    bReserved[3];   // Reserved for future expansion. 
-    DWORD   dwReserved[4];  // For future use. 
-    //BYTE  bBuffer[1];     // Input buffer. 
-} SENDCMDINPARAMS, *PSENDCMDINPARAMS, *LPSENDCMDINPARAMS; 
-
-typedef struct _DRIVERSTATUS { 
-    BYTE  bDriverError;  // Error code from driver, 
-                         // or 0 if no error. 
-    BYTE  bIDEStatus;    // Contents of IDE Error register. 
-                         // Only valid when bDriverError 
-                         // is SMART_IDE_ERROR. 
-    BYTE  bReserved[2];  // Reserved for future expansion. 
-    DWORD dwReserved[2]; // Reserved for future expansion. 
-} DRIVERSTATUS, *PDRIVERSTATUS, *LPDRIVERSTATUS; 
-
-typedef struct _SENDCMDOUTPARAMS { 
-    DWORD        cBufferSize;  // Size of bBuffer in bytes 
-    DRIVERSTATUS DriverStatus; // Driver status structure. 
-    BYTE         bBuffer[512]; // Buffer of arbitrary length 
-                               // in which to store the data read from the drive. 
-} SENDCMDOUTPARAMS, *PSENDCMDOUTPARAMS, *LPSENDCMDOUTPARAMS; 
-#endif
 
 #pragma pack() 
 

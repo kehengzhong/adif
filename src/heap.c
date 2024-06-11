@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -117,6 +141,18 @@ void * heap_value (heap_t * hp, int i)
     return hp->data[i];
 }
 
+int heap_set (heap_t * hp, int i, void * val)
+{
+    if (!hp) return -1;
+
+    if (hp->num <= 0 || i < 0 || i >= hp->num)
+        return -2;
+
+    hp->data[i] = val;
+
+    return 0;
+}
+
 int heap_enlarge (heap_t * hp, int scale)
 {
     void **s;
@@ -154,8 +190,6 @@ void heap_up (heap_t * hp, int child)
     while (child > 0) {
 
         parent = (child - 1) / 2;
-
-        //if (hp->data[ parent ] > hp->data[ child ]) {
 
         if ((*hp->cmp)(hp->data[ parent ], hp->data[ child ]) > 0) {
 
@@ -226,7 +260,7 @@ int heap_push (heap_t * hp, void * data)
     }
 
     hp->data[hp->num++] = data;
-    heap_up(hp, hp->num);
+    heap_up(hp, hp->num - 1);
 
     return hp->num;
 }

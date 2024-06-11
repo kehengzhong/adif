@@ -1,13 +1,38 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include <stdarg.h>
 #include "memory.h"
 #include "patmat.h"
 #include "byteiter.h"
+
 
 int iter_init (ByteIter * iter)
 {
@@ -211,31 +236,24 @@ int iter_set_bytes (ByteIter * iter, uint8 * pbuf, int buflen)
         memset(pbyte, 0, len);
     }
  
-    iter_forward(iter, len);  
+    iter_forward(iter, len);
     return len;
 }
 
 int iter_fmtstr (ByteIter * iter, const char * fmt, ...)
 {
-    uint8  * pbyte = NULL;
-    int      len = 0;
-    va_list  args;
-    char     tmp[4096];
+    va_list args;
+    int     avail = 0;
+    int     written = 0;
 
-    if (!iter) return -1;
-
-    pbyte = iter_cur(iter);
-    len = iter_rest(iter);
-     
-    memset(tmp, 0, sizeof(tmp));
+    avail = iter_rest(iter);
     va_start(args, fmt);
-    vsprintf(tmp, fmt, args);
+    written = vsnprintf((char *)iter_cur(iter), avail, fmt, args);
     va_end(args);
 
-    if (len > (int)strlen(tmp)) len = strlen(tmp);
+    iter_forward(iter, written);
 
-    memcpy(pbyte, tmp, len);
-    return len;
+    return written;
 }
 
 
@@ -260,7 +278,7 @@ int iter_set_uint16BE (ByteIter * iter, uint16 val)
     if (iter_rest(iter) < 2) return -100;
  
     pbyte = iter_cur(iter);
-    for (i=0; i<2; i++) {
+    for (i = 0; i < 2; i++) {
         byte = (uint8)((val >> ((1-i)*8)) & 0xFF);
         pbyte[i] = byte;
     }
@@ -279,7 +297,7 @@ int iter_set_uint16LE (ByteIter * iter, uint16 val)
     if (iter_rest(iter) < 2) return -100;
  
     pbyte = iter_cur(iter);
-    for (i=0; i<2; i++) { 
+    for (i = 0; i < 2; i++) { 
         byte = (uint8)((val >> (i*8)) & 0xFF);
         pbyte[i] = byte;
     }
@@ -298,7 +316,7 @@ int iter_set_uint32BE (ByteIter * iter, uint32 val)
     if (iter_rest(iter) < 4) return -100;
  
     pbyte = iter_cur(iter);
-    for (i=0; i<4; i++) { 
+    for (i = 0; i < 4; i++) { 
         byte = (uint8)((val >> ((3-i)*8)) & 0xFF);
         pbyte[i] = byte;
     }
@@ -317,7 +335,7 @@ int iter_set_uint32LE (ByteIter * iter, uint32 val)
     if (iter_rest(iter) < 4) return -100;
  
     pbyte = iter_cur(iter);
-    for (i=0; i<4; i++) {
+    for (i = 0; i < 4; i++) {
         byte = (uint8)((val >> i*8) & 0xFF);
         pbyte[i] = byte;
     }
@@ -336,7 +354,7 @@ int iter_set_uint64BE (ByteIter * iter, uint64 val)
     if (iter_rest(iter) < 8) return -100;
  
     pbyte = iter_cur(iter);
-    for (i=0; i<8; i++) {
+    for (i = 0; i < 8; i++) {
         byte = (uint8)((val >> ((7-i)*8)) & 0xFF);
         pbyte[i] = byte;
     }
@@ -355,7 +373,7 @@ int iter_set_uint64LE (ByteIter * iter, uint64 val)
     if (iter_rest(iter) < 8) return -100;
      
     pbyte = iter_cur(iter);
-    for (i=0; i<8; i++) {
+    for (i = 0; i < 8; i++) {
         byte = (uint8)((val >> i*8) & 0xFF);
         pbyte[i] = byte;
     }
@@ -365,7 +383,8 @@ int iter_set_uint64LE (ByteIter * iter, uint64 val)
 }
 
 
-/* skip to next, once any char of the given char array is encountered, stop skipping*/
+
+/* Skip to the next. Stop skipping as soon as any char of a given char array is encountered. */
 int iter_skipTo (ByteIter * iter, uint8 * chs, int charnum) 
 { 
     int i, moves = 0;
@@ -373,7 +392,7 @@ int iter_skipTo (ByteIter * iter, uint8 * chs, int charnum)
     if (!iter) return -1;
  
     while (!iter_istail(iter)) {
-        for (i=0; i<charnum; i++) {
+        for (i = 0; i < charnum; i++) {
             if (iter->text[iter->cur] == chs[i]) return moves;
         }
         iter->cur ++;
@@ -383,7 +402,7 @@ int iter_skipTo (ByteIter * iter, uint8 * chs, int charnum)
     return moves;
 }
  
-/* skip to next, once any char of the given char array is not encountered, stop skipping*/
+/* Skip to the next, and stop skipping once no characters of the given character array are encountered */
 int iter_skipOver (ByteIter * iter, uint8 * chs, int charnum)
 {
     int i, moves = 0;
@@ -391,7 +410,7 @@ int iter_skipOver (ByteIter * iter, uint8 * chs, int charnum)
     if (!iter) return -1;
  
     while (!iter_istail(iter)) {
-        for (i=0; i<charnum; i++) {
+        for (i = 0; i < charnum; i++) {
             if (iter->text[iter->cur] != chs[i]) return moves;
         }
         iter->cur++;
@@ -411,8 +430,8 @@ int iter_skipTo_bytes (ByteIter * iter, char * pat, int patlen)
 
     pbgn = iter_cur(iter);
     len = iter_rest(iter);
-    pbyte = (uint8 *)kmp_find_bytes((char *)pbgn, len, pat, patlen, NULL);
-    if (pbyte && pbyte > iter_bgn(iter)) {
+    pbyte = (uint8 *)sun_find_bytes(pbgn, len, pat, patlen, NULL);
+    if (pbyte && pbyte >= iter_bgn(iter)) {
         len = pbyte - iter_bgn(iter);
         if (len < iter_len(iter))
             iter->cur = len;

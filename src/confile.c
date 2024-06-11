@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
@@ -54,7 +78,6 @@ typedef struct cfg_line {
     hashtab_t * htsect;
 } CFGLine;
 
-
 void * cfgline_alloc ()
 {
     CFGLine * line = NULL;
@@ -70,30 +93,11 @@ int cfgline_free (void * vline)
     if (!vline) return -1;
     line = (CFGLine *)vline;
 
-    if (line->rawstr) {
-        kfree(line->rawstr);
-        line->rawstr = NULL;
-    }
-
-    if (line->key) {
-        kfree(line->key);
-        line->key = NULL;
-    }
-
-    if (line->value) {
-        kfree(line->value);
-        line->value = NULL;
-    }
-
-    if (line->comment) {
-        kfree(line->comment);
-        line->comment = NULL;
-    }
-
-    if (line->htsect) {
-        ht_free(line->htsect);
-        line->htsect = NULL;
-    }
+    if (line->rawstr) { kfree(line->rawstr); line->rawstr = NULL; }
+    if (line->key) { kfree(line->key); line->key = NULL; }
+    if (line->value) { kfree(line->value); line->value = NULL; }
+    if (line->comment) { kfree(line->comment); line->comment = NULL; }
+    if (line->htsect) { ht_free(line->htsect); line->htsect = NULL; }
 
     return 0;
 }
@@ -111,6 +115,24 @@ int cfgline_cmp_key (void * a, void * b)
     return strcasecmp(cfgline->key, key);
 }
 
+#define HASH_SHIFT  6
+#define HASH_VALUE_BITS  32
+static long s_mask = ~0U << (HASH_VALUE_BITS - HASH_SHIFT);
+static ulong hash_string_key (void * str)
+{
+    ulong ret = 0;
+    uint8 * p = NULL; 
+    
+    if (!str) return 0;
+    
+    p = (uint8 *)str;
+    while (*p != '\0') {
+        ret = (ret & s_mask) ^ (ret << HASH_SHIFT) ^ (tolower(*p));
+        p++;
+    }   
+    
+    return ret;
+}   
 
 typedef struct _ConfMgmt {
     char        confile[128];
@@ -120,7 +142,6 @@ typedef struct _ConfMgmt {
 
     hashtab_t * sect_table;
 } ConfMgmt;
-
 
 void  * conf_mgmt_init (char * file)
 {
@@ -132,6 +153,7 @@ void  * conf_mgmt_init (char * file)
     conf->line_list = arr_new(16);
 
     conf->sect_table = ht_only_new(SEC_HASH_LEN, cfgline_cmp_key);
+    ht_set_hash_func(conf->sect_table, hash_string_key);
 
     if (file && file_exist(file)) {
         strncpy(conf->confile, file, sizeof(conf->confile)-1);
@@ -140,7 +162,6 @@ void  * conf_mgmt_init (char * file)
 
     return conf;
 }
-
 
 int conf_mgmt_cleanup (void * vconf)
 {
@@ -154,7 +175,7 @@ int conf_mgmt_cleanup (void * vconf)
     cfgline_free(&conf->default_sect);
 
     num = arr_num(conf->line_list);
-    for (i=0; i<num; i++) {
+    for (i = 0; i < num; i++) {
         line = (CFGLine *)arr_value(conf->line_list, i);
         if (line) {
             cfgline_free(line);
@@ -169,6 +190,19 @@ int conf_mgmt_cleanup (void * vconf)
     return 0;
 }
 
+static char * conf_strdup (char * str, int len)
+{
+    char * pbuf = NULL;
+
+    if (!str) return NULL;
+
+    pbuf = kalloc(len + 1);
+
+    str_ncpy(pbuf, str, len);
+
+    return pbuf;
+}
+
 static char * conf_cmt_pos (char * str)
 {
     int i, len;
@@ -179,7 +213,7 @@ static char * conf_cmt_pos (char * str)
     if (*p == ';' || *p == '#') return p;
 
     len = strlen(str);
-    for (i=1; i<len; i++) {
+    for (i = 1; i < len; i++) {
         if (p[i]==';' || p[i]=='#') {
             if (p[i-1]==' ' || p[i-1]=='\t')
                 return &p[i];
@@ -188,7 +222,6 @@ static char * conf_cmt_pos (char * str)
 
     return NULL;
 }
-
 
 int conf_mgmt_read (void * vconf, char * file)
 {
@@ -212,7 +245,7 @@ int conf_mgmt_read (void * vconf, char * file)
 
     sect = &conf->default_sect;
 
-    for (seqno=0; !feof(fp); seqno++) {
+    for (seqno = 0; !feof(fp); seqno++) {
         memset(buf, 0, sizeof(buf));
 
         fgets(buf, sizeof(buf)-1, fp);
@@ -221,7 +254,7 @@ int conf_mgmt_read (void * vconf, char * file)
 
         line = cfgline_alloc();
         line->line = seqno;
-        line->rawstr = str_dup(piter, strlen(piter));
+        line->rawstr = conf_strdup(piter, strlen(piter));
 
         arr_push(conf->line_list, line);
 
@@ -236,7 +269,7 @@ int conf_mgmt_read (void * vconf, char * file)
 
         pcmt = conf_cmt_pos(piter); 
         if (pcmt) {
-            line->comment = str_dup(pcmt, strlen(pcmt));
+            line->comment = conf_strdup(pcmt, strlen(pcmt));
         }
 
         if (*piter == '[') {
@@ -249,8 +282,9 @@ int conf_mgmt_read (void * vconf, char * file)
             else
                 line->cfgtype = CFGTYPE_SECTION;
 
-            line->key = str_dup(piter+1, pbuf-piter-1);
+            line->key = conf_strdup(piter+1, pbuf-piter-1);
             line->htsect = ht_only_new(ITEM_HASH_LEN, cfgline_cmp_key);
+            ht_set_hash_func(line->htsect, hash_string_key);
             sect = line;
          
             ht_set (conf->sect_table, line->key, line);
@@ -268,20 +302,15 @@ itemhandle:
         if (pcmt && pbuf > pcmt) { //abc  #this = is comment
             *pcmt = '\0';
             pbuf = str_trim(piter);
-            line->key = str_dup(pbuf, strlen(pbuf));
+            line->key = conf_strdup(pbuf, strlen(pbuf));
             continue;
         }
-
-        *pbuf = '\0';
-        pbuf++;
-
+        *pbuf = '\0'; pbuf++;
         piter = str_trim(piter);
-        line->key = str_dup(piter, strlen(piter));
-
+        line->key = conf_strdup(piter, strlen(piter));
         if (pcmt) *pcmt = '\0';
-
         piter = str_trim(pbuf);
-        line->value = str_dup(piter, strlen(piter));
+        line->value = conf_strdup(piter, strlen(piter));
 
         ht_set (sect->htsect, line->key, line);
     }
@@ -290,6 +319,7 @@ itemhandle:
 
     return 0;
 }
+
 
 int conf_mgmt_save (void * vconf, char * file)
 {
@@ -308,28 +338,20 @@ int conf_mgmt_save (void * vconf, char * file)
 
     num = arr_num(conf->line_list);
     for (i = 0; i < num; i++) {
-
         line = (CFGLine *)arr_value(conf->line_list, i);
         if (!line) continue;
-
         if (line->cfgtype == CFGTYPE_NULL_LINE) {
             fprintf(fp, "\n");
-
         } else if (line->cfgtype == CFGTYPE_COMMENT) {
             fprintf(fp, "%s\n", line->rawstr);
-
         } else if (line->cfgtype == CFGTYPE_ITEM_CMT) {
             fprintf(fp, "%s = %s  %s\n", line->key, line->value, line->comment);
-
         } else if (line->cfgtype == CFGTYPE_ITEM) {
             fprintf(fp, "%s = %s\n", line->key, line->value);
-
         } else if (line->cfgtype == CFGTYPE_SECTION_CMT) {
             fprintf(fp, "[%s]  %s\n", line->key, line->comment);
-
         } else if (line->cfgtype == CFGTYPE_SECTION) {
             fprintf(fp, "[%s]\n", line->key);
-
         } else {
             continue;
         }
@@ -360,7 +382,6 @@ char * conf_get_string (void * vconf, char * sect, char * key)
     return line->value;
 }
 
-
 int conf_get_int (void * vconf, char * sect, char * key)
 {
     ConfMgmt * conf = NULL;
@@ -383,10 +404,8 @@ int conf_get_int (void * vconf, char * sect, char * key)
         val = strtol(line->value+2, NULL, 16);
     else
         val = atoi(line->value);
-
     return val;
 }
-
 
 uint32 conf_get_ulong (void * vconf, char * sect, char * key)
 {
@@ -406,7 +425,7 @@ uint32 conf_get_ulong (void * vconf, char * sect, char * key)
     if (!line) return 0;
 
     if (strlen(line->value) >= 2 && strncasecmp(line->value, "0x", 2) == 0)
-        return strtol(line->value + 2, NULL, 16);
+        return strtol(line->value+2, NULL, 16);
     else
         return strtoul(line->value, (char **)NULL, 10);
 }
@@ -468,11 +487,18 @@ uint8 conf_get_bool (void * vconf, char * sect, char * key)
     line = ht_get(sectnode->htsect, key);
     if (!line) return 0;
 
+#ifdef UNIX
     if (strcasecmp(line->value, "yes") == 0 ||
         strcasecmp(line->value, "true") == 0 ||
         strcasecmp(line->value, "1") == 0)
         return 1;
-
+#endif
+#if defined(_WIN32) || defined(_WIN64)
+    if (_stricmp(line->value, "yes") == 0 ||
+        _stricmp(line->value, "true") == 0 ||
+        _stricmp(line->value, "1") == 0)
+        return 1;
+#endif
     return 0;
 }
 
@@ -498,7 +524,7 @@ int conf_set_string (void * vconf, char * sect, char * key, char * value)
         line->value = NULL;
     }
     if (value)
-        line->value = str_dup(value, strlen(value));
+        line->value = conf_strdup(value, strlen(value));
 
     return 0;
 }
@@ -525,9 +551,13 @@ int conf_set_int (void * vconf, char * sect, char * key, int value)
         kfree(line->value);
         line->value = NULL;
     }
+#ifdef UNIX
     snprintf(valstr, sizeof(valstr)-1, "%d", value);
-
-    line->value = str_dup(valstr, strlen(valstr));
+#endif
+#if defined(_WIN32) || defined(_WIN64)
+    _snprintf(valstr, sizeof(valstr)-1, "%d", value);
+#endif
+    line->value = conf_strdup(valstr, strlen(valstr));
     return 0;
 }
 
@@ -554,12 +584,15 @@ int conf_set_ulong (void * vconf, char * sect, char * key, uint32 value)
         kfree(line->value);
         line->value = NULL;
     }   
+#ifdef UNIX
     snprintf(valstr, sizeof(valstr)-1, "%u", value);
-
-    line->value = str_dup(valstr, strlen(valstr));
+#endif
+#if defined(_WIN32) || defined(_WIN64)
+    _snprintf(valstr, sizeof(valstr)-1, "%d", value);
+#endif
+    line->value = conf_strdup(valstr, strlen(valstr));
     return 0;
 }
-
 
 int conf_set_hexlong (void * vconf, char * sect, char * key, long value)
 {
@@ -583,12 +616,15 @@ int conf_set_hexlong (void * vconf, char * sect, char * key, long value)
         kfree(line->value);
         line->value = NULL;
     }
+#ifdef UNIX
     snprintf(valstr, sizeof(valstr)-1, "0X%lX", value);
-
-    line->value = str_dup(valstr, strlen(valstr));
+#endif
+#if defined(_WIN32) || defined(_WIN64)
+    _snprintf(valstr, sizeof(valstr)-1, "0X%lX", value);
+#endif
+    line->value = conf_strdup(valstr, strlen(valstr));
     return 0;
 }
-
 
 int conf_set_double (void * vconf, char * sect, char * key, double value)
 {
@@ -612,13 +648,15 @@ int conf_set_double (void * vconf, char * sect, char * key, double value)
         kfree(line->value);
         line->value = NULL;
     }   
-
+#ifdef UNIX
     snprintf(valstr, sizeof(valstr)-1, "%f", value);
-
-    line->value = str_dup(valstr, strlen(valstr));
+#endif
+#if defined(_WIN32) || defined(_WIN64)
+    _snprintf(valstr, sizeof(valstr)-1, "%f", value);
+#endif
+   line->value = conf_strdup(valstr, strlen(valstr));
     return 0;
 }
-
 
 int conf_set_bool(void * vconf, char * sect, char * key, uint8 value)
 {
@@ -642,14 +680,20 @@ int conf_set_bool(void * vconf, char * sect, char * key, uint8 value)
         kfree(line->value);
         line->value = NULL;
     }   
-
+#ifdef UNIX
     if (value)
         snprintf(valstr, sizeof(valstr)-1, "yes");
     else
         snprintf(valstr, sizeof(valstr)-1, "no");
+#endif
+#if defined(_WIN32) || defined(_WIN64)
+    if (value)
+        _snprintf(valstr, sizeof(valstr)-1, "yes");
+    else
+        _snprintf(valstr, sizeof(valstr)-1, "no");
+#endif
 
-    line->value = str_dup(valstr, strlen(valstr));
-
+    line->value = conf_strdup(valstr, strlen(valstr));
     return 0;
 }
 

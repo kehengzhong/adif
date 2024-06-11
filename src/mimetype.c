@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "dynarr.h"
@@ -10,8 +34,10 @@
 #include "strutil.h"
 #include "mimetype.h"
 
+
 typedef struct MimeMgmt_ {
 
+    //CRITICAL_SECTION   mimeCS;
     hashtab_t          * mime_tab;      //key is extname
     hashtab_t          * mimeid_tab;    //key is mimeid 
     hashtab_t          * mimetype_tab;  //key is mime type
@@ -1275,11 +1301,11 @@ void mime_type_free (void * vmgmt)
     if (!mgmt) return;
 
     num = arr_num(mgmt->mime_list);
- 
+
     for (i = 0; i < num; i++) {
         item = arr_value(mgmt->mime_list, i);
         if (!item) continue;
- 
+
         kfree(item);
     }
     arr_free(mgmt->mime_list);
@@ -1299,14 +1325,14 @@ int mime_type_add (void * vmgmt, char * mime, char * ext, uint32 mimeid, uint32 
 
     if (!mgmt) return -1;
 
-    if (!mime || strlen(mime) <= 0) return -2;
-    if (!ext || strlen(ext) <= 0) return -3;
+    if (!mime || str_len(mime) <= 0) return -2;
+    if (!ext || str_len(ext) <= 0) return -3;
 
     item = kzalloc(sizeof(*item));
     if (!item) return -100;
 
-    str_secpy(item->mime, sizeof(item->mime)-1, mime, strlen(mime));
-    str_secpy(item->extname, sizeof(item->extname)-1, ext, strlen(ext));
+    str_secpy(item->mime, sizeof(item->mime)-1, mime, str_len(mime));
+    str_secpy(item->extname, sizeof(item->extname)-1, ext, str_len(ext));
     item->mimeid = mimeid;
     item->appid = appid;
     
@@ -1349,7 +1375,7 @@ int mime_type_get_by_extname (void * vmgmt, char * ext, char ** pmime, uint32 * 
     if (!ext) return -2;
 
     p = ext;
-    if (*p != '.') p = rskipTo(p+strlen(ext)-1, strlen(ext), ".", 1);
+    if (*p != '.') p = rskipTo(p+str_len(ext)-1, str_len(ext), ".", 1);
     if (*p == '.') item = ht_get(mgmt->mime_tab, p);
     if (!item) return -100;
     
@@ -1402,8 +1428,9 @@ int mime_type_get_by_mime (void * vmgmt, char * mime, char ** pext, uint32 * mim
 
     memset(mimebuf, 0, sizeof(mimebuf));
 
-    mime = skipOver(mime, strlen(mime), " \t\r\n", 4);
-    p = skipTo(mime, strlen(mime), ";, \t\r\n", 6);
+    p = mime + str_len(mime);
+    mime = skipOver(mime, p - mime, " \t\r\n", 4);
+    p = skipTo(mime, p - mime, ";, \t\r\n", 6);
     if (p) {
         len = p - mime;
         if (len > sizeof(mimebuf)-1) len = sizeof(mimebuf)-1;

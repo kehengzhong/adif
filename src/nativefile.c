@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
@@ -23,9 +47,9 @@ void * native_file_open (char * nfile, int flag)
 
     if (ret < 0) {
         if ((flag & NF_MASK_RW) == NF_READ)
-            return NULL; //only read existing file 
+            return NULL;  //only read existing file 
         if ((flag & NF_MASK_RW) == NF_READPLUS)
-            return NULL;//not create it; read/write existing file
+            return NULL;  //not create it; read/write existing file
     } else { //file exist
         if ((flag & NF_MASK_RW) == NF_WRITE) {
             unlink(nfile);
@@ -353,6 +377,7 @@ int native_file_remove (char * nfile)
 
 #endif
 
+
 #if defined(_WIN32) || defined(_WIN64)
 
 void * native_file_open   (char * nfile, int flag)
@@ -405,8 +430,6 @@ void * native_file_open   (char * nfile, int flag)
     strncpy(hfile->name, nfile, sizeof(hfile->name)-1);
     hfile->flag = flag;
     hfile->oflag = 0;
-    //hfile->mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-    //if (flag & NF_EXEC) hfile->mode |= (S_IXUSR | S_IXGRP | S_IXOTH);
  
     hfile->offset = 0;
     if (ret >= 0) {

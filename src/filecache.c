@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
@@ -265,7 +289,7 @@ int file_cache_setbuf (void * vcache, void * pbuf, int buflen, int packsize)
     cache->prefix = (int)((float)cache->packnum * cache->prefix_ratio);
     cache->suffix = (int)((float)cache->packnum * cache->prefix_ratio);
 
-    for (i=0; i<cache->packnum; i++) {
+    for (i = 0; i < cache->packnum; i++) {
         pack = file_pack_fetch(cache);
         memset(pack->unitarr, 0, sizeof(pack->unitarr));
         pack->unitnum = 0;
@@ -310,7 +334,7 @@ int file_cache_packlist_prepare (void * vcache)
     cache->seek_pack = 0;
     cache->seekpos = 0;
 
-    for (i=0; i<cache->packnum; i++) {
+    for (i = 0; i < cache->packnum; i++) {
         pack = arr_value(cache->pack_list, (i+cache->bgn_pack)%cache->packnum);
         pack->packind = i + cache->bgn_pack;
         pack->state = PACK_NULL;
@@ -394,13 +418,9 @@ static void * file_cache_get_idle_pack (void * vcache)
     if (!cache) return NULL;
 
     EnterCriticalSection(&cache->cacheCS);
-    for (i = cache->seek_pack; 
-         i < cache->bgn_pack + cache->packnum && i < cache->packtotal;
-         i++)
-    {
+    for (i=cache->seek_pack; i<cache->bgn_pack+cache->packnum && i<cache->packtotal; i++) {
         packind = i % cache->packnum;
         pack = arr_value(cache->pack_list, packind);
-
         if (pack->state == PACK_NULL) {
             LeaveCriticalSection(&cache->cacheCS);
             return pack;
@@ -439,17 +459,14 @@ static int file_cache_seek_to (void * vcache, int64 offset)
         packs = seekpack - cache->bgn_pack;
         if (packs <= cache->prefix) return 0;
         newbgn = prepack;
-
     } else if (seekpack < cache->bgn_pack) {
         newbgn = seekpack;
-
-    } else { //if (seekpack >= cache->bgn_pack + cahe->packnum)
+    } else {
         if (prepack < cache->bgn_pack + cache->packnum) 
             newbgn = prepack;
         else 
             newbgn = seekpack;
     }
-
     if (newbgn > cache->bgn_pack_max) 
         newbgn = cache->bgn_pack_max;
 
@@ -511,10 +528,8 @@ long file_cache_skip_over (void * vcache, long pos, int skiplimit, void * vpat, 
         for (j = 0; j < patlen; j++) {
             if (pat[j] == fch) break;
         }
-
         if (j >= patlen) return pos+i;
     }
-
     return pos + i;
 }
 
@@ -538,14 +553,11 @@ long file_cache_rskip_over (void * vcache, long pos, int skiplimit, void * vpat,
             break;
 
         fch = file_cache_at(cache, pos-i);
-
         for (j = 0; j < patlen; j++) {
             if (pat[j] == fch) break;
         }
-
         if (j >= patlen) return pos - i;
     }
-
     return pos - i;
 }
 
@@ -662,7 +674,6 @@ long file_cache_rskip_to (void * vcache, long pos, int skiplimit, void * vpat, i
             if (pat[j] == fch) return pos - i;
         }     
     }     
-
     return pos - i; 
 }    
 
@@ -689,10 +700,10 @@ long file_cache_skip_esc_to (void * vcache, long pos, int skiplimit, void * vpat
             if (pat[j] == fch) return pos + i;
         }
     }
-
     return pos + i;
 }
  
+
 
 int file_cache_at (void * vcache, int64 offset)
 {
@@ -1069,8 +1080,9 @@ int64 file_cache_readpos (void * vcache)
 
     if (!cache) return 0;
 
-    /* cache->offset is start-point from the media beginning.
-     * generally, cche->offset is 0. alternatively, it is set to given value. */
+    /* cache->offset is the setting start-point offset from the media beginning.
+     * generally, cche->offset is set to 0. alternatively, it is set to one given value. */
+    //return cache->seekpos + cache->offset;
     return cache->seekpos;
 }
 
@@ -1115,24 +1127,17 @@ int file_cache_buffering_ratio (void * vcache, int * ratio)
     if (ratio && cache->bufsize <= 0) *ratio = 100;
  
     EnterCriticalSection(&cache->cacheCS);
-
-    for (i = cache->seek_pack; 
-         i < cache->bgn_pack+cache->packnum && i < cache->packtotal;
-         i++)
-    {
+    for (i=cache->seek_pack; i<cache->bgn_pack+cache->packnum && i<cache->packtotal; i++) {
         packind = i % cache->packnum;
         pack = arr_value(cache->pack_list, packind);
-
         if (pack->state != PACK_SUCC) {
             suclen += pack->rcvlen;
             break;
         }
-
         suclen += pack->rcvlen;
         if (pack->rcvlen < (int)pack->length) break;
         if (suclen >= cache->bufsize) break;
     }
-
     LeaveCriticalSection(&cache->cacheCS);
 
     if (ratio && cache->bufsize > 0) {
@@ -1143,9 +1148,9 @@ int file_cache_buffering_ratio (void * vcache, int * ratio)
                 *ratio = (int)((float)suclen * 100. / (float)cache->bufsize);
         }
     }
-
     return 0;
 }
+
 
 
 int file_pack_init (void * vpack)
@@ -1350,11 +1355,9 @@ int file_pack_reload (void * vpack, int reason, void * pcurt)
     offset = cache->offset + (int64)pack->packind * (int64)cache->packsize;
 
     EnterCriticalSection(&cache->fpCS);
-
     if (cache->mediatype == 1) {
         native_file_seek(cache->hfile, offset);
         pack->rcvlen = native_file_read(cache->hfile, pack->pbyte, pack->length);
-
     } else if (cache->mediatype == 2 && cache->cdnread) {
         uint32 readsize = pack->length;
         (*cache->cdnread)(cache->pmedia, pack->pbyte, &readsize, offset);
@@ -1362,7 +1365,6 @@ int file_pack_reload (void * vpack, int reason, void * pcurt)
     }
 
     LeaveCriticalSection(&cache->fpCS);
-
     pack->state = PACK_SUCC;
 
     return 0;

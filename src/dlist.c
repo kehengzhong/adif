@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +33,7 @@
 
 #include "memory.h"
 #include "dynarr.h"
+
 
 typedef struct list_node_st {
     struct list_node_st * prev;
@@ -20,6 +45,7 @@ typedef struct list_st {
     dnode_t * first;
     dnode_t * last;
 } dlist_t;
+
 
 static dnode_t * getNode (dlist_t * lt, int loc)
 {
@@ -552,6 +578,7 @@ void * lt_rm_tail (dlist_t * lt)
     return ret;
 }
 
+
 void * lt_delete (dlist_t * lt, int loc)
 {
     dnode_t * ret = NULL;
@@ -582,6 +609,8 @@ void * lt_delete (dlist_t * lt, int loc)
     return ret;
 }
 
+
+
 void * lt_delete_ptr (dlist_t * lt, void * node)
 {
     dnode_t * ret = NULL;
@@ -592,6 +621,9 @@ void * lt_delete_ptr (dlist_t * lt, void * node)
 
     if (!ret->prev && lt->first != ret) return NULL;
     if (!ret->next && lt->last != ret) return NULL;
+
+    if (ret->prev && ret->prev->next != ret) return NULL;
+    if (ret->next && ret->next->prev != ret) return NULL;
 
     if (ret->prev) {
         ret->prev->next = ret->next;

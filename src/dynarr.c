@@ -1,13 +1,38 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "memory.h"
+#include "kemalloc.h"
 #include "dynarr.h"
 
 #define MIN_NODES    4
@@ -17,61 +42,64 @@ typedef void ArrFree (void * );
 #define FP_ICC (int (*)(const void *, const void *))
 
 
-arr_t * arr_dup (arr_t * ar)
-{
-    arr_t * ret = NULL;
-
-    if ((ret = arr_new(ar->num_alloc)) == NULL)
-         return NULL;
-
-    memcpy((void *)ret->data, (void *)ar->data, sizeof(void *) * ar->num);
-    ret->num_alloc = ar->num_alloc;
-    ret->num = ar->num;
-
-    return ret;
-}
-
-arr_t * arr_new (int len)
+arr_t * arr_alloc (int len, int alloctype, void * mpool)
 {
     arr_t * ret = NULL;
 
     if (len < MIN_NODES) len = MIN_NODES;
 
-    if ((ret = (arr_t *) kzalloc(sizeof(arr_t))) == NULL)
+    if ((ret = k_mem_zalloc(sizeof(arr_t), alloctype, mpool)) == NULL)
         return NULL;
 
-    ret->data = (void **) kzalloc(sizeof(void *) * len);
+    ret->data = (void **) k_mem_zalloc(sizeof(void *) * len, alloctype, mpool);
     if (ret->data == NULL) {
-        kfree(ret);
+        k_mem_free(ret, alloctype, mpool);
         return NULL;
     }
 
     ret->num_alloc = len;
+    ret->alloctype = alloctype;
     ret->num = 0;
+    ret->mpool = mpool;
     return ret;
 }
 
+arr_t * arr_dup (arr_t * ar)
+{
+    arr_t * ret = NULL;
 
-int arr_insert (arr_t * ar, void * data, int loc)
+    if ((ret = arr_alloc(ar->num_alloc, ar->alloctype, ar->mpool)) == NULL)
+         return NULL;
+
+    memcpy((void *)ret->data, (void *)ar->data, sizeof(void *) * ar->num);
+    ret->num_alloc = ar->num_alloc;
+    ret->num = ar->num;
+    ret->alloctype = ar->alloctype;
+    ret->mpool = ar->mpool;
+
+    return ret;
+}
+
+int arr_insert (arr_t * ar, void * pdata, int loc)
 {
     void ** s;
 
     if (!ar) return 0;
 
-    if (ar->num_alloc <= ar->num + 1) {
-        s = (void **)krealloc((void *)ar->data,
-                 (unsigned int)sizeof(void *) * ar->num_alloc * 2);
+    if ((int)ar->num_alloc <= ar->num + 1) {
+        s = (void **)k_mem_realloc((void *)ar->data, 
+                 (unsigned int)sizeof(void *) * ar->num_alloc * 2, ar->alloctype, ar->mpool);
         if (s == NULL) return 0;
         ar->data = s;
         ar->num_alloc *= 2;
     }
 
     if ((loc >= ar->num) || (loc < 0))
-        ar->data[ar->num] = data;
+        ar->data[ar->num] = pdata;
 
     else {
         memmove(&ar->data[loc+1], &ar->data[loc], (ar->num - loc) * sizeof(void *));
-        ar->data[loc] = data;
+        ar->data[loc] = pdata;
     }
 
     ar->num++;
@@ -110,9 +138,11 @@ void * arr_delete (arr_t * ar, int loc)
     return ret;
 }
 
-int arr_push (arr_t * ar, void * data)
+int arr_push (arr_t * ar, void * pdata)
 {
-    return arr_insert(ar, data, ar->num);
+    if (!ar) return -1;
+
+    return arr_insert(ar, pdata, ar->num);
 }
 
 void * arr_pop (arr_t * ar)
@@ -155,8 +185,9 @@ void arr_pop_kfree (arr_t * ar)
     if (!ar) return;
 
     for (i = 0; i < ar->num; i++)
-        if (ar->data[i] != NULL)
+        if (ar->data[i] != NULL) {
             kfree(ar->data[i]);
+        }
 
     arr_free(ar);
 }   
@@ -165,9 +196,11 @@ void arr_free (arr_t * ar)
 {
     if (!ar) return;
 
-    if (ar->data != NULL) kfree(ar->data);
+    if (ar->data != NULL) {
+        k_mem_free(ar->data, ar->alloctype, ar->mpool);
+    }
 
-    kfree(ar);
+    k_mem_free(ar, ar->alloctype, ar->mpool);
 }
 
 
@@ -178,16 +211,6 @@ int arr_num (arr_t * ar)
     return ar->num;
 }
 
-void * arr_last (arr_t * ar)
-{
-    if (!ar) return NULL;
- 
-    if (ar->num <= 0)
-        return NULL;
- 
-    return ar->data[ar->num - 1];
-}
-
 void * arr_value (arr_t * ar, int i)
 {
     if (!ar) return NULL;
@@ -196,6 +219,16 @@ void * arr_value (arr_t * ar, int i)
         return NULL;
 
     return ar->data[i];
+}
+
+void * arr_last (arr_t * ar)
+{
+    if (!ar) return NULL;
+ 
+    if (ar->num <= 0)
+        return NULL;
+ 
+    return ar->data[ar->num - 1];
 }
 
 void * arr_get (arr_t * ar, int i)
@@ -226,9 +259,10 @@ int arr_enlarge (arr_t * ar, int scale)
 
     if (!ar || scale <= 0) return 0;
 
-    if (ar->num_alloc <= ar->num + scale) {
-        s = (void **)krealloc((void *)ar->data,
-                        sizeof(void *) * (ar->num + scale + MIN_NODES));
+    if ((int)ar->num_alloc <= ar->num + scale) {
+        s = (void **)k_mem_realloc((void *)ar->data,
+                        sizeof(void *) * (ar->num + scale + MIN_NODES),
+			ar->alloctype, ar->mpool);
         if (s == NULL) return 0;
 
         ar->data = s;
@@ -292,14 +326,14 @@ int arr_insert_by (arr_t * ar, void * item, ArrCmp * cmp)
     return arr_insert(ar, item, lo);
 }
 
-int arr_findloc_by (arr_t * ar, void * pattern, ArrCmp * cmp, int * found)
+int arr_findloc_by (arr_t * ar, void * ppat, ArrCmp * cmp, int * found)
 {
     int lo, hi, mid = 0;
     int result;
 
     if (found) *found = 0;
 
-    if (!ar || !pattern || !cmp)
+    if (!ar || !ppat || !cmp)
         return 0;
 
     lo = 0;
@@ -308,7 +342,7 @@ int arr_findloc_by (arr_t * ar, void * pattern, ArrCmp * cmp, int * found)
     while (lo <= hi) {
         mid = (lo + hi) / 2;
 
-        if (!(result = (*cmp)(ar->data[mid], pattern))) {
+        if (!(result = (*cmp)(ar->data[mid], ppat))) {
             if (found) *found = 1;
             return mid;
 
@@ -326,12 +360,12 @@ int arr_findloc_by (arr_t * ar, void * pattern, ArrCmp * cmp, int * found)
 }
 
 
-void * arr_find_by (arr_t * ar, void * pattern, ArrCmp * cmp)
+void * arr_find_by (arr_t * ar, void * ppat, ArrCmp * cmp)
 {
     int lo, hi, mid;
     int result;
 
-    if (!ar || !pattern)
+    if (!ar || !ppat)
         return NULL;
 
     lo = 0;
@@ -340,7 +374,7 @@ void * arr_find_by (arr_t * ar, void * pattern, ArrCmp * cmp)
     while (lo <= hi) {
         mid = (lo + hi) / 2;
 
-        if (!(result = (*cmp)(ar->data[mid], pattern))) {
+        if (!(result = (*cmp)(ar->data[mid], ppat))) {
             return ar->data[mid];
 
         } else if (result < 0) {
@@ -355,13 +389,13 @@ void * arr_find_by (arr_t * ar, void * pattern, ArrCmp * cmp)
 }
 
 
-arr_t * arr_find_all_by (arr_t * ar, void * pattern, ArrCmp * cmp)
+arr_t * arr_find_all_by (arr_t * ar, void * ppat, ArrCmp * cmp)
 {
     int lo, hi, mid=0, cur=0, bgn=0, end=0;
     int result;
     arr_t * ret = NULL;
 
-    if (!ar || !pattern)
+    if (!ar || !ppat)
         return NULL;
 
     lo = 0;
@@ -370,12 +404,12 @@ arr_t * arr_find_all_by (arr_t * ar, void * pattern, ArrCmp * cmp)
     while (lo <= hi) {
         mid = (lo + hi) / 2;
 
-        if (!(result = (*cmp)(ar->data[mid], pattern))) {
+        if (!(result = (*cmp)(ar->data[mid], ppat))) {
             ret = arr_new(4);
             if (!ret) return NULL;
 
             for (cur = mid+1; cur <= hi; cur++) {
-                if ((*cmp)(ar->data[cur], pattern) != 0) {
+                if ((*cmp)(ar->data[cur], ppat) != 0) {
                     end = cur-1;
                     break;
                 }
@@ -384,7 +418,7 @@ arr_t * arr_find_all_by (arr_t * ar, void * pattern, ArrCmp * cmp)
             if (cur > hi) end = hi;
 
             for (cur = mid-1; cur >= lo; cur--) {
-                if ((*cmp)(ar->data[cur], pattern) != 0) {
+                if ((*cmp)(ar->data[cur], ppat) != 0) {
                     bgn = cur+1;
                     break;
                 }
@@ -408,12 +442,12 @@ arr_t * arr_find_all_by (arr_t * ar, void * pattern, ArrCmp * cmp)
     return NULL;
 }
 
-void * arr_delete_by (arr_t * ar, void * pattern, ArrCmp * cmp)
+void * arr_delete_by (arr_t * ar, void * ppat, ArrCmp * cmp)
 {
     int lo=0, hi=0, mid=0;
     int result=0; 
     
-    if (!ar || !pattern)
+    if (!ar || !ppat)
         return NULL;
 
     lo = 0;
@@ -422,7 +456,7 @@ void * arr_delete_by (arr_t * ar, void * pattern, ArrCmp * cmp)
     while (lo <= hi) {
         mid = (lo + hi) / 2;
 
-        if (!(result = (*cmp)(ar->data[mid], pattern))) {
+        if (!(result = (*cmp)(ar->data[mid], ppat))) {
             return arr_delete(ar, mid);
 
         } else if (result < 0) {
@@ -437,13 +471,13 @@ void * arr_delete_by (arr_t * ar, void * pattern, ArrCmp * cmp)
 }   
 
 
-arr_t * arr_delete_all_by (arr_t * ar, void * pattern, ArrCmp * cmp)
+arr_t * arr_delete_all_by (arr_t * ar, void * ppat, ArrCmp * cmp)
 {
     int     lo, hi, mid=0, cur=0, bgn=0, end=0;
     int     result;
     arr_t * ret = NULL;
 
-    if (!ar || !pattern)
+    if (!ar || !ppat)
         return NULL;
 
     lo = 0;
@@ -452,12 +486,12 @@ arr_t * arr_delete_all_by (arr_t * ar, void * pattern, ArrCmp * cmp)
     while (lo <= hi) {
         mid = (lo + hi) / 2;
 
-        if (!(result = (*cmp)(arr_value(ar, mid), pattern))) {
+        if (!(result = (*cmp)(arr_value(ar, mid), ppat))) {
             ret = arr_new(4);
             if (!ret) return NULL;
 
             for (cur = mid+1; cur <= hi; cur++) {
-                if ((*cmp)(arr_value(ar, cur), pattern) != 0) {
+                if ((*cmp)(arr_value(ar, cur), ppat) != 0) {
                     end = cur-1;
                     break;
                 }
@@ -466,7 +500,7 @@ arr_t * arr_delete_all_by (arr_t * ar, void * pattern, ArrCmp * cmp)
             if (cur > hi) end = hi;
 
             for (cur = mid-1; cur >= lo; cur--) {
-                if ((*cmp)(arr_value(ar, cur), pattern) != 0) {
+                if ((*cmp)(arr_value(ar, cur), ppat) != 0) {
                     bgn = cur+1;
                     break;
                 }
@@ -526,12 +560,12 @@ arr_t * arr_delete_all_by (arr_t * ar, void * pattern, ArrCmp * cmp)
    store_data_into_node_obj(obj, data);
  */
    
-void * arr_consistent_hash_node (arr_t * ar, void * pattern, ArrCmp * cmp)
+void * arr_consistent_hash_node (arr_t * ar, void * ppat, ArrCmp * cmp)
 {
     int lo, hi, mid = 0;
     int result;
  
-    if (!ar || ar->num < 1 || !pattern || !cmp)
+    if (!ar || ar->num < 1 || !ppat || !cmp)
         return NULL;
  
     if (ar->num == 1)
@@ -543,7 +577,7 @@ void * arr_consistent_hash_node (arr_t * ar, void * pattern, ArrCmp * cmp)
     while (lo <= hi) {
         mid = (lo + hi) / 2;
 
-        if (!(result = (*cmp)(arr_value(ar, mid), pattern))) {
+        if (!(result = (*cmp)(arr_value(ar, mid), ppat))) {
             return ar->data[mid];
         }
 
@@ -568,20 +602,20 @@ void * arr_consistent_hash_node (arr_t * ar, void * pattern, ArrCmp * cmp)
 }
 
 
-void * arr_search (arr_t * ar, void * pattern, ArrCmp * cmp)
+void * arr_search (arr_t * ar, void * ppat, ArrCmp * cmp)
 {
     void * item = NULL;
     int i;
 
-    if (!ar || !pattern)
+    if (!ar || !ppat)
         return NULL;
 
     for (i = 0; i < ar->num; i++) {
         item = ar->data[i];
         if (cmp) {
-            if ((*cmp)(item, pattern) == 0) break;
+            if ((*cmp)(item, ppat) == 0) break;
         } else {
-            if (item == pattern) break;
+            if (item == ppat) break;
         }
     }
 
@@ -592,13 +626,13 @@ void * arr_search (arr_t * ar, void * pattern, ArrCmp * cmp)
 }
 
 
-arr_t * arr_search_all (arr_t * ar, void *pattern, ArrCmp * cmp)
+arr_t * arr_search_all (arr_t * ar, void * ppat, ArrCmp * cmp)
 {
     arr_t * newar;
     void * item = NULL;
     int i;
 
-    if (!ar || !pattern)
+    if (!ar || !ppat)
         return NULL;
 
     newar = arr_new(4);
@@ -606,11 +640,11 @@ arr_t * arr_search_all (arr_t * ar, void *pattern, ArrCmp * cmp)
     for (i = 0; i < ar->num; i++) {
         item = arr_value(ar, i);
         if (cmp) {
-            if ((*cmp)(item, pattern) == 0)
+            if ((*cmp)(item, ppat) == 0)
                 arr_push (newar, item);
 
         } else {
-            if (item == pattern)
+            if (item == ppat)
                 arr_push(newar, item);
         }
     }

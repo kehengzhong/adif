@@ -1,10 +1,35 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
+#include "kemalloc.h"
 #include "frame.h"
 #include "strutil.h"
 #include "patmat.h"
@@ -37,22 +62,75 @@ void * memrchr (const void * s, int c, size_t n)
 }
 #endif
 
-frame_p frame_new (int size)
+int decbasnum (int d)
+{
+    int nega = 1;
+    int num = 0;
+
+    if (d < 0) {
+        d *= -1;
+        nega = -1;
+    }
+
+    if (d <= 9) return d;
+
+    for (num = 0; d >= 10; num++) d = d/10;
+    while (num--) d = d * 10;
+
+    return nega * d;
+}
+
+frame_p frame_alloc_dbg (int size, int alloctype, void * mpool, char * file, int line)
 {
     frame_p frm = NULL;
  
-    frm = kzalloc(sizeof(*frm));
+    frm = k_mem_zalloc_dbg(sizeof(*frm), alloctype, mpool, file, line);
+    if (!frm) return NULL;
+
     frm->next = NULL;
+    frm->alloctype = alloctype;
+    frm->mpool = mpool;
+
     if (size <= 0) {
+        frm->allocnum = 0;
         frm->len = 0;
         frm->size = 0;
         frm->start = 0;
         frm->data = NULL;
     } else {
+        frm->allocnum = 1;
         frm->start = 0;
         frm->len = 0;
         frm->size = size;
-        frm->data = kzalloc(frm->size + 1);
+        frm->data = k_mem_zalloc_dbg(frm->size + 1, alloctype, mpool, file, line);
+    }
+
+    return frm;
+}
+
+frame_p frame_new_dbg (int size, char * file, int line)
+{
+    frame_p frm = NULL;
+ 
+    frm = kzalloc_dbg(sizeof(*frm), file, line);
+    if (!frm) return NULL;
+
+    frm->next = NULL;
+    frm->alloctype = 0;
+    frm->mpool = NULL;
+
+    if (size <= 0) {
+        frm->allocnum = 0;
+        frm->len = 0;
+        frm->size = 0;
+        frm->start = 0;
+        frm->data = NULL;
+    } else {
+        frm->allocnum = 1;
+        frm->start = 0;
+        frm->len = 0;
+        frm->size = size;
+        frm->data = kzalloc_dbg(frm->size + 1, file, line);
     }
     return frm;
 }
@@ -66,9 +144,29 @@ void frame_free (frame_p frm)
     do {
         iter = frm->next;
 
-        if (frm->data)
-            kfree(frm->data);
-        kfree(frm);
+        if (frm->data) {
+            k_mem_free(frm->data, frm->alloctype, frm->mpool);
+            frm->data = NULL;
+        }
+        k_mem_free(frm, frm->alloctype, frm->mpool);
+
+        frm = iter;
+    } while (frm != NULL);
+}
+
+void frame_free_inner (frame_p frm)
+{
+    frame_p  iter = NULL;
+
+    if (!frm) return;
+
+    do {
+        iter = frm->next;
+
+        if (frm->data) {
+            k_mem_free(frm->data, frm->alloctype, frm->mpool);
+            frm->data = NULL;
+        }
 
         frm = iter;
     } while (frm != NULL);
@@ -147,7 +245,7 @@ frame_p frame_dup (frame_p frm)
 
     if (!frm) return NULL;
 
-    dst = frame_new(frm->len);
+    dst = frame_alloc(frm->len, frm->alloctype, frm->mpool);
     if (!dst) return NULL;
 
     memcpy(dst->data + dst->start, frm->data + frm->start, frm->len);
@@ -156,51 +254,54 @@ frame_p frame_dup (frame_p frm)
     return dst;
 }
 
-void frame_grow (frame_p frm, int size)
+void frame_grow_dbg (frame_p frm, int size, char * file, int line)
 {
     int       dif = 0;
 
     if (!frm || size <= 0) return;
 
-    if (size < frm->start &&
-        frm->len <= 4 * frm->start &&
-        frm->start >= DEFAULT_SIZE) 
+    if (frm->start >= DEFAULT_SIZE * 2 &&
+        (frm->start >= decbasnum(frm->len) || 
+         decbasnum(frm->start) == decbasnum(frm->len)))
     {
-        /* just move the data area, no extra allocation */
         if (frm->len > 0)
-            memmove(frm->data + frm->start - size, 
-                    frm->data + frm->start, frm->len);
-        frm->start -= size;
-        return;
-    }
+            memmove(frm->data, frm->data + frm->start, frm->len);
 
+        size -= frm->start;
+        frm->start = 0;
+
+        if (size <= 0) return;
+    }
+    
     dif = (frm->size + size) % DEFAULT_SIZE;
     dif = DEFAULT_SIZE - dif;
     size += dif;
 
     if (frm->data == NULL) {
-        frm->data = kzalloc(frm->size + size + 1);
+        frm->data = k_mem_zalloc_dbg(frm->size + size + 1, frm->alloctype, frm->mpool, file, line);
         frm->start = 0;
         frm->len = 0;
+        frm->allocnum = 1;
     } else {
-        frm->data = krealloc(frm->data, frm->size + size + 1);
+        frm->data = k_mem_realloc_dbg(frm->data, frm->size + size + 1, frm->alloctype, frm->mpool, file, line);
         if (!frm->data)
-            frm->data = kzalloc(frm->size + size + 1);
+            frm->data = k_mem_zalloc_dbg(frm->size + size + 1, frm->alloctype, frm->mpool, file, line);
+        frm->allocnum++;
     }
 
     frm->size += size;
 }
 
-void frame_grow_to (frame_p frm, int size)
+void frame_grow_to_dbg (frame_p frm, int size, char * file, int line)
 {
     if (!frm || size <= 0) return;
 
     if (size <= frm->size) return;
 
-    frame_grow(frm, size - frm->size);
+    frame_grow_dbg(frm, size - frm->size, file, line);
 }
 
-void frame_grow_head (frame_p frm, int size)
+void frame_grow_head_dbg (frame_p frm, int size, char * file, int line)
 {
     int  dif = 0, rest = 0;
 
@@ -227,12 +328,14 @@ void frame_grow_head (frame_p frm, int size)
     size += dif;
  
     if (frm->data == NULL) {
-        frm->data = kzalloc(frm->size + size + 1);
+        frm->data = k_mem_zalloc_dbg(frm->size + size + 1, frm->alloctype, frm->mpool, file, line);
         frm->len = 0;
+        frm->allocnum = 1;
     } else {
-        frm->data = krealloc(frm->data, frm->size + size + 1);
+        frm->data = k_mem_realloc_dbg(frm->data, frm->size + size + 1, frm->alloctype, frm->mpool, file, line);
         if (!frm->data)
-            frm->data = kzalloc(frm->size + size + 1);
+            frm->data = k_mem_zalloc_dbg(frm->size + size + 1, frm->alloctype, frm->mpool, file, line);
+        frm->allocnum++;
  
         memmove (frm->data + size, frm->data, frm->size);
     }
@@ -346,7 +449,7 @@ int frame_getn (frame_p frm, int pos, void * bytes, int n)
     
     memcpy(bytes, &frm->data[frm->start + pos], n);
 
-    memmove (frm->data + frm->start + pos,
+    memmove(frm->data + frm->start + pos,
              frm->data + frm->start + pos + n,
              frm->len - pos - n);
 
@@ -459,7 +562,8 @@ void frame_put_first (frame_p frm, int byte)
 
     if (frm->data == NULL) {
         frm->size = DEFAULT_SIZE;
-        frm->data = kzalloc(frm->size + 1);
+        frm->data = k_mem_zalloc(frm->size + 1, frm->alloctype, frm->mpool);
+        frm->allocnum = 1;
         frm->start = frm->size/2;
         frm->len = 0;
     }
@@ -473,13 +577,28 @@ void frame_put_first (frame_p frm, int byte)
     frm->len += 1;
 }
 
+void frame_put_firstp (frame_p * pfrm, int byte)
+{
+    frame_p frm = NULL;
+
+    if (!pfrm) return;
+
+    frm = *pfrm;
+    if (frm == NULL) {
+        frm = *pfrm = frame_new(0);
+    }
+
+    frame_put_first(frm, byte);
+}
+
 void frame_put_nfirst (frame_p frm, void * bytes, int n)
 {
     if (!frm || !bytes || n <= 0) return;
 
     if (frm->data == NULL) {
         frm->size = n + DEFAULT_SIZE - (n % DEFAULT_SIZE);
-        frm->data = kzalloc(frm->size + 1);
+        frm->data = k_mem_zalloc(frm->size + 1, frm->alloctype, frm->mpool);
+        frm->allocnum = 1;
         frm->start = n;
         frm->len = 0;
     }
@@ -493,13 +612,28 @@ void frame_put_nfirst (frame_p frm, void * bytes, int n)
     frm->len += n;
 }
 
+void frame_put_nfirstp (frame_p * pfrm, void * bytes, int n)
+{
+    frame_p frm = NULL;
+
+    if (!pfrm || !bytes || n <= 0) return;
+
+    frm = *pfrm;
+    if (frm == NULL) {
+        frm = *pfrm = frame_new(0);
+    }
+
+    frame_put_nfirst(frm, bytes, n);
+}
+
 void frame_put_last (frame_p frm, int byte)
 {
     if (!frm) return;
 
     if (frm->data == NULL) {
         frm->size = DEFAULT_SIZE;
-        frm->data = kzalloc(frm->size + 1);
+        frm->data = k_mem_zalloc(frm->size + 1, frm->alloctype, frm->mpool);
+        frm->allocnum = 1;
         frm->start = frm->size/2;
         frm->len = 0;
     }
@@ -512,23 +646,52 @@ void frame_put_last (frame_p frm, int byte)
     frm->len += 1;
 }
 
-void frame_put_nlast (frame_p frm, void * bytes, int n)
+void frame_put_lastp (frame_p * pfrm, int byte)
+{
+    frame_p frm = NULL;
+
+    if (!pfrm) return;
+
+    frm = *pfrm;
+    if (frm == NULL) {
+        frm = *pfrm = frame_new(128);
+    }
+
+    frame_put_last(frm, byte);
+}
+
+void frame_put_nlast_dbg (frame_p frm, void * bytes, int n, char * file, int line)
 {
     if (!frm || !bytes || n <= 0) return;
 
     if (frm->data == NULL) {
         frm->size = n + DEFAULT_SIZE - (n % DEFAULT_SIZE);
-        frm->data = kzalloc(frm->size + 1);
+        frm->data = k_mem_zalloc_dbg(frm->size + 1, frm->alloctype, frm->mpool, file, line);
+        frm->allocnum = 1;
         frm->start = 0;
         frm->len = 0;
     }
 
     if (frame_rest(frm) < n) {
-        frame_grow(frm, n - frame_rest(frm));
+        frame_grow_dbg(frm, n - frame_rest(frm), file, line);
     }
 
     memcpy(frm->data + frm->start + frm->len, bytes, n);
     frm->len += n;
+}
+
+void frame_put_nlastp (frame_p * pfrm, void * bytes, int n)
+{
+    frame_p frm = NULL;
+
+    if (!pfrm || !bytes || n <= 0) return;
+
+    frm = *pfrm;
+    if (frm == NULL) {
+        frm = *pfrm = frame_new(n);
+    }
+
+    frame_put_nlast(frm, bytes, n);
 }
 
 void frame_put (frame_p frm, int pos, int byte)
@@ -611,11 +774,25 @@ void frame_append (frame_p frm, char * str)
     frame_put_nlast(frm, str, strlen(str));
 }
 
+void frame_appendp (frame_p * pfrm, char * str)
+{
+    if (!pfrm || !str) return;
+
+    frame_put_nlastp(pfrm, str, strlen(str));
+}
+
 void frame_prepend (frame_p frm, char * str)
 {
     if (!frm || !str) return;
 
     frame_put_nfirst(frm, str, strlen(str));
+}
+
+void frame_prependp (frame_p * pfrm, char * str)
+{
+    if (!pfrm || !str) return;
+
+    frame_put_nfirstp(pfrm, str, strlen(str));
 }
 
 void frame_insert (frame_p frm, int pos, char * str)
@@ -647,6 +824,34 @@ void frame_appendf (frame_p frm, char * fmt, ...)
     }
 }
 
+void frame_appendfp (frame_p * pfrm, char * fmt, ...)
+{
+    frame_p frm = NULL;
+    va_list args;
+    int     avail = 0;
+    int     written = 0;
+
+    if (!pfrm) return;
+
+    frm = *pfrm;
+    if (frm == NULL) frm = *pfrm = frame_new(0);
+
+    for (;;) {
+        avail = frame_rest(frm);
+        va_start(args, fmt);
+        written = vsnprintf(frame_end(frm), avail, fmt, args);
+        va_end(args);
+
+        if (avail <= written) {
+            frame_grow(frm, written - avail + 1);
+            continue;
+        }
+
+        frm->len += written;
+        return;
+    }
+}
+
 void frame_prependf (frame_p frm, char * fmt, ...)
 {
     va_list args;
@@ -661,7 +866,7 @@ void frame_prependf (frame_p frm, char * fmt, ...)
 
     if (len > sizeof(tmp) - 1) {
         avail = len + 1;
-        p = kalloc(avail);
+        p = k_mem_alloc(avail, frm->alloctype, frm->mpool);
 
         va_start(args, fmt);
         len = vsnprintf(p, avail, fmt, args);
@@ -669,7 +874,7 @@ void frame_prependf (frame_p frm, char * fmt, ...)
 
         frame_put_nfirst(frm, p, len);
 
-        kfree(p);
+        k_mem_free(p, frm->alloctype, frm->mpool);
 
     } else {
         frame_put_nfirst(frm, tmp, len);
@@ -690,7 +895,7 @@ void frame_insertf (frame_p frm, int pos, char * fmt, ...)
  
     if (len > sizeof(tmp) - 1) {
         avail = len + 1;
-        p = kalloc(avail);
+        p = k_mem_alloc(avail, frm->alloctype, frm->mpool);
          
         va_start(args, fmt);
         len = vsnprintf(p, avail, fmt, args);
@@ -698,7 +903,7 @@ void frame_insertf (frame_p frm, int pos, char * fmt, ...)
  
         frame_putn(frm, pos, p, len);
  
-        kfree(p);
+        k_mem_free(p, frm->alloctype, frm->mpool);
      
     } else { 
         frame_putn(frm, pos, tmp, len);
@@ -777,7 +982,7 @@ int frame_attach (frame_p frm, void * pbuf, int len)
         return -1;
 
     if (frm->data)
-        kfree(frm->data);
+        k_mem_free(frm->data, frm->alloctype, frm->mpool);
 
     frm->data = pbuf;
     frm->start = 0;
@@ -838,7 +1043,7 @@ int frame_replace (frame_p frm, int pos, int len, void * pbyte, int bytelen)
     return 0;
 }
  
-int frame_search (frame_p frm, int pos, int len, void * pattern, int patlen, int backward)
+int frame_search (frame_p frm, int pos, int len, void * pattern, int patlen, int reverse)
 {
     uint8 * pat = (uint8 *)pattern;
     uint8 * p = NULL;
@@ -858,16 +1063,16 @@ int frame_search (frame_p frm, int pos, int len, void * pattern, int patlen, int
     if (pos + patlen > len) 
         return -3;
 
-    if (backward) {
+    if (reverse) {
         if (patlen == 1)
             p = memrchr(frm->data + frm->start + pos, pat[0], len);
         else
-            p = kmp_rfind_bytes(frm->data + frm->start + pos, len, pat, patlen, NULL);
+            p = sun_rfind_bytes(frm->data + frm->start + pos, len, pat, patlen, NULL);
     } else {
         if (patlen == 1)
             p = memchr(frm->data + frm->start + pos, pat[0], len);
         else
-            p = kmp_find_bytes(frm->data + frm->start + pos, len, pat, patlen, NULL);
+            p = sun_find_bytes(frm->data + frm->start + pos, len, pat, patlen, NULL);
     }
 
     if (!p) return -100;
@@ -920,7 +1125,7 @@ int frame_search_replace (frame_p frm, int pos, int len, void * pattern, int pat
     return schrep;
 }
 
-int frame_search_string (frame_p frm, int pos, int len, void * pattern, int backward)
+int frame_search_string (frame_p frm, int pos, int len, void * pattern, int reverse)
 {
     uint8  * pat = (uint8 *)pattern;
     uint8  * p = NULL;
@@ -941,16 +1146,15 @@ int frame_search_string (frame_p frm, int pos, int len, void * pattern, int back
     if (pos + patlen > len) 
         return -3;
 
-    if (backward) {
-        p = kmp_rfind_string(frm->data + frm->start + pos, len, pat, patlen, NULL);
+    if (reverse) {
+        p = sun_rfind_string(frm->data + frm->start + pos, len, pat, patlen, NULL);
     } else {
-        p = kmp_find_string(frm->data + frm->start + pos, len, pat, patlen, NULL);
+        p = sun_find_string(frm->data + frm->start + pos, len, pat, patlen, NULL);
     }
 
     if (!p) return -100;
 
     return p - (frm->data + frm->start);
-
 }
  
 int frame_search_string_replace (frame_p frm, int pos, int len, void * pattern,
@@ -1170,6 +1374,15 @@ int frame_tcp_recv (frame_p frm, SOCKET fd, int waitms, int * actnum)
             tick0 = tick1;
         }
  
+        ret = sock_read_ready(fd, restms);
+        if (ret < 0) {
+            ret = -30;
+            goto error;
+        } else if (ret == 0) {
+            if (readLen > 0) break;
+            continue;
+        }
+
         unread = sock_unread_data(fd);
 #ifdef UNIX
         errno = 0;
@@ -1178,8 +1391,8 @@ int frame_tcp_recv (frame_p frm, SOCKET fd, int waitms, int * actnum)
             if (frame_rest(frm) < unread)
                 frame_grow(frm, unread - frame_rest(frm));
 
-            while (unread > 0) {
-                ret = recv(fd, frame_end(frm), unread, MSG_NOSIGNAL);
+            while (unread > 0 && frame_rest(frm) > 0) {
+                ret = recv(fd, frame_end(frm), min(unread, frame_rest(frm)), MSG_NOSIGNAL);
                 if (ret > 0) {
                     readLen += ret;
                     frame_len_add(frm, ret);
@@ -1190,6 +1403,9 @@ int frame_tcp_recv (frame_p frm, SOCKET fd, int waitms, int * actnum)
             }
             if (ret > 0 && unread == 0)
                 break;
+
+        } else if (unread == 0) {
+            continue;
 
         } else {
             ret = recv(fd, buf, size, MSG_NOSIGNAL);
@@ -1316,9 +1532,9 @@ error:
 
 /* receive data from socket fd based on non-blocking and zero-copy whenever possible */
 
-int frame_tcp_nbzc_recv (frame_p frm, SOCKET fd, int * actnum, int * perr)
+int frame_tcp_nbzc_recv_dbg (frame_p frm, SOCKET fd, int * actnum, int * perr, char * file, int line)
 {
-    uint8   buf[524288];
+    uint8   buf[65536];
     int     size = sizeof(buf);
     int     ret = 0, readLen = 0;
     int     unread = 0;
@@ -1346,10 +1562,10 @@ int frame_tcp_nbzc_recv (frame_p frm, SOCKET fd, int * actnum, int * perr)
 
         if (unread > 0) {
             if (frame_rest(frm) < unread)
-                frame_grow(frm, unread - frame_rest(frm));
+                frame_grow_dbg(frm, unread - frame_rest(frm), file, line);
 
-            while (unread > 0) {
-                ret = recv(fd, frame_end(frm), unread, MSG_NOSIGNAL);
+            while (unread > 0 && frame_rest(frm) > 0) {
+                ret = recv(fd, frame_end(frm), min(unread, frame_rest(frm)), MSG_NOSIGNAL);
                 if (ret > 0) {
                     readLen += ret;
                     frame_len_add(frm, ret);
@@ -1566,7 +1782,6 @@ error:
     return ret;
 }
 
-//#define BASE64CRLF 1
 int frame_bin_to_base64 (frame_p frm, frame_p dst)
 {
     static const uint8 base64[65] =
@@ -2289,6 +2504,16 @@ int frame_uri_encode (frame_p frm, void * psrc, int size, uint32 * escvec)
     int       n = 0;
     static uint8 hex[] = "0123456789ABCDEF";
 
+    /*                         character table                   */
+    /* 0x00(  0)  .... .... .... ....  .... .... .... ....  0x1F */
+    /* 0x20( 32)   !"# $%&' ()*+ ,-./  0123 4567 89:; <=>?  0x3F */
+    /* 0x40( 64)  @ABC DEFG HIJK LMNO  PQRS TUVW XYZ[ \]^_  0x5F */
+    /* 0x60( 96)  `abc defg hijk lmno  pqrs tuvw xyz{ |}~.  0x7F */
+    /* 0x80(128)  .... .... .... ....  .... .... .... ....  0x9F */
+    /* 0xA0(160)  .... .... .... ....  .... .... .... ....  0xBF */
+    /* 0xC0(192)  .... .... .... ....  .... .... .... ....  0xDF */
+    /* 0xE0(224)  .... .... .... ....  .... .... .... ....  0xFF */
+
     static uint32   uri[] = {
         0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
                     /* ?>=< ;:98 7654 3210  /.-, +*)( '&%$ #"!  */
@@ -2620,7 +2845,8 @@ frame_p frame_realloc (frame_p frm, int size)
 
     pbyte = frm->data;
 
-    frm->data = kalloc(size + 1);
+    frm->data = k_mem_alloc(size + 1, frm->alloctype, frm->mpool);
+    frm->allocnum++;
 
     if (frm->len > size)
         frm->len = size;
@@ -2631,7 +2857,7 @@ frame_p frame_realloc (frame_p frm, int size)
     frm->start = 0;
     frm->size = size;
 
-    kfree(pbyte);
+    k_mem_free(pbyte, frm->alloctype, frm->mpool);
 
     return frm;
 }

@@ -1,12 +1,36 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
  */
 
 #include "btype.h"
 #include "memory.h"
 #include "arfifo.h"
-#include "hashtab.h"
+#include "rbtree.h"
 
 #ifdef UNIX
 #include "mthread.h"
@@ -20,18 +44,19 @@ typedef int (PoolUnitSize) (void *);
 
 typedef struct buffer_pool {
 
-    uint8    need_free; /*flag indicated the instance allocated by init*/
+    /* flag indicating whether to free the current structure variable when it is released. */
+    uint8    need_free;
 
-    /* fixed buffer unit size usually gotton from defined structure */
+    /* the size of the memory unit, which is taken from a data structure as the memory pool. */
     int      unitsize;
 
-    /* allocated buffer unit amounts one time */
+    /* the number of fixed-size memory units in a single memory block */
     int      allocnum;
 
-    /* the members in buffer unit may be allocated more memory
-       during application utilization after being fetched out.
-       when recycling it back into pool, check if memory of inner-member-allocated
-       exceeds this threshold. release the units that get exceeded */
+    /* After the memory unit bearing a data structure is allocated, its member variables
+       may occupy a lot of memory resources. When recycling, this memory unit that consumes
+       a lot of memory resources needs special handling.
+       This variable is the threshold of memory resource consumption. */
     int      unit_freesize;
 
     PoolUnitInit * unitinit;
@@ -40,22 +65,22 @@ typedef struct buffer_pool {
 
     /* the following 3 members may be modified by multiple threads */
     int      allocated; /*already allocated number*/
-    int      exhausted; /*the number which has been pulled out for usage*/
+    int      consumed;  /*the number which has been pulled out for usage*/
     int      remaining; /*the available number remaining in the pool*/
 
     time_t   idletick;
 
-    /* the memory units organized via the following linked list */
+    /* the memory units organized via the following fifo queue */
     CRITICAL_SECTION   ulCS;
-    void             * fifo;
-    void             * refifo;
+    arfifo_t         * fifo;
+    arfifo_t         * refifo;
 
-    hashtab_t        * rmdup_tab;
-    int                hashlen;
+    rbtree_t         * rmduptree;
 
 } bpool_t;
 
-int bpool_hash_cmp(void * a, void * b)
+
+int bpool_unit_cmp_key (void * a, void * b)
 {
     ulong  ua = (ulong)a;
     ulong  ub = (ulong)b;
@@ -63,12 +88,6 @@ int bpool_hash_cmp(void * a, void * b)
     if (ua > ub) return 1;
     if (ua < ub) return -1;
     return 0;
-}
-
-ulong bpool_hash (void * key)
-{
-    ulong ret = (ulong)key;
-    return ret;
 }
 
 bpool_t * bpool_init (bpool_t * pool)
@@ -92,9 +111,7 @@ bpool_t * bpool_init (bpool_t * pool)
     pmem->fifo = ar_fifo_new(128);
     pmem->refifo = ar_fifo_new(128);
 
-    pmem->hashlen = 4096;
-    pmem->rmdup_tab = ht_only_new(pmem->hashlen, bpool_hash_cmp);
-    ht_set_hash_func(pmem->rmdup_tab, bpool_hash);
+    pmem->rmduptree = rbtree_new(bpool_unit_cmp_key, 1);
 
     return pmem;
 }
@@ -110,7 +127,7 @@ int bpool_clean (bpool_t * pool)
     EnterCriticalSection(&pool->ulCS);
 
     num = ar_fifo_num(pool->refifo);
-    for (i=0; i<num; i++) {
+    for (i = 0; i < num; i++) {
         punit = ar_fifo_value(pool->refifo, i);
         if (pool->unitfree)
             (*pool->unitfree)(punit);
@@ -121,15 +138,15 @@ int bpool_clean (bpool_t * pool)
     pool->refifo = NULL;
 
     num = ar_fifo_num(pool->fifo);
-    for (i=0; i<num; i++) {
+    for (i = 0; i < num; i++) {
         punit = ar_fifo_value(pool->fifo, i);
         kfree(punit);
     }
     ar_fifo_free(pool->fifo);
     pool->fifo = NULL;
 
-    ht_free(pool->rmdup_tab);
-    pool->rmdup_tab = NULL;
+    rbtree_free(pool->rmduptree);
+    pool->rmduptree = NULL;
 
     LeaveCriticalSection(&pool->ulCS);
 
@@ -139,12 +156,120 @@ int bpool_clean (bpool_t * pool)
     return 0;
 }
 
-int bpool_fetched_num (bpool_t * pool)
+void * bpool_fetch (bpool_t * pool)
 {
-    if (!pool) return 0;
+    void * punit = NULL;
+    int    i = 0;
 
-    return pool->exhausted;
+    if (!pool) return NULL;
+
+    EnterCriticalSection(&pool->ulCS);
+
+    /* pool->fifo stores objects pre-allocated but not handed out.
+       pool->recytree stores the recycled objects. */
+    if (ar_fifo_num(pool->fifo) <= 0 && ar_fifo_num(pool->refifo) <= 0) {
+        for (i = 0; i < pool->allocnum; i++) {
+            punit = kzalloc(pool->unitsize);
+            if (!punit)  continue;
+
+            ar_fifo_push(pool->fifo, punit);
+            pool->allocated++;
+            pool->remaining++;
+        }
+    }
+
+    punit = NULL;
+    if (ar_fifo_num(pool->fifo) > 0)
+        punit = ar_fifo_out(pool->fifo);
+    if (!punit) {
+        punit = ar_fifo_out(pool->refifo);
+    }
+
+    if (punit) {
+        pool->consumed += 1;
+        if (--pool->remaining < 0) pool->remaining = 0;
+
+        /* Before allocating a memory unit from the memory pool and handing it
+           over, it needs to be saved in the rbtree. When it is recycled, the
+           memory unit should be verified according to the records in rbtree.
+           Only the memory units taken out of the memory pool can be recycled,
+           and only once. It is very dangerous and not allowed to recycle the
+           same memory unit into the memory pool repeatedly! */
+        rbtree_insert(pool->rmduptree, punit, punit, NULL);
+    }
+
+    LeaveCriticalSection(&pool->ulCS);
+
+    if (punit && pool->unitinit)
+        (*pool->unitinit)(punit);
+
+    return punit;
 }
+
+int bpool_recycle (bpool_t * pool, void * punit)
+{
+    int   threshold = 0;
+
+    if (!pool || !punit) return -1;
+
+    EnterCriticalSection(&pool->ulCS);
+
+    if (rbtree_delete(pool->rmduptree, punit) != punit) {
+        LeaveCriticalSection(&pool->ulCS);
+        return -10;
+    }
+
+    if (pool->unitfree && pool->unit_freesize > 0 && pool->getunitsize != NULL) {
+        if ((*pool->getunitsize)(punit) >= pool->unit_freesize) {
+            (*pool->unitfree)(punit);
+            pool->allocated--;
+            pool->consumed--;
+            LeaveCriticalSection(&pool->ulCS);
+            return 0;
+        }
+    }
+
+    ar_fifo_push(pool->refifo, punit);
+    pool->remaining += 1;
+    pool->consumed -= 1;
+
+    /* When the peak of business access passes, the load of CPU/memory
+       will decrease. The resources allocated to the highest load should
+       be partially released and kept at a normal level. */
+
+    threshold = pool->allocnum << 1;
+
+    if (pool->allocated > pool->allocnum && pool->remaining >= threshold) {
+        if (pool->idletick == 0) {
+            pool->idletick = time(0);
+
+        } else if (time(0) - pool->idletick > 300) {
+            while (pool->allocated > pool->allocnum && pool->remaining > threshold) {
+                punit = ar_fifo_out(pool->refifo);
+                if (punit) {
+                    if (pool->unitfree) (*pool->unitfree)(punit);
+                    else kfree(punit);
+     
+                    pool->remaining--;
+                    pool->allocated--;
+                } else {
+                    punit = ar_fifo_out(pool->fifo);
+                    if (punit) {
+                        kfree(punit);
+                        pool->remaining--;
+                        pool->allocated--;
+                    }
+                }
+            }
+        }
+    } else if (pool->idletick > 0) {
+        pool->idletick = 0;
+    }
+
+    LeaveCriticalSection(&pool->ulCS);
+    return 0;
+}
+
 
 int bpool_set_initfunc (bpool_t * pool, void * init)
 {
@@ -193,133 +318,38 @@ int bpool_set_freesize (bpool_t * pool, int size)
     return size;
 }
 
+int bpool_allocated (bpool_t * mp)
+{
+    if (!mp) return 0;
 
-int bpool_get_state (bpool_t * pool, int * allocated, int * remaining,
-                     int * exhausted, int * fifonum, int * refifonum)
+    return mp->allocated;
+}
+
+int bpool_consumed (bpool_t * mp)
+{
+    if (!mp) return 0;
+
+    return mp->consumed;
+}
+
+int bpool_remaining (bpool_t * mp)
+{
+    if (!mp) return 0;
+
+    return mp->remaining;
+}
+
+int bpool_status (bpool_t * pool, int * allocated, int * remaining,
+                  int * consumed, int * fifonum, int * refifonum)
 {
     if (!pool) return -1;
 
     if (allocated) *allocated = pool->allocated;
     if (remaining) *remaining = pool->remaining;
-    if (exhausted) *exhausted = pool->exhausted;
+    if (consumed) *consumed = pool->consumed;
     if (fifonum) *fifonum = ar_fifo_num(pool->fifo);
     if (refifonum) *refifonum =  ar_fifo_num(pool->refifo);
 
-    return 0;
-}
-
-
-void * bpool_fetch (bpool_t * pool)
-{
-    void * punit = NULL;
-    int    i = 0;
-
-    if (!pool) return NULL;
-
-    EnterCriticalSection(&pool->ulCS);
-
-    /* pool->fifo stores objects pre-allocated but not handed out.
-       pool->refifo stores the recycled objects. */
-    if (ar_fifo_num(pool->fifo) <= 0 && ar_fifo_num(pool->refifo) <= 0) {
-        for (i = 0; i < pool->allocnum; i++) {
-            punit = kzalloc(pool->unitsize);
-            if (!punit)  continue;
-
-            ar_fifo_push(pool->fifo, punit);
-            pool->allocated++;
-            pool->remaining++;
-        }
-    }
-
-    punit = NULL;
-    if (ar_fifo_num(pool->fifo) > 0)
-        punit = ar_fifo_out(pool->fifo);
-    if (!punit) {
-        punit = ar_fifo_out(pool->refifo);
-    }
-
-    if (punit) {
-        pool->exhausted += 1;
-        if (--pool->remaining < 0) pool->remaining = 0;
-
-        /* record it in hashtab before handing out.  when recycling,
-           the pbuf should be verified based on records in hashtab.
-           only those fetched from pool can be recycled, just once!
-           the repeated recycling to one pbuf is very dangerous and
-           must be prohibited! */
-        ht_set(pool->rmdup_tab, punit, punit);
-    }
-
-    LeaveCriticalSection(&pool->ulCS);
-
-    if (punit && pool->unitinit)
-        (*pool->unitinit)(punit);
-
-    return punit;
-}
-
-int bpool_recycle (bpool_t * pool, void * punit)
-{
-    int   threshold = 0;
-
-    if (!pool || !punit) return -1;
-
-    EnterCriticalSection(&pool->ulCS);
-
-    if (ht_delete(pool->rmdup_tab, punit) != punit) {
-        LeaveCriticalSection(&pool->ulCS);
-        return -10;
-    }
-
-    if (pool->unitfree && pool->unit_freesize > 0 && pool->getunitsize != NULL) {
-        if ((*pool->getunitsize)(punit) >= pool->unit_freesize) {
-            (*pool->unitfree)(punit);
-            pool->allocated--;
-            pool->exhausted--;
-            LeaveCriticalSection(&pool->ulCS);
-            return 0;
-        }
-    }
-
-    ar_fifo_push(pool->refifo, punit);
-    pool->remaining += 1;
-    pool->exhausted -= 1;
-
-    /* when the peak time of daily visiting passed, the loads
-       of CPU/Memory will go down. the resouces allocated in highest
-       load should be released partly and kept in normal level. */
-
-    if (pool->allocnum >= 4) threshold = pool->allocnum >> 1;
-    else threshold = pool->allocnum << 1;
-
-    if (pool->allocated > pool->allocnum && pool->exhausted <= threshold) {
-        if (pool->idletick == 0) {
-            pool->idletick = time(0);
-
-        } else if (time(0) - pool->idletick > 300) {
-            while (pool->allocated > pool->allocnum && pool->remaining > threshold) {
-                punit = ar_fifo_out(pool->refifo);
-                if (punit) {
-                    if (pool->unitfree) (*pool->unitfree)(punit);
-                    else kfree(punit);
-     
-                    pool->remaining--;
-                    pool->allocated--;
-                } else {
-                    punit = ar_fifo_out(pool->fifo);
-                    if (punit) {
-                        kfree(punit);
-                        pool->remaining--;
-                        pool->allocated--;
-                    }
-                }
-            }
-        }
-    } else if (pool->idletick > 0) {
-        pool->idletick = 0;
-    }
-
-    LeaveCriticalSection(&pool->ulCS);
     return 0;
 }
 

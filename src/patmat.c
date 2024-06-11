@@ -1,7 +1,31 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
- */
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #include "btype.h"
 #include "memory.h"
@@ -905,7 +929,52 @@ int64 bm_find_filebuf (void * fbf, int64 offset, void * pattern, int patlen,
 }
 
 
-pat_sunvec_t * pat_sunvec_alloc (void * vpat, int len, int vectype)
+int pat_sunvec_init (void * vec, void * vpat, int len, int vectype, int reverse)
+{
+    pat_sunvec_t * patvec = (pat_sunvec_t *)vec;
+    uint8        * pat = (uint8 *)vpat;
+    int            i;
+ 
+    if (!patvec) return -1;
+    if (!pat) return -2;
+    if (len < 0) len = strlen((const char *)pat);
+    if (len <= 0) return -3;
+ 
+    memset(patvec, 0, sizeof(*patvec));
+
+    patvec->pattern = pat;
+    patvec->patlen = len;
+ 
+    if (vectype == 1 || vectype == 2) {
+        patvec->vectype = vectype;
+    } else {
+        patvec->vectype = 0;
+    }
+
+    for (i = 0; i < 256; i++) {
+        patvec->chloc[i] = -1;
+    }
+
+    for (i = 0; i < len; i++) {
+
+        /* ignore the char case */
+        if (patvec->vectype == 2) {
+	    if (reverse)
+                patvec->chloc[ adf_tolower(pat[len - 1 - i]) ] = i;
+	    else
+                patvec->chloc[ adf_tolower(pat[i]) ] = i;
+	} else {
+	    if (reverse)
+                patvec->chloc[ pat[len - 1 - i] ] = i;
+	    else
+                patvec->chloc[ pat[i] ] = i;
+	}
+    }
+
+    return 0;
+}
+
+pat_sunvec_t * pat_sunvec_alloc (void * vpat, int len, int vectype, int reverse)
 {
     pat_sunvec_t * patvec = NULL;
     uint8        * pat = (uint8 *)vpat;
@@ -934,11 +1003,17 @@ pat_sunvec_t * pat_sunvec_alloc (void * vpat, int len, int vectype)
     for (i = 0; i < len; i++) {
 
         /* ignore the char case */
-        if (patvec->vectype == 2)
-            patvec->chloc[ adf_tolower(pat[i]) ] = i;
-
-        else
-            patvec->chloc[ pat[i] ] = i;
+        if (patvec->vectype == 2) {
+	    if (reverse)
+                patvec->chloc[ adf_tolower(pat[len - 1 - i]) ] = i;
+	    else
+                patvec->chloc[ adf_tolower(pat[i]) ] = i;
+	} else {
+	    if (reverse)
+                patvec->chloc[ pat[len - 1 - i] ] = i;
+	    else
+                patvec->chloc[ pat[i] ] = i;
+	}
     }
 
     return patvec;
@@ -955,8 +1030,8 @@ void * sun_find_bytes (void * pbyte, int len, void * pattern, int patlen, void *
 {
     uint8        * pstr = (uint8 *)pbyte;
     uint8        * pat = (uint8 *)pattern;
+    pat_sunvec_t   lpatvec;
     pat_sunvec_t * patvec = (pat_sunvec_t *)pvec;
-    uint8          alloc = 0;
     int            pos = 0;
     int            i = 0;
     uint8          matchfound = 0;
@@ -967,8 +1042,8 @@ void * sun_find_bytes (void * pbyte, int len, void * pattern, int patlen, void *
     if (patlen > len) return NULL;
  
     if (!patvec) {
-        patvec = pat_sunvec_alloc(pat, patlen, 0);
-        alloc = 1;
+        pat_sunvec_init(&lpatvec, pat, patlen, 0, 0);
+        patvec = &lpatvec;
     }
  
     if (!patvec) return NULL;
@@ -980,13 +1055,12 @@ void * sun_find_bytes (void * pbyte, int len, void * pattern, int patlen, void *
         if (i >= patlen) {
             matchfound = 1;
             break;
-
         } else {
+	    if (pos >= len - patlen) return NULL;
+
             pos += patlen - patvec->chloc[ pstr[pos + patlen] ];
         }
     }
- 
-    if (alloc) pat_sunvec_free(patvec);
  
     if (matchfound)
         return pstr + pos;
@@ -994,12 +1068,12 @@ void * sun_find_bytes (void * pbyte, int len, void * pattern, int patlen, void *
     return NULL;
 }
 
-void * sun_find_string (void * pbyte, int len, void * pattern, int patlen, void * pvec)
+void * sun_rfind_bytes (void * pbyte, int len, void * pattern, int patlen, void * pvec)
 {
     uint8        * pstr = (uint8 *)pbyte;
     uint8        * pat = (uint8 *)pattern;
+    pat_sunvec_t   lpatvec;
     pat_sunvec_t * patvec = (pat_sunvec_t *)pvec;
-    uint8          alloc = 0;
     int            pos = 0;
     int            i = 0;
     uint8          matchfound = 0;
@@ -1010,8 +1084,51 @@ void * sun_find_string (void * pbyte, int len, void * pattern, int patlen, void 
     if (patlen > len) return NULL;
  
     if (!patvec) {
-        patvec = pat_sunvec_alloc(pat, patlen, 2);
-        alloc = 1;
+        pat_sunvec_init(&lpatvec, pat, patlen, 0, 1);
+        patvec = &lpatvec;
+    }
+ 
+    if (!patvec) return NULL;
+ 
+    for (pos = 0; pos <= len - patlen; ) {
+
+        for (i = 0; i < patlen && pat[patlen - 1 - i] == pstr[len - 1 - i - pos]; i++);
+
+        if (i >= patlen) {
+            matchfound = 1;
+            break;
+
+        } else {
+	    if (pos >= len - patlen) return NULL;
+
+            pos += patlen - patvec->chloc[ pstr[len - 1 - pos - patlen] ];
+        }
+    }
+ 
+    if (matchfound)
+        return pstr + len - patlen - pos;
+ 
+    return NULL;
+}
+
+void * sun_find_string (void * pbyte, int len, void * pattern, int patlen, void * pvec)
+{
+    uint8        * pstr = (uint8 *)pbyte;
+    uint8        * pat = (uint8 *)pattern;
+    pat_sunvec_t   lpatvec;
+    pat_sunvec_t * patvec = (pat_sunvec_t *)pvec;
+    int            pos = 0;
+    int            i = 0;
+    uint8          matchfound = 0;
+ 
+    if (!pstr || len <= 0 || !pat || patlen <= 0)
+        return NULL;
+ 
+    if (patlen > len) return NULL;
+ 
+    if (!patvec) {
+        pat_sunvec_init(&lpatvec, pat, patlen, 2, 0);
+        patvec = &lpatvec;
     }
  
     if (!patvec) return NULL;
@@ -1025,14 +1142,59 @@ void * sun_find_string (void * pbyte, int len, void * pattern, int patlen, void 
             break;
 
         } else {
+	    if (pos >= len - patlen) return NULL;
+
             pos += patlen - patvec->chloc[ adf_tolower(pstr[pos + patlen]) ];
         }
     }
  
-    if (alloc) pat_sunvec_free(patvec);
- 
     if (matchfound)
         return pstr + pos;
+ 
+    return NULL;
+}
+
+void * sun_rfind_string (void * pbyte, int len, void * pattern, int patlen, void * pvec)
+{
+    uint8        * pstr = (uint8 *)pbyte;
+    uint8        * pat = (uint8 *)pattern;
+    pat_sunvec_t   lpatvec;
+    pat_sunvec_t * patvec = (pat_sunvec_t *)pvec;
+    int            pos = 0;
+    int            i = 0;
+    uint8          matchfound = 0;
+ 
+    if (!pstr || len <= 0 || !pat || patlen <= 0)
+        return NULL;
+ 
+    if (patlen > len) return NULL;
+ 
+    if (!patvec) {
+        pat_sunvec_init(&lpatvec, pat, patlen, 2, 1);
+        patvec = &lpatvec;
+    }
+ 
+    if (!patvec) return NULL;
+ 
+    for (pos = 0; pos <= len - patlen; ) {
+
+        for (i = 0; i < patlen &&
+                    adf_tolower(pat[patlen - 1 - i]) == adf_tolower(pstr[len - 1 - i - pos]);
+		    i++);
+
+        if (i >= patlen) {
+            matchfound = 1;
+            break;
+
+        } else {
+	    if (pos >= len - patlen) return NULL;
+
+            pos += patlen - patvec->chloc[ adf_tolower(pstr[len - 1 - pos - patlen]) ];
+        }
+    }
+ 
+    if (matchfound)
+        return pstr + len - patlen - pos;
  
     return NULL;
 }
@@ -1042,8 +1204,8 @@ void * sun_find_mbytes (void ** ppbyte, int * plen, int num, void * pattern, int
 {
     mstr_t         mstr;
     uint8        * pat = (uint8 *)pattern;
+    pat_sunvec_t   lpatvec;
     pat_sunvec_t * patvec = (pat_sunvec_t *)pvec;
-    uint8          alloc = 0;
     int            pos = 0;
     int            i = 0;
     uint8          matchfound = 0;
@@ -1056,8 +1218,8 @@ void * sun_find_mbytes (void ** ppbyte, int * plen, int num, void * pattern, int
     if (patlen > mstr.len) return NULL;
  
     if (!patvec) {
-        patvec = pat_sunvec_alloc(pat, patlen, 0);
-        alloc = 1;
+        pat_sunvec_init(&lpatvec, pat, patlen, 0, 0);
+        patvec = &lpatvec;
     }
  
     if (!patvec) return NULL;
@@ -1071,11 +1233,11 @@ void * sun_find_mbytes (void ** ppbyte, int * plen, int num, void * pattern, int
             break;
  
         } else {
+	    if (pos >= mstr.len - patlen) return NULL;
+
             pos += patlen - patvec->chloc[ mstr_char(&mstr, pos + patlen, NULL) ];
         }
     }
- 
-    if (alloc) pat_sunvec_free(patvec);
  
     if (matchfound)
         return mstr_p(&mstr, pos, pind);
@@ -1083,12 +1245,12 @@ void * sun_find_mbytes (void ** ppbyte, int * plen, int num, void * pattern, int
     return NULL;
 }
 
-void * sun_find_mstring (void ** ppbyte, int * plen, int num, void * pattern, int patlen, void * pvec, int * pind)
+void * sun_rfind_mbytes (void ** ppbyte, int * plen, int num, void * pattern, int patlen, void * pvec, int * pind)
 {
     mstr_t         mstr;
     uint8        * pat = (uint8 *)pattern;
+    pat_sunvec_t   lpatvec;
     pat_sunvec_t * patvec = (pat_sunvec_t *)pvec;
-    uint8          alloc = 0;
     int            pos = 0;
     int            i = 0;
     uint8          matchfound = 0;
@@ -1101,8 +1263,55 @@ void * sun_find_mstring (void ** ppbyte, int * plen, int num, void * pattern, in
     if (patlen > mstr.len) return NULL;
  
     if (!patvec) {
-        patvec = pat_sunvec_alloc(pat, patlen, 2);
-        alloc = 1;
+        pat_sunvec_init(&lpatvec, pat, patlen, 0, 1);
+        patvec = &lpatvec;
+    }
+ 
+    if (!patvec) return NULL;
+ 
+    for (pos = 0; pos <= mstr.len - patlen; ) {
+ 
+        for (i = 0; i < patlen &&
+                    pat[patlen - 1 - i] == mstr_char(&mstr, mstr.len - 1 - i - pos, NULL);
+		    i++);
+ 
+        if (i >= patlen) {
+            matchfound = 1;
+            break;
+ 
+        } else {
+	    if (pos >= mstr.len - patlen) return NULL;
+
+            pos += patlen - patvec->chloc[ mstr_char(&mstr, mstr.len - 1 - pos - patlen, NULL) ];
+        }
+    }
+ 
+    if (matchfound)
+        return mstr_p(&mstr, mstr.len - patlen - pos, pind);
+ 
+    return NULL;
+}
+
+void * sun_find_mstring (void ** ppbyte, int * plen, int num, void * pattern, int patlen, void * pvec, int * pind)
+{
+    mstr_t         mstr;
+    uint8        * pat = (uint8 *)pattern;
+    pat_sunvec_t   lpatvec;
+    pat_sunvec_t * patvec = (pat_sunvec_t *)pvec;
+    int            pos = 0;
+    int            i = 0;
+    uint8          matchfound = 0;
+ 
+    if (!pat || patlen <= 0)
+        return NULL;
+ 
+    mstr_init(&mstr, ppbyte, plen, num);
+
+    if (patlen > mstr.len) return NULL;
+ 
+    if (!patvec) {
+        pat_sunvec_init(&lpatvec, pat, patlen, 2, 0);
+        patvec = &lpatvec;
     }
  
     if (!patvec) return NULL;
@@ -1116,14 +1325,61 @@ void * sun_find_mstring (void ** ppbyte, int * plen, int num, void * pattern, in
             break;
  
         } else {
+	    if (pos >= mstr.len - patlen) return NULL;
+
             pos += patlen - patvec->chloc[ adf_tolower(mstr_char(&mstr, pos + patlen, NULL)) ];
         }
     }
  
-    if (alloc) pat_sunvec_free(patvec);
- 
     if (matchfound)
         return mstr_p(&mstr, pos, pind);
+ 
+    return NULL;
+}
+
+void * sun_rfind_mstring (void ** ppbyte, int * plen, int num, void * pattern, int patlen, void * pvec, int * pind)
+{
+    mstr_t         mstr;
+    uint8        * pat = (uint8 *)pattern;
+    pat_sunvec_t   lpatvec;
+    pat_sunvec_t * patvec = (pat_sunvec_t *)pvec;
+    int            pos = 0;
+    int            i = 0;
+    uint8          matchfound = 0;
+ 
+    if (!pat || patlen <= 0)
+        return NULL;
+ 
+    mstr_init(&mstr, ppbyte, plen, num);
+
+    if (patlen > mstr.len) return NULL;
+ 
+    if (!patvec) {
+        pat_sunvec_init(&lpatvec, pat, patlen, 2, 1);
+        patvec = &lpatvec;
+    }
+ 
+    if (!patvec) return NULL;
+ 
+    for (pos = 0; pos <= mstr.len - patlen; ) {
+ 
+        for (i = 0; i < patlen &&
+                    adf_tolower(pat[patlen - 1 - i]) == adf_tolower(mstr_char(&mstr, mstr.len - 1 - i - pos, NULL));
+		    i++);
+ 
+        if (i >= patlen) {
+            matchfound = 1;
+            break;
+ 
+        } else {
+	    if (pos >= mstr.len - patlen) return NULL;
+
+            pos += patlen - patvec->chloc[ adf_tolower(mstr_char(&mstr, mstr.len - 1 - pos - patlen, NULL)) ];
+        }
+    }
+ 
+    if (matchfound)
+        return mstr_p(&mstr, mstr.len - patlen - pos, pind);
  
     return NULL;
 }
