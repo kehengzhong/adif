@@ -140,7 +140,7 @@ Another open-source project developed based on the adif library and the ePump fr
 
 ## About the Author LaoKe
 
-With extensive experience in developing application platforms and communication systems on Linux and other systems, Lao Ke is a senior programmer and engineer. The author can be reached via email at kehengzhong@hotmail.com, or messages can be left for the author through the QQ number 571527 or the WeChat ID beijingkehz.
+With extensive experience in the development of application platforms and communication systems on Linux and other systems, the author is a senior programmer and engineer. You can contact the author by email at kehengzhong@hotmail.com, or leave a message to the author through QQ number [571527](http://wpa.qq.com/msgrd?V=1&Uin=571527&Site=github.com&Menu=yes) or WeChat ID [beijingkehz](http://wx.qq.com/).
 
-The adif project is the first of the author's three related open-source projects. As a foundational data structure and algorithm library, it has been accumulated and refined during the development process of numerous software systems, providing underlying development support for other projects. A lot of the code for this project was already developed in the late 1990s and has been in continuous use to this day, with ongoing optimization and improvement throughout the development process.
+The adif project is the author's first of three related open-source projects. As a foundational data structure and algorithm library, it has been accumulated and refined during the development process of numerous software systems, providing underlying development support for other projects. A lot of the code for this project was already developed in the late 1990s and has been in continuous use to this day, with ongoing optimization and improvement throughout the development process.
 
