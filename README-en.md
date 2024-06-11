@@ -22,10 +22,8 @@
     * [eJet Web Server Project](#eJet-Web-Server-Project)
 * [About the Author LaoKe](#About-the-Author-LaoKe)
 
-***
 
-What is adif?
-------
+## What is adif?
 
 ADIF is a fundamental library of common data structures and algorithms developed using ANSI-C language, which is an abbreviation for Application Development Interface Fundamental. Serving as a basic library for application development interfaces, it facilitates the writing of high-performance programs, can greatly reduce the development cycle of software projects, enhance engineering development efficiency, and ensure the reliability and stability of the software system.
 
@@ -35,10 +33,8 @@ The barrier to entry for C language development is relatively high. Programmers 
 
 ADIF library is a collection of fundamental data structures and algorithms that have been accumulated during the development of various application systems. It has undergone extensive refinement, optimization, and testing. Junior programmers can use adif to learn and experience the joy of C language programming, quickly overcoming the barriers to high-performance programming. It also provides senior C language developers with a mature and stable infrastructure library for developing high-performance programs, enabling agile development and rapid iteration, thereby greatly enhancing development efficiency.
 
-***
 
-adif Data Structures and Algorithm Library
-------
+## adif Data Structures and Algorithm Library
 
 adif is a standard C language data structure and algorithm library. The implementation of the data structure and algorithm library mainly includes basic data structures, special data structures, and commonly used data processing algorithms. It includes routines for processing common strings, byte streams, character sets, date and time, etc., as well as functions for memory management and memory pool allocation and release. In addition, there are functional modules for configuration files, log debugging, file access, file caching, JSON, MIME, etc. It also provides interface functions for communication programming, file locking, semaphores, mutexes, event notification, shared memory, and so on.
 
@@ -129,10 +125,8 @@ adif is a standard C language data structure and algorithm library. The implemen
 * **SQLite database** - Database connection, table select, insert, update, delete, and result record reading, creation, deletion, modification of tables.
 * **BerkeleyDB** - Creation, opening, get, put, mget, mput, etc., of Key/Value databases.
 
-***
 
-Two Other Open Source Projects Developed with the adif Library
-------
+## Two Other Open Source Projects Developed with the adif Library
 
 ### [ePump Project](https://github.com/kehengzhong/epump)
 
@@ -143,10 +137,8 @@ Dependent on the basic data structures and algorithm libraries provided by the a
 
 Another open-source project developed based on the adif library and the ePump framework is the eJet Web Server. The eJet Web Server project is a lightweight, high-performance web server developed using the adif library and the ePump framework. The system extensively utilizes Zero-Copy technology and supports all features of HTTP/1.1 and HTTPS. It provides functionalities such as virtual hosting, URI rewriting, Script scripting, variables, Cookie handling, TLS/SSL, automatic Redirect, local Cache storage, and log files. It serves as an ideal platform for static file access, downloads, and hosting PHP applications, and provides efficient support for the upload and publication of ultra-large files. Additionally, it supports advanced features such as Proxy, forward and reverse proxy, TLS/SSL, FastCGI, uWSGI, local Cache storage management, and CDN node services. The eJet system can act as a web server to host PHP and Python applications, and with its caching and Proxy capabilities, it can be easily configured as an important distribution node of a CDN distribution system.
 
-***
 
-About the Author LaoKe
-------
+## About the Author LaoKe
 
 With extensive experience in developing application platforms and communication systems on Linux and other systems, Lao Ke is a senior programmer and engineer. The author can be reached via email at kehengzhong@hotmail.com, or messages can be left for the author through the QQ number 571527 or the WeChat ID beijingkehz.
 
