@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
  
 #ifndef _T_SOCK_H_
 #define _T_SOCK_H_
@@ -301,6 +325,8 @@ typedef struct sockattr_st {
     int      socktype;
     int      protocol;
     SOCKET   fd;
+    char     addr[41];
+    uint16   port;
 } sockattr_t;
 
 int sock_nonblock_get (SOCKET fd);
@@ -343,6 +369,7 @@ void sock_addr_freenext (ep_sockaddr_t * addr);
 int sock_addr_get (char * dst, int dstlen, int port, int socktype,
                    char *ip, int * pport, ep_sockaddr_t * paddr);
  
+int sock_option_add (sockopt_t * opt, sockopt_t * src);
 int sock_option_set (SOCKET fd, sockopt_t * opt);
  
 int sock_nodelay_set   (SOCKET fd);
@@ -356,9 +383,9 @@ void addrinfo_print (void * rp);
 
 SOCKET tcp_listen       (char * localip, int port, void * psockopt, sockattr_t * fdlist, int * fdnum);
  
-SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, int * succ, sockattr_t * attr);
-SOCKET tcp_connect      (char * host, int port, char * lip, int lport, sockattr_t * attr);
-SOCKET tcp_nb_connect   (char * host, int port, char * lip, int lport, int * consucc, sockattr_t * attr);
+SOCKET tcp_connect_full (char * host, int port, int nonblk, char * lip, int lport, void * popt, int * succ, sockattr_t * attr);
+SOCKET tcp_connect      (char * host, int port, char * lip, int lport, void * popt, sockattr_t * attr);
+SOCKET tcp_nb_connect   (char * host, int port, char * lip, int lport, void * popt, int * consucc, sockattr_t * attr);
 SOCKET tcp_ep_connect   (ep_sockaddr_t * addr, int nblk, char * lip, int lport, void * popt, int * succ);
  
 int    tcp_connected    (SOCKET fd);

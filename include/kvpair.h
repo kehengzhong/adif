@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _KVPAIR_H_
 #define _KVPAIR_H_
@@ -11,31 +35,38 @@ extern "C" {
 #endif
 
 typedef struct kvpair_value {
-    uint8            * value;
-    int                valuelen;
+    uint8    * value;
+    int        valuelen;
 } KVPairValue;
  
  
 typedef struct kvpair_item {
-    uint8            * name;
-    int                namelen;
+    unsigned   namelen   : 30;
+    unsigned   alloctype : 2; //0-default kalloc/kfree 1-os-specific malloc/free 2-kmempool alloc/free 3-kmemblk alloc/free
+
+    void     * mpool;
+
+    uint8    * name;
  
-    int                valnum;
-    void             * valobj;  //num=1->KVPairValue, num>1->arr_t containing KVPairValue array
+    int        valnum;
+    void     * valobj;  //num=1->KVPairValue, num>1->arr_t containing KVPairValue array
 } KVPairItem;
  
  
 typedef struct kvpair_obj {
- 
+    unsigned           htsize : 30;
+    unsigned           alloctype : 2; //0-default kalloc/kfree 1-os-specific malloc/free 2-kmempool alloc/free 3-kmemblk alloc/free
+
+    void             * mpool;
+
     CRITICAL_SECTION   objCS;
     hashtab_t        * objtab;
-    int                htsize;
  
     uint8              sepa[16];
     uint8              kvsep[8];
 } KVPairObj;
 
-
+void * kvpair_alloc (int htsize, char * sepa, char * kvsep, int alloctype, void * mpool);
 void * kvpair_init  (int htsize, char * sepa, char * kvsep);
 int    kvpair_clean (void * vobj);
 int    kvpair_zero  (void * vobj);
@@ -44,7 +75,7 @@ int    kvpair_valuenum (void * vobj, void * key, int keylen);
 
 int    kvpair_num (void * vobj);
 
-int    kvpair_seq_get (void * vobj, int seq, int index, void ** pval, int * vallen);
+int    kvpair_seq_get (void * vobj, int seq, void ** pkey, int * keylen, int index, void ** pval, int * vallen);
 int    kvpair_getP (void * vobj, void * key, int keylen, int ind, void ** pval, int * vallen);
 int    kvpair_get  (void * vobj, void * key, int keylen, int ind, void * val, int * vallen);
 

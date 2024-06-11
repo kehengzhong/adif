@@ -1,6 +1,30 @@
-/*  
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
- * All rights reserved. See MIT LICENSE for redistribution. 
+/*
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
+ * All rights reserved. See MIT LICENSE for redistribution.
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
  */
 
 #ifndef _AC_TRIE_H_
@@ -15,12 +39,15 @@ extern "C" {
 typedef int ACSucc (void * para, void * p, int len, void * matpos, int patlen);
 
 typedef struct acnode_ {
+    uint8      alloctype : 7;//0-default kalloc/kfree 1-os-specific malloc/free 2-kmempool alloc/free 3-kmemblk alloc/free
+    uint8      needfree  : 1;
+    void     * mpool;
+
     unsigned   ch:8;
 
     unsigned   depth:8;
     unsigned   phrase_end:1;
-    unsigned   alloc:1;
-    unsigned   count:14;
+    unsigned   count:15;
  
     arr_t    * sublist;
 
@@ -32,6 +59,8 @@ typedef struct acnode_ {
 } acnode_t, *acnode_p;
 
 typedef struct actrie_ {
+    uint8       alloctype;//0-default kalloc/kfree 1-os-specific malloc/free 2-kmempool alloc/free 3-kmemblk alloc/free
+    void      * mpool;
 
     acnode_t  * root;
 
@@ -45,6 +74,7 @@ typedef struct actrie_ {
 
 } actrie_t, *actrie_p;
 
+void * actrie_alloc (void * matchcb, int reverse, int alloctype, void * mpool);
 void * actrie_init (int entries, void * matchcb, int reverse);
 int    actrie_free (void * vac);
 

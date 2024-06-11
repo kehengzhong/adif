@@ -1,13 +1,38 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef __BTYPE_H__
 #define __BTYPE_H__
 
 
 #if defined(_WIN32) || defined(_WIN64)
+//#define FD_SETSIZE 1024
 #include <winsock2.h>
 #pragma comment(lib,"Ws2_32.lib")
 #include <windows.h>
@@ -23,6 +48,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <strings.h>
+#include <stdint.h>
 #endif
 
 typedef unsigned long long  uint64;
@@ -39,6 +65,7 @@ typedef unsigned char       uint8;
 typedef char                sint8;
 typedef char                int8;
 
+
 #define isBigEndian() ((*(uint16 *) ("KE") >> 8) == 'K')
 
 #define rol(x,n) ( ((x) << (n)) | ((x) >> (32-(n))) )
@@ -49,6 +76,13 @@ typedef char                int8;
                    (rol2((uint64)(b),24)&0x0000FF000000FF00ULL) | \
                    (rol2((uint64)(b),40)&0x00FF000000FF0000ULL) | \
                    (rol2((uint64)(b),56)&0xFF000000FF000000ULL) )
+
+#ifndef ADF_ALIGNMENT
+#define ADF_ALIGNMENT sizeof(ulong)
+#endif
+
+#define align_size(d, a) (((d) + (a - 1)) & ~(a - 1))
+#define align_ptr(p, a)  (uint8 *) (((uintptr_t) (p) + ((uintptr_t) a - 1)) & ~((uintptr_t) a - 1))
 
 #ifndef min
 #define min(x,y)  ((x) <= (y)?(x):(y))
@@ -70,6 +104,14 @@ typedef char                int8;
 #endif
 #ifndef tv_diff_us
 #define tv_diff_us(t1,t2) (((t2)->tv_sec-(t1)->tv_sec)*1000000+(t2)->tv_usec-(t1)->tv_usec)
+#endif
+
+#ifndef offsetof
+#define offsetof(type, field) ((size_t)(&((type *)0)->field))
+#endif
+
+#ifndef structfrom
+#define structfrom(varptr, type, varname) ((type*) ((char*)varptr - offsetof(type, varname)))
 #endif
 
 #ifndef ULONG_MAX
@@ -173,10 +215,6 @@ int gettimeofday(struct timeval *tv, struct timezone *tz);
 extern "C" {
 #endif
 
-char  * winstrcpy (char * dst, char * src);
-int     toHex (int ch, int upercase);
-
-int current_timezone ();
 
 #ifdef __cplusplus
 }

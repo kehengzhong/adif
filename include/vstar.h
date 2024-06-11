@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _VARRIABLE_STRUCTURE_ARRAY_H_
 #define _VARRIABLE_STRUCTURE_ARRAY_H_
@@ -16,19 +40,23 @@ typedef int (VarUnitFree) (void *);
 
 typedef struct _VStructArray {
     int     unitsize;
-    int     sorted;
+    uint8   sorted    : 6;
+    uint8   alloctype : 2;
  
+    void  * mpool;
+
     int     num;
     int     num_alloc;
  
-    uint8 * data;
+    uint8  * data;
  
     VarUnitFree * clean;
  
 } vstar_t, *vstar_p;
  
 
-void * vstar_new  (int unitsize, int allocnum, void * free);
+#define vstar_new(size, num, free) vstar_alloc(size, num, (free), 0, NULL)
+void * vstar_alloc (int unitsize, int allocnum, void * free, int alloctype, void * mpool);
 int    vstar_free (vstar_t * var);
 
 int    vstar_size   (vstar_t * var);

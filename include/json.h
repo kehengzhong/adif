@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _JSON_H_
 #define _JSON_H_
@@ -82,7 +106,8 @@ int    json_size (void * vobj);
 int    json_valuenum (void * vobj, void * key, int keylen);
 
 int    json_num (void * vobj);
-int    json_iter (void * vobj, int ind, int valind, void ** pkey, int * keylen, void ** pval, int * vallen, void ** pobj);
+int    json_iter (void * vobj, int ind, int valind, void ** pkey, int * keylen,
+                  void ** pval, int * vallen, void ** pobj);
 
        /* "http.server.location[0].errpage.504" : "504.html" */
 int    json_mdel (void * vobj, void * key, int keylen);
@@ -93,6 +118,7 @@ int    json_mget     (void * vobj, void * key, int keylen, void * val, int * val
 int    json_mgetP    (void * vobj, void * key, int keylen, void ** pval, int * vallen);
 int    json_mget_obj (void * vobj, void * key, int keylen, void ** pobj);
 
+int    json_mget_bool   (void * jobj, void * key, int keylen, uint8 * val);
 int    json_mget_int8   (void * vobj, void * key, int keylen, int8 * val);
 int    json_mget_uint8  (void * vobj, void * key, int keylen, uint8 * val);
 int    json_mget_int16  (void * vobj, void * key, int keylen, int16 * val);

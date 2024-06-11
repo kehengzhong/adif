@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _PATTERN_MATCH_H_
 #define _PATTERN_MATCH_H_
@@ -112,14 +136,21 @@ typedef struct pattern_sunvector_s {
 
 } pat_sunvec_t;
 
-pat_sunvec_t * pat_sunvec_alloc (void * vpat, int len, int vectype);
+int            pat_sunvec_init  (void * vec, void * vpat, int len, int vectype, int reverse);
+pat_sunvec_t * pat_sunvec_alloc (void * vpat, int len, int vectype, int reverse);
 void           pat_sunvec_free  (pat_sunvec_t * patvec);
  
 void * sun_find_bytes   (void * pbyte, int len, void * pattern, int patlen, void * pvec);
-void * sun_find_string  (void * pbyte, int len, void * pattern, int patlen, void * pvec);
+void * sun_rfind_bytes  (void * pbyte, int len, void * pattern, int patlen, void * pvec);
 
-void * sun_find_mbytes (void ** ppbyte, int * plen, int num, void * pattern, int patlen, void * pvec, int * pind);
-void * sun_find_mstring (void ** ppbyte, int * plen, int num, void * pattern, int patlen, void * pvec, int * pind);
+void * sun_find_string  (void * pbyte, int len, void * pattern, int patlen, void * pvec);
+void * sun_rfind_string (void * pbyte, int len, void * pattern, int patlen, void * pvec);
+
+void * sun_find_mbytes  (void ** ppbyte, int * plen, int num, void * pattern, int patlen, void * pvec, int * pind);
+void * sun_rfind_mbytes (void ** ppbyte, int * plen, int num, void * pattern, int patlen, void * pvec, int * pind);
+
+void * sun_find_mstring  (void ** ppbyte, int * plen, int num, void * pattern, int patlen, void * pvec, int * pind);
+void * sun_rfind_mstring (void ** ppbyte, int * plen, int num, void * pattern, int patlen, void * pvec, int * pind);
 
 #ifdef __cplusplus
 }

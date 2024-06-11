@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _DLIST_H_
 #define _DLIST_H_
@@ -10,22 +34,22 @@
 extern "C" {
 #endif
 
-
 typedef struct list_st dlist_t;
 
-/* Note: the node structure must be reserved 2-pointers space while being defined.
-         the 2-pointers must be at the begining of the struction and casted as 
-         prev and next of dlist_t.  */
+/* Note:
+   When defining the node data structure of the linked list, the member
+   space of two pointers must be reserved. These two pointers must be located
+   at the beginning of the data structure, and when they are added to the linked
+   list, they will be casted to prev and next */
 
 /* get the next node of the given node */
 void * lt_get_next (void * node);
 
-
 /* get the prev node of the given node */
 void * lt_get_prev (void * node);
 
-/* list instance allocation routine. allocate space and initialize all 
- * internal variables. the entry parameter is the default comparing function */
+/* double linked list dlist_t instance allocation routine. Allocate space
+   and initialize all internal variables. */
 dlist_t * lt_new ();
 
 

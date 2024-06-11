@@ -1,10 +1,35 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _FAST_HTAB_H_
 #define _FAST_HTAB_H_
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,6 +52,7 @@ typedef struct fash_hash_node {
 
 #pragma pack(pop)
 
+
 typedef struct fash_hash_tab {
 
     ulong          reqsize;
@@ -45,7 +71,7 @@ void   fast_ht_free (void * vht);
 
 void   fast_ht_free_all (void * vht, void * vfunc);
 void   fast_ht_free_member (void * vht, void * vfunc);
-void   fast_ht_zero    (void * vht);
+void   fast_ht_zero (void * vht);
 
 int    fast_ht_num (void * vht);
 
@@ -53,9 +79,12 @@ void * fast_ht_get (void * vht, void * key, int keylen, void ** pval, int * vall
 int    fast_ht_set (void * vht, void * key, int keylen, void * value, int valuelen);
 void * fast_ht_del (void * vht, void * key, int keylen, void ** pval, int * vallen);
 
+
 #ifdef __cplusplus
 }
 #endif
 
+
 #endif
+
 

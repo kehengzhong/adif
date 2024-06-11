@@ -25,62 +25,59 @@
  * #               佛力加持      佛光普照              #
  * #  Buddha's power blessing, Buddha's light shining  #
  * #####################################################
- */
+ */ 
 
-#ifndef _BITARRAR_H_
-#define _BITARRAR_H_ 
-    
+#ifdef HAVE_OPENSSL
+
+#ifndef _SSLTCP_H_
+#define _SSLTCP_H_ 
+
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
+#include "tsock.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif 
 
-typedef struct bit_arr_s {
+typedef struct ssl_tcp_s {
+    uint8         ssllink    : 1;  //0-TCP 1-SSL over TCP
+    uint8         handshaked : 1;  
+    uint8         contype    : 6;  //0-Connected  1-Accepted
 
-    int          bitnum;
+    SOCKET        fd;
 
-    unsigned     unitnum : 30;
-    unsigned     osalloc : 2;
+    SSL_CTX     * sslctx;
+    SSL         * ssl;
+} SSLTcp, ssl_tcp_t, *ssl_tcp_p;
 
-    uint64     * bitarr;
-} bitarr_t;
- 
+int ssl_tcp_init ();
 
-bitarr_t * bitarr_alloc  (int bitnum);
+void * ssl_server_ctx_init (char * cert, char * prikey, char * cacert);
+void * ssl_client_ctx_init (char * cert, char * prikey, char * cacert);
+int    ssl_ctx_free (void * vctx);
 
-/* Memory is allocated by calling malloc function of the system instead of memory pool. */
-bitarr_t * bitarr_osalloc (int bitnum);
+int    ssl_servername_select (SSL * ssl, int * ad, void * arg);
 
-bitarr_t * bitarr_from_fixmem (void * pmem, int memlen, int bitnum, int * psize);
+void * ssl_tcp_bind      (SOCKET fd, int ssllink, void * vctx, int contype);
+int    ssl_tcp_handshake (void * vssltcp, int * perr);
+int    ssl_tcp_close     (void * vssltcp);
+int    ssl_tcp_unbind    (void * vssltcp);
 
-bitarr_t * bitarr_resize (bitarr_t * bar, int bitnum);
-void       bitarr_free   (bitarr_t * bar);
+void * ssl_tcp_from_ssl (SSL * ssl);
 
-int bitarr_set   (bitarr_t * bar, int ind);
-int bitarr_unset (bitarr_t * bar, int ind);
-int bitarr_get   (bitarr_t * bar, int ind);
+int    ssl_tcp_read   (void * vssltcp, frame_p frm, int * num, int * perr);
+int    ssl_tcp_write  (void * vssltcp, void * pbyte, int bytelen, int * num, int * perr);
 
-int bitarr_left  (bitarr_t * bar, int bits);
-int bitarr_right (bitarr_t * bar, int bits);
-
-int bitarr_and (bitarr_t * dst, bitarr_t * src);
-int bitarr_or  (bitarr_t * dst, bitarr_t * src);
-int bitarr_xor (bitarr_t * dst, bitarr_t * src);
-
-int bitarr_cleared (bitarr_t * bar);
-int bitarr_filled (bitarr_t * bar);
-
-int bitarr_zero   (bitarr_t * bar);
-int bitarr_fill   (bitarr_t * bar);
-
-void bitarr_print (bitarr_t * bar, FILE * fp);
-
-int  bit_mask_get (uint32 * bitmap, uint8 ch);
-void bit_mask_set (uint32 * bitmap, uint8 ch);
-void bit_mask_unset (uint32 * bitmap, uint8 ch);
+int    ssl_tcp_writev   (void * vssltcp, void * piov, int iovcnt, int * num, int * perr);
+int    ssl_tcp_sendfile (void * vssltcp, int filefd, int64 pos, int64 size, int * num, int * perr);
 
 #ifdef __cplusplus
 }
 #endif 
  
+#endif
+
 #endif
 

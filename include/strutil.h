@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
  
 #ifndef _STRUTIL_H_
 #define _STRUTIL_H_
@@ -30,14 +54,16 @@ typedef struct ckstr_s {
 #define ckstr_null         { NULL, 0}
 #define ckstr_set(str, pbyte, bytelen)         \
      (str)->p = pbyte;  (str)->len = bytelen
-void ckstr_free(void * str);
-void * ckstr_new(void * pbyte, int bytelen);
-int ckstr_cmp (void * a, void * b);
-int ckstr_casecmp (void * a, void * b);
+void   ckstr_free    (void * str);
+void * ckstr_new     (void * pbyte, int bytelen);
+int    ckstr_cmp     (void * a, void * b);
+int    ckstr_casecmp (void * a, void * b);
  
 #if defined(_WIN32) || defined(_WIN64)
 void ansi_2_unicode(wchar_t * wcrt, char * pstr);
 #endif
+
+int    toHex (int ch, int upercase);
 
 size_t str_len   (void * p);
  
@@ -79,9 +105,14 @@ int str_toupper (void * pbyte, int bytelen);
 int str_mbi2uint (void * p, int len, uint32 * pmbival);
 int str_uint2mbi (uint32 value, void * p);
 int str_atoi (void * p, int len, int * pval);
+int str_atol (void * p, int len, long * pval);
+int str_atoll (void * p, int len, int64 * pval);
 int str_hextoi (void * p, int len, int * pval);
 int str_atou (void * p, int len, uint32 * pval);
 int str_hextou (void * p, int len, uint32 * pval);
+ 
+/* convert string to integer, base 10 or 16, decimal or heximal */
+int str_to_int (void * pbyte, int bytelen, int base, void ** pterm);
  
 /* 2004-12-08 17:45:56+08
    Mon, 24 Feb 2003 03:53:54 GMT       <=== subfmt=0 fmt=0 RFC1123 updated from RFC822
@@ -142,9 +173,6 @@ void * rskipOver (void * pbyte, int rlen, void * skippedchs, int num);
 /* get the value pointer: username = 'hellokitty'    password = '#$!7798' */
 int str_value_by_key (void * pbyte, int bytelen, void * key, void ** pval, int * vallen);
  
-/* extract an integer value from string, base value is 10 or 16, that reprensts decimal or heximal, */
-int str_to_int (void * pbyte, int bytelen, int base, void ** pterm);
- 
 int  secure_memcpy (void * dst, int dstlen, void * src, int srclen);
 long sec_memcpy (void * dst, void * src, long len);
  
@@ -156,6 +184,8 @@ int    json_escape    (void * psrc, int size, void * pdst, int dstlen);
 int    json_strip     (void * psrc, int size, void * pdst, int dstlen);
 void * json_strip_dup (void * psrc, int size);
  
+int uri_uncoded_char (void * psrc, int size);
+
 /*  escape type value:
       ESCAPE_URI            0
       ESCAPE_ARGS           1

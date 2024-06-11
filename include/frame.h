@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _FRAME_ST_H_
 #define _FRAME_ST_H_
@@ -14,17 +38,29 @@ extern "C" {
 
 typedef struct FrameST_ {
 
-    uint8    * data;
+    unsigned   allocnum  : 30;
+    unsigned   alloctype : 2; //0-default kalloc/kfree 1-os-specific malloc/free 2-kmempool alloc/free 3-kmemblk alloc/free
+
     int        size;
     int        start;
     int        len;
+
+    void     * mpool;
+    uint8    * data;
 
     struct FrameST_ * next;
 
 } frame_t, *frame_p;
 
-frame_p frame_new    (int size);
+#define frame_alloc(size, atype, mpool)  frame_alloc_dbg((size), (atype), (mpool), __FILE__, __LINE__)
+frame_p frame_alloc_dbg (int size, int alloctype, void * mpool, char * file, int line);
+
+//frame_p frame_new    (int size);
+#define frame_new(size)  frame_new_dbg((size), __FILE__, __LINE__)
+frame_p frame_new_dbg    (int size, char * file, int line);
+
 void    frame_free   (frame_t * frm);
+void    frame_free_inner (frame_p frm);
 void    frame_delete (frame_p * pfrm);
 
 int     frame_size (frame_p frm);
@@ -51,8 +87,12 @@ void    frame_strip  (frame_p frm);
 void    frame_empty (frame_p frm);
 frame_p frame_dup   (frame_p frm);
 
-void    frame_grow (frame_p frm, int addsize);
-void    frame_grow_to (frame_p frm, int dstsize);
+#define frame_grow(frm, size)  frame_grow_dbg((frm), (size), __FILE__, __LINE__)
+void    frame_grow_dbg (frame_p frm, int addsize, char * file, int line);
+#define frame_grow_to(frm, size)  frame_grow_to_dbg((frm), (size), __FILE__, __LINE__)
+void    frame_grow_to_dbg (frame_p frm, int dstsize, char * file, int line);
+#define frame_grow_head(frm, size)  frame_grow_head_dbg((frm), (size), __FILE__, __LINE__)
+void    frame_grow_head_dbg (frame_p frm, int size, char * file, int line);
 
 void    frame_print (frame_p, FILE * fp, int start, int num, int margin);
 
@@ -72,10 +112,15 @@ int     frame_read  (frame_p frm, int pos);
 int     frame_readn (frame_p frm, int pos, void * pbyte, int n);
 
 void    frame_put_first (frame_p frm, int byte);
+void    frame_put_firstp (frame_p * pfrm, int byte);
 void    frame_put_nfirst (frame_p frm, void * pbyte, int len);
+void    frame_put_nfirstp (frame_p * pfrm, void * bytes, int n);
 
 void    frame_put_last (frame_p frm, int byte);
-void    frame_put_nlast (frame_p frm, void * pbyte, int len);
+void    frame_put_lastp (frame_p * pfrm, int byte);
+#define frame_put_nlast(frm, pbyte, len)  frame_put_nlast_dbg((frm), (pbyte), (len), __FILE__, __LINE__)
+void    frame_put_nlast_dbg (frame_p frm, void * pbyte, int len, char * file, int line);
+void    frame_put_nlastp (frame_p * pfrm, void * bytes, int n);
 
 void    frame_put (frame_p frm, int pos, int byte);
 void    frame_putn (frame_p frm, int pos, void * pbyte, int len);
@@ -85,10 +130,13 @@ void    frame_setn (frame_p frm, int pos, void * pbyte, int n);
 
 
 void    frame_append  (frame_p frm, char * str);
+void    frame_appendp (frame_p * pfrm, char * str);
 void    frame_prepend (frame_p frm, char * str);
+void    frame_prependp (frame_p * pfrm, char * str);
 void    frame_insert  (frame_p frm, int pos, char * str);
 
 void    frame_appendf  (frame_p frm, char *fmt, ...);
+void    frame_appendfp (frame_p * pfrm, char * fmt, ...);
 void    frame_prependf (frame_p frm, char *fmt, ...);
 void    frame_insertf  (frame_p frm, int pos, char *fmt, ...);
 
@@ -124,7 +172,8 @@ int     frame_tcp_recv (frame_p frm, SOCKET fd, int waitms, int * actnum);
 int     frame_tcp_send (frame_p frm, SOCKET fd, int waitms, int * actnum);
 
 /* receive data from socket fd based on non-blocking and zero-copy whenever possible */
-int     frame_tcp_nbzc_recv (frame_p frm, SOCKET fd, int * actnum, int * perr);
+#define frame_tcp_nbzc_recv(frm, fd, num, err) frame_tcp_nbzc_recv_dbg(frm, fd, num, err, __FILE__, __LINE__)
+int frame_tcp_nbzc_recv_dbg (frame_p frm, SOCKET fd, int * actnum, int * perr, char * file, int line);
 
 int     frame_tcp_nb_recv (frame_p frm, SOCKET fd, int * actnum, int * perr);
 int     frame_tcp_nb_send (frame_p frm, SOCKET fd, int * actnum);

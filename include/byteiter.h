@@ -1,10 +1,35 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _BYTE_ITER_H_
 #define _BYTE_ITER_H_
+
 
 typedef struct byte_iter_ {
 
@@ -63,10 +88,10 @@ int iter_set_uint64BE (ByteIter * iter, uint64 val);
 int iter_set_uint64LE (ByteIter * iter, uint64 val);
 
 
-/* skip to next, once any char of the given char array is encountered, stop skipping*/
+/* Skip to the next. Stop skipping as soon as any char of a given char array is encountered. */
 int iter_skipTo (ByteIter * iter, uint8 * chs, int charnum);
 
-/* skip to next, once any char of the given char array is not encountered, stop skipping*/
+/* Skip to the next, and stop skipping once no characters of the given character array are encountered */
 int iter_skipOver (ByteIter * iter, uint8 * chs, int charnum);
 
 int iter_skipTo_bytes (ByteIter * iter, char * pat, int patlen);

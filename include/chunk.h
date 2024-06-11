@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _CHUNK_H_
 #define _CHUNK_H_ 
@@ -23,10 +47,11 @@ typedef int ProcessNotify (void * msg, void * para, uint64 cbval, int64 offset, 
 #define CKT_CHAR_ARRAY  1
 #define CKT_BUFFER      2
 #define CKT_BUFFER_PTR  3
-#define CKT_FILE_NAME   4
-#define CKT_FILE_PTR    5
-#define CKT_FILE_DESC   6
-#define CKT_CALLBACK    7
+#define CKT_MPOOL_BUF   4
+#define CKT_FILE_NAME   5
+#define CKT_FILE_PTR    6
+#define CKT_FILE_DESC   7
+#define CKT_CALLBACK    8
 
 
 typedef struct chunk_entity {
@@ -53,6 +78,11 @@ typedef struct chunk_entity {
             void     * porig;
             CKEFree  * freefunc;
         } bufptr;
+
+        struct {
+            void     * pbyte;
+            void     * mpool;
+        } mpbuf;
 
         struct {
 #if defined(_WIN32) || defined(_WIN64)
@@ -112,15 +142,13 @@ typedef struct chunk_entity {
     } u;
 } ckent_t, *ckent_p;
 
-void   chunk_entity_free (void * pent);
+void   chunk_entity_free (void * ck, void * pent);
 
 int    size_hex_len (int64 size);
 
 
 typedef struct chunk_ {
     arr_t         * entity_list;
-
-    arr_t         * tail_entity_list;
 
     /* HTTP Chunk format as following:
      * 24E5CRLF            #chunk-sizeCRLF  (first chunk begin)
@@ -133,8 +161,12 @@ typedef struct chunk_ {
      * .....               #one more HTTP headers with trailing CRLF
      * CRLF
      */
-    uint8           httpchunk;
-    int64           rmchunklen;   //total length of removed entities
+    uint8           httpchunk   : 4;
+    uint8           alloctype   : 4; //0-default kalloc/kfree 1-os-specific malloc/free 2-kmempool alloc/free 3-kmemblk alloc/free
+
+    void          * mpool;  //kemalloc pool
+
+    int64           rmchunklen;      //total length of removed entities
     int64           chunksize;
     int64           chunkendsize;
 
@@ -157,6 +189,7 @@ typedef struct chunk_ {
 
 } chunk_t, *chunk_p;
 
+void * chunk_alloc (int buflen, int alloctype, void * mpool);
 void * chunk_new   (int buflen);
 void   chunk_free  (void * vck);
 
@@ -185,8 +218,9 @@ int    chunk_attr  (void * vck, int index, int * cktype, int64 * plen);
 
 int64  chunk_read         (void * vck, void * pbuf, int64 offset, int64 length, int httpchunk);
 int64  chunk_read_ptr     (void * vck, int64 pos, int64 len, void ** ppb, int64 * pblen, int httpchunk);
-int64  chunk_readto_frame (void * vck, frame_p frm, int64 offset, int64 length, int httpchunk);
-int64  chunk_readto_file  (void * vck, int fd, int64 offset, int64 length, int httpchunk);
+int64  chunk_write_frame  (void * vck, frame_p frm, int64 offset, int64 length, int httpchunk);
+int64  chunk_write_framep (void * vck, frame_p * pfrm, int64 offset, int64 length, int httpchunk);
+int64  chunk_write_file   (void * vck, int fd, int64 offset, int64 length, int httpchunk);
 
 int    chunk_go_ahead (void * vck, void * msg, int64 offset, int64 step);
 
@@ -209,6 +243,8 @@ int64  chunk_append_file  (void * vck, char * fname, int64 packsize);
 int    chunk_add_filefp   (void * vck, FILE * fp, int64 offset, int64 length);
 int    chunk_add_filefd   (void * vck, int fd, int64 offset, int64 length);
 
+int    chunk_remove_file (void * vck);
+
 int    chunk_add_cbdata (void * vck, void * fetchfunc, void * fetchobj, int64 offset, int64 length,
                          void * movefunc, void * movepara, void * cleanfunc, void * cleanobj);
 
@@ -216,6 +252,7 @@ int    chunk_add_process_notify (void * vck, void * movefunc, void * movepara, u
 
 int    chunk_remove (void * vck, int64 pos, int httpchunk);
 
+int    chunk_copy (void * vsrc, void * vdst, void * porig, void * freefunc);
 
 typedef struct {
     uint8         vectype;  //0-unknown  1-mem buffer  2-file
@@ -241,7 +278,7 @@ int    chunk_vec_get (void * vck, int64 pos, chunk_vec_t * pvec, int httpchunk);
 
 int    chunk_writev (void * vck, int fd, int64 offset, int64 * actnum, int httpchunk);
 
-/* access the content of chunk for getting char at offset, pattern matching etc */
+/* access the contents of the chunk by specifying an offset or using pattern matching */
 
 typedef struct ckpos_vec {
     uint8    * pbyte;
@@ -264,9 +301,9 @@ int64  chunk_rskip_over(void * vck, int64 pos, int64 skiplimit, void * vpat, int
 int64  chunk_skip_quote_to(void * vck, int64 pos, int64 skiplimit, void * vpat, int patlen);
 int64  chunk_skip_esc_to  (void * vck, int64 pos, int64 skiplimit, void * vpat, int patlen);
 
-int64  sun_find_chunk (void * vck, int64 pos, void * pattern, int patlen, void * pvec, int * pind);
-int64  bm_find_chunk  (void * vck, int64 pos, void * pattern, int patlen, void * pvec, int * pind);
-int64  kmp_find_chunk (void * vck, int64 pos, void * pattern, int patlen, void * pvec, int * pind);
+int64  chunk_sun_find_bytes (void * vck, int64 pos, void * pattern, int patlen, void * pvec, int * pind);
+int64  chunk_bm_find_bytes (void * vck, int64 pos, void * pattern, int patlen, void * pvec, int * pind);
+int64  chunk_kmp_find_bytes (void * vck, int64 pos, void * pattern, int patlen, void * pvec, int * pind);
 
 void   chunk_print (void * vck, FILE * fp);
 

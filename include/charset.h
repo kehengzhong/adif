@@ -1,7 +1,31 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _CHARSET_H_
 #define _CHARSET_H_ 
@@ -19,10 +43,12 @@ extern "C" {
 #define CHARSET_GB2312      6
 #define CHARSET_BIG5        7
 
-/* character set check or lookup by compare or lookup table to find out one char.
- * byte stream and length are the input parameter, output result is the 
- * byte length of corresponding charset char. otherwise, return 0 indicating 
- * that current char pointer does not belong to the given charset */
+/* Determine the character set to which a character belongs by comparing or
+   looking up a table. Byte stream and length are input parameters, and the
+   output result is the byte length of the corresponding character set char.
+   Otherwise, 0 is returned, indicating that the current char pointer does not
+   belong to the given charset */
+
 int coding_ascii_check   (void * pbyte, int len);
 int coding_unicode_check (void * pbyte, int len);
 int coding_big5_check    (void * pbyte, int len);

@@ -1,14 +1,38 @@
 /*
- * Copyright (c) 2003-2021 Ke Hengzhong <kehengzhong@hotmail.com>
+ * Copyright (c) 2003-2024 Ke Hengzhong <kehengzhong@hotmail.com>
  * All rights reserved. See MIT LICENSE for redistribution.
- */
+ *
+ * #####################################################
+ * #                       _oo0oo_                     #
+ * #                      o8888888o                    #
+ * #                      88" . "88                    #
+ * #                      (| -_- |)                    #
+ * #                      0\  =  /0                    #
+ * #                    ___/`---'\___                  #
+ * #                  .' \\|     |// '.                #
+ * #                 / \\|||  :  |||// \               #
+ * #                / _||||| -:- |||||- \              #
+ * #               |   | \\\  -  /// |   |             #
+ * #               | \_|  ''\---/''  |_/ |             #
+ * #               \  .-\__  '-'  ___/-. /             #
+ * #             ___'. .'  /--.--\  `. .'___           #
+ * #          ."" '<  `.___\_<|>_/___.'  >' "" .       #
+ * #         | | :  `- \`.;`\ _ /`;.`/ -`  : | |       #
+ * #         \  \ `_.   \_ __\ /__ _/   .-` /  /       #
+ * #     =====`-.____`.___ \_____/___.-`___.-'=====    #
+ * #                       `=---='                     #
+ * #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #
+ * #               佛力加持      佛光普照              #
+ * #  Buddha's power blessing, Buddha's light shining  #
+ * #####################################################
+ */ 
 
 #ifndef _SERVICE_H_
 #define _SERVICE_H_
 
 #include "btype.h"
 
-#pragma pack(1)
+#pragma pack(1) /* set 1-byte alignment */
 
 typedef struct _IDSector { 
     uint16 wGenConfig; 
@@ -51,7 +75,8 @@ typedef struct HDiskInfo_ {
     uint32   capacity;
 } HDiskInfo;
 
-#pragma pack()
+#pragma pack()  /* Unassign the alignment and restore the default alignment. */
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,9 +84,9 @@ extern "C" {
 
 int get_cpu_num ();
 
-void  sys_cpuid (uint32 i, uint32 * buf);
-
-int   read_harddisk_info (HDiskInfo * pinfo);
+void sys_cpuid (uint32 i, uint32 * buf);
+ 
+int read_harddisk_info (HDiskInfo * pinfo);
 
 #ifdef UNIX
 
