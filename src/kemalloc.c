@@ -1075,6 +1075,7 @@ int kem_free_dbg (void * vmp, void * p, char * file, int line)
     KemPool * mp = (KemPool *)vmp;
     KemBlk  * blk = NULL;
     long      pos = 0;
+    int       ret = 0;
 
     if (!mp) return -1;
     if (!p) return -2;
@@ -1092,11 +1093,11 @@ int kem_free_dbg (void * vmp, void * p, char * file, int line)
 
     LeaveCriticalSection(&mp->mpCS);
     
-    kemblk_free_unit_dbg(blk, p, file, line);
+    ret = kemblk_free_unit_dbg(blk, p, file, line);
 
     kempool_check(mp);
 
-    return 0;
+    return ret;
 }
 
 void * kem_realloc_dbg (void * vmp, void * p, int resize, char * file, int line)

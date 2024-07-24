@@ -352,6 +352,45 @@ int ssl_tcp_handshake (void * vssltcp, int * perr)
     return 0;
 }
 
+/* When SSL handshake is completed, the peer's certificate can be verified as needed.
+ * when verify is ok, retuan value will be greater than 0,
+ * when the conditions required for verifying are not available, 0 is returned.
+ * when errors occur, a negative value is returned.
+ */
+int ssl_tcp_verify (void * vssltcp, char * peername)
+{
+    ssl_tcp_t * ssltcp = (ssl_tcp_t *)vssltcp;
+    X509      * peer = NULL;
+    char        peer_CN[256] = {0};
+
+    if (!ssltcp) return -1;
+
+    if (!ssltcp->ssllink) return 1;
+    if (!ssltcp->handshaked) return 0;
+
+    /* verify peer certificate */
+    if (SSL_get_verify_result(ssltcp->ssl) != X509_V_OK) {
+        return -100;
+    }
+
+    /*Check the cert chain. The chain length is automatically checked by OpenSSL when
+      we set the verify depth in the ctx */
+
+    /*Check the common name*/
+    if (peername) {
+        peer = SSL_get_peer_certificate(ssltcp->ssl);
+        if (!peer) return -101;
+
+        X509_NAME_get_text_by_NID(X509_get_subject_name(peer), NID_commonName, peer_CN, 256);
+
+        if (strcasecmp(peer_CN, peername) != 0) {
+            return -110;
+        }
+    }
+
+    return 1;
+}
+
 int ssl_tcp_close (void * vssltcp)
 {
     ssl_tcp_t * ssltcp = (ssl_tcp_t *)vssltcp;

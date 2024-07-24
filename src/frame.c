@@ -593,7 +593,9 @@ void frame_put_firstp (frame_p * pfrm, int byte)
 
 void frame_put_nfirst (frame_p frm, void * bytes, int n)
 {
-    if (!frm || !bytes || n <= 0) return;
+    if (!frm || !bytes) return;
+    if (n < 0) n = str_len(bytes);
+    if (n <= 0) return;
 
     if (frm->data == NULL) {
         frm->size = n + DEFAULT_SIZE - (n % DEFAULT_SIZE);
@@ -616,7 +618,9 @@ void frame_put_nfirstp (frame_p * pfrm, void * bytes, int n)
 {
     frame_p frm = NULL;
 
-    if (!pfrm || !bytes || n <= 0) return;
+    if (!pfrm || !bytes) return;
+    if (n < 0) n = str_len(bytes);
+    if (n <= 0) return;
 
     frm = *pfrm;
     if (frm == NULL) {
@@ -654,7 +658,7 @@ void frame_put_lastp (frame_p * pfrm, int byte)
 
     frm = *pfrm;
     if (frm == NULL) {
-        frm = *pfrm = frame_new(128);
+        frm = *pfrm = frame_new(0);
     }
 
     frame_put_last(frm, byte);
@@ -662,7 +666,9 @@ void frame_put_lastp (frame_p * pfrm, int byte)
 
 void frame_put_nlast_dbg (frame_p frm, void * bytes, int n, char * file, int line)
 {
-    if (!frm || !bytes || n <= 0) return;
+    if (!frm || !bytes) return;
+    if (n < 0) n = str_len(bytes);
+    if (n <= 0) return;
 
     if (frm->data == NULL) {
         frm->size = n + DEFAULT_SIZE - (n % DEFAULT_SIZE);
@@ -684,7 +690,9 @@ void frame_put_nlastp (frame_p * pfrm, void * bytes, int n)
 {
     frame_p frm = NULL;
 
-    if (!pfrm || !bytes || n <= 0) return;
+    if (!pfrm || !bytes) return;
+    if (n < 0) n = str_len(bytes);
+    if (n <= 0) return;
 
     frm = *pfrm;
     if (frm == NULL) {
@@ -722,7 +730,9 @@ void frame_put (frame_p frm, int pos, int byte)
 
 void frame_putn (frame_p frm, int pos, void * bytes, int n)
 {
-    if (!frm || !bytes || pos < 0 || n <= 0) return;
+    if (!frm || !bytes || pos < 0) return;
+    if (n < 0) n = str_len(bytes);
+    if (n <= 0) return;
 
     if (pos == 0) {
         frame_put_nfirst(frm, bytes, n);
@@ -759,8 +769,9 @@ void frame_setn (frame_p frm, int pos, void * bytes, int n)
     if (!frm || frm->len <= 0 || pos < 0 || pos >= frm->len)
         return;
 
-    if (!bytes || n <= 0)
-        return;
+    if (!bytes) return;
+    if (n < 0) n = str_len(bytes);
+    if (n <= 0) return;
 
     if (pos + n > frm->len) n = frm->len - pos;
 
@@ -1057,11 +1068,11 @@ int frame_search (frame_p frm, int pos, int len, void * pattern, int patlen, int
     if (len < 0) len = frm->len - pos;
     if (len > frm->len - pos) len = frm->len - pos;
 
-    if (!pat || patlen <= 0)
-        return -2;
+    if (!pat) return -2;
+    if (patlen < 0) patlen = str_len(pat);
+    if (patlen <= 0) return -3;
 
-    if (pos + patlen > len) 
-        return -3;
+    if (pos + patlen > len) return -4;
 
     if (reverse) {
         if (patlen == 1)
@@ -1093,11 +1104,11 @@ int frame_search_replace (frame_p frm, int pos, int len, void * pattern, int pat
     if (len < 0) len = frm->len - pos;
     if (len > frm->len - pos) len = frm->len - pos;
 
-    if (!pat || patlen <= 0 || bytelen < 0)
-        return -2;
+    if (!pat || bytelen < 0) return -2;
+    if (patlen < 0) patlen = str_len(pat);
+    if (patlen <= 0) return -3;
 
-    if (pos + patlen > len) 
-        return -2;
+    if (pos + patlen > len) return -4;
 
     if (backward == 0) {
         for (findpos = pos; findpos + patlen <= len; ) {
