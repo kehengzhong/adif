@@ -62,6 +62,7 @@ int    ssl_servername_select (SSL * ssl, int * ad, void * arg);
 
 void * ssl_tcp_bind      (SOCKET fd, int ssllink, void * vctx, int contype);
 int    ssl_tcp_handshake (void * vssltcp, int * perr);
+int    ssl_tcp_verify    (void * vssltcp, char * peername);
 int    ssl_tcp_close     (void * vssltcp);
 int    ssl_tcp_unbind    (void * vssltcp);
 
