@@ -1,0 +1,61 @@
+
+./patmat "file descriptor" tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt
+pattern algorithm comparing:
+     shift-and time: 121ms
+           kmp time: 8ms
+    boyer-more time: 5ms
+       str_str time: 71ms
+   str_rk_find time: 211ms
+      str_str2 time: 16ms
+        sunday time: 3ms
+reverse sunday time: 4ms
+
+
+./patmat specified tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt tmp/fcntl.txt tmp/mmap.txt tmp/open.txt
+
+pattern algorithm comparing:
+     shift-and time: 122ms
+           kmp time: 10ms
+    boyer-more time: 4ms
+       str_str time: 70ms
+   str_rk_find time: 207ms
+      str_str2 time: 16ms
+        sunday time: 4ms
+reverse sunday time: 5ms
+
+
+./patmat "file descriptor" tmp/open.txt tmp/mmap.txt tmp/fcntl.txt
+
+pattern algorithm comparing:
+   shift-and time: 18ms
+         kmp time: 1ms
+  boyer-more time: 0ms
+     str_str time: 11ms
+ str_rk_find time: 31ms
+    str_str2 time: 3ms
+      sunday time: 1ms
+
+
+./patmat "The requested access to the file is not allowed" tmp/open.txt tmp/mmap.txt tmp/fcntl.txt 
+
+pattern algorithm comparing:
+   shift-and time: 19ms
+         kmp time: 2ms
+  boyer-more time: 0ms
+     str_str time: 10ms
+ str_rk_find time: 30ms
+    str_str2 time: 4ms
+      sunday time: 0ms
+
+
+./patmat "file" tmp/open.txt tmp/mmap.txt tmp/fcntl.txt
+
+pattern algorithm comparing:
+   shift-and time: 21ms
+         kmp time: 3ms
+  boyer-more time: 1ms
+     str_str time: 8ms
+ str_rk_find time: 32ms
+    str_str2 time: 1ms
+      sunday time: 0ms
+
