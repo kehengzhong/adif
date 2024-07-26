@@ -19,6 +19,7 @@ PKGPATH := $(shell basename `/bin/pwd`)
 
 adif_inc = $(ROOT)/include
 adif_src = $(ROOT)/src
+adif_sample = $(ROOT)/sample
 
 inc = $(ROOT)/include
 obj = $(ROOT)/obj
@@ -47,7 +48,7 @@ CC = gcc
 
 IFLAGS = -I$(adif_inc)
 
-CFLAGS = -Wall -O3 -fPIC
+CFLAGS = -Wall -fPIC
 LFLAGS = -L/usr/lib
 LIBS = -lnsl -lm -lz -lpthread
 SOFLAGS = $(LD_SONAME)
@@ -55,6 +56,8 @@ SOFLAGS = $(LD_SONAME)
 ifeq ($(MAKECMDGOALS), debug)
   DEFS += -D_DEBUG
   CFLAGS += -g
+else
+  CFLAGS += -O3
 endif
 
 ifeq ($(MAKECMDGOALS), so)
@@ -143,11 +146,14 @@ objs = $(patsubst $(adif_src)/%.c,$(obj)/%.o,$(sources))
 .PHONY: all clean debug show cleanlib
 
 all: $(alib) $(solib)
+	@(if cd $(adif_sample);then $(MAKE) $@;fi)
 so: $(solib)
 debug: $(alib) $(solib)
+	@(if cd $(adif_sample);then $(MAKE) $@;fi)
 clean: 
 	$(RM) $(objs)
 	$(RM) -r $(obj)
+	@(if cd $(adif_sample);then $(MAKE) $@;fi)
 cleanlib: 
 	@cd $(dst) && $(RM) $(PKG_A_LIB)
 	@cd $(dst) && $(RM) $(PKG_SO_LIB)
@@ -160,7 +166,7 @@ show:
 dist: $(cnfs) $(sources)
 	cd $(ROOT)/.. && tar czvf $(PKGNAME)-$(PKG_VER).tar.gz $(PKGPATH)/src \
 	    $(PKGPATH)/include $(PKGPATH)/lib $(PKGPATH)/Makefile $(PKGPATH)/README.md \
-	    $(PKGPATH)/LICENSE $(PKGPATH)/$(PKGNAME).*
+	    $(PKGPATH)/sample $(PKGPATH)/LICENSE $(PKGPATH)/$(PKGNAME).*
 
 install: $(alib) $(solib)
 	mkdir -p $(INSTALL_INC_PATH) $(INSTALL_LIB_PATH)
