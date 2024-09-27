@@ -137,6 +137,7 @@ int    json_get     (void * vobj, void * key, int keylen, int ind, void * val, i
 int    json_getP    (void * vobj, void * key, int keylen, int ind, void * pval, int * vallen);
 int    json_get_obj (void * vobj, void * key, int keylen, int ind, void ** pobj);
 
+int    json_get_bool   (void * vobj, void * key, int keylen, int ind, uint8 * val);
 int    json_get_int8   (void * vobj, void * key, int keylen, int ind, int8 * val);
 int    json_get_uint8  (void * vobj, void * key, int keylen, int ind, uint8 * val);
 int    json_get_int16  (void * vobj, void * key, int keylen, int ind, int16 * val);

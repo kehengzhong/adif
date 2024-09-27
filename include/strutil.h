@@ -107,8 +107,10 @@ int str_uint2mbi (uint32 value, void * p);
 int str_atoi (void * p, int len, int * pval);
 int str_atol (void * p, int len, long * pval);
 int str_atoll (void * p, int len, int64 * pval);
-int str_hextoi (void * p, int len, int * pval);
 int str_atou (void * p, int len, uint32 * pval);
+int str_atoul (void * p, int len, ulong * pval);
+int str_atoull (void * p, int len, uint64 * pval);
+int str_hextoi (void * p, int len, int * pval);
 int str_hextou (void * p, int len, uint32 * pval);
  
 /* convert string to integer, base 10 or 16, decimal or heximal */
@@ -234,6 +236,80 @@ int conv_charset (void * srcchst, void * dstchst,
                   void * orig, int origlen,
                   void * dest, int * destlen);
  
+/* formatted output conversion functions 
+   supported formats as following:
+    %[flags][width][.precision][length]specifier
+
+  5 Flags: The character % is followed by zero or more of the following flags:
+     #  For o,x,X conversion, output string of non-zero result is prepended 0 or 0x or 0X.
+        For a,A,e,E,f,F,g,G conversions, the result will always contain a decimal point,
+        even if no digits follow it.
+        For g,G conversions, trailing zeros are not removed from the result
+     0  For d,i,o,u,x,X,a,A,e,E,f,F,g,G conversions, the converted value is padded on the
+        left with zeros rather than blanks. If the 0 and - flags both appear, the 0 flag
+        is ignored. If a precision is given with a numeric conversion (d,i,o,u,x,and X), 
+        the 0 flag is ignored.
+     -  The  converted  value is to be left adjusted on the field boundary.
+    ' ' (a space) A blank should be  left  before  a  positive  number.
+     +  A sign (+ or -) should be placed before a number produced by a signed conversion.
+
+  The Width field:
+    number  It specifies a minimum field width. The value of fewer characters is padded
+            with spaces on the left or right.
+    *       The width is given in the next argument.
+
+  The precision:
+    .number It is in the form of a period '.' followed by decimal digit string or *. 
+    .*      If * is followed, the precision is given in the next argument.
+            For d,i,o,u,x,X conversions, the minimum number of digits is to be appeared.
+            For a,A,e,E,f,F conversions, the number of digits is appeared after the radix
+            character
+            For g,G conversion, the maximum number of significant digits is appeared.
+            For s,S conversion, the maximum number of characters are printed from string.
+
+  The Length field:
+    h   Integer conversion corresponds to a short int or unsigned short int argument
+    l   (ell)Integer conversion corresponds to a long int or unsigned long int argument
+    ll  Integer conversion corresponds to a long long int or unsigned long long int argument
+    L   A following a,A,e,E,f,F,g,G conversion corresponds to a long double argument
+
+  The conversion specifier:
+    c        the int argument is converted to an unsigned char
+    d,i      The int argument is converted to signed decimal notation
+    o,u,x,X  The unsigned int argument is converted to unsigned octal(o), unsigned
+             decimal(u), or unsigned hexadecimal (x and X) notation
+    e,E      The double argument is rounded and converted in the style [-]d.ddde±dd
+             where there is one digit before the decimal-point character and the number
+             of digits after it is equal to the precision; if the precision is missing,
+             it is taken as 6; if the precision is  zero, no decimal-point  character
+             appears. An E conversion uses the letter E (rather than e) to introduce
+             the exponent. The exponent always contains at least two  digits; if the
+             value is zero, the exponent is 00.
+    f,F      The double argument is rounded and converted to decimal notation in the
+             style [-]ddd.ddd, where the number of digits after the decimal-point char-
+             acter is equal to the precision specification. If the precision is miss-
+             ing, it is taken as 6; if the precision is explicitly  zero,  no  decimal-
+             point  character  appears. If a decimal point appears, at least one digit
+             appears before it.
+    g,G      The double argument is converted in style f,e (or F,E,G  convesions).
+             The precision specifies the number of significant digits.If the precision
+             is missing, 6 digits are given; if the precision is zero, it is treated as
+             1. Style e is used if the exponent from its conversion is less than -4 or
+             greater than or equal to the  precision.   Trailing  zeros  are removed
+             from the fractional part of the result; a decimal point appears only if it
+             is followed by at least one digit.
+    s        The char * argument is expected to be a pointer to a string
+    p        The void * pointer argument is printed in hexadecimal
+    %        A '%' is written
+    V        The ckstr_t * argument is printed as string
+    W        The frame_t * argument is printed as string.
+ */
+
+int kprintf (char * fmt, ...);
+int kfprintf (FILE * fp, char * fmt, ...);
+int ksprintf (void * buf, char * fmt, ...);
+int ksnprintf (void * buf, int len, char * fmt, ...);
+
 #ifdef __cplusplus
 }
 #endif
