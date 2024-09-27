@@ -1003,6 +1003,28 @@ int json_get_obj (void * vobj, void * key, int keylen, int index, void ** pobj)
     return ret;
 }
 
+int json_get_bool (void * jobj, void * key, int keylen, int index, uint8 * val)
+{
+    char * value = NULL;
+    int    valuelen = 0;
+    int    ret = 0;
+
+    if (val) *val = 0;
+
+    ret = json_getP(jobj, key, keylen, index, (void **)&value, &valuelen);
+    if (ret > 0 && value && valuelen > 0) {
+        if (valuelen > 0 && value[0] > '0' && value[0] < '9') {
+            if (atoi(value) != 0 && val) *val = 1;
+        } else if ( (valuelen == 2 && strcasecmp(value, "on") == 0) ||
+                    (valuelen == 3 && strcasecmp(value, "yes") == 0) ||
+                    (valuelen == 4 && strcasecmp(value, "true") == 0))
+        {
+            if (val) *val = 1;
+        }
+    }
+
+    return ret;
+}
  
 int json_get_int8 (void * vobj, void * key, int keylen, int index, int8 * val)
 {

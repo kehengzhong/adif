@@ -27,11 +27,13 @@
  * #####################################################
  */ 
 
+#include <stdarg.h>
 #include "btype.h"
 #include "strutil.h"
 #include "memory.h"
 #include "patmat.h"
 #include "btime.h"
+#include "frame.h"
 
 #ifdef UNIX
 #include <iconv.h>
@@ -676,6 +678,63 @@ int str_atoll (void * p, int len, int64 * pval)
     return i;
 }
 
+int str_atou (void * p, int len, uint32 * pval)
+{
+    uint8  * pbyte = (uint8 *)p;
+    int      i;
+    uint32   val = 0;
+
+    if (!p || len <= 0) return 0;
+
+    for (val = 0, i = 0; i < len; i++) {
+        if (pbyte[i] >= '0' && pbyte[i] <= '9')
+            val = val * 10 + (pbyte[i] - '0');
+        else
+            break;
+    }
+
+    if (pval) *pval = val;
+    return i;
+}
+
+int str_atoul (void * p, int len, ulong * pval)
+{
+    uint8  * pbyte = (uint8 *)p;
+    int      i;
+    ulong    val = 0;
+
+    if (!p || len <= 0) return 0;
+
+    for (val = 0, i = 0; i < len; i++) {
+        if (pbyte[i] >= '0' && pbyte[i] <= '9')
+            val = val * 10 + (pbyte[i] - '0');
+        else
+            break;
+    }
+
+    if (pval) *pval = val;
+    return i;
+}
+
+int str_atoull (void * p, int len, uint64 * pval)
+{
+    uint8  * pbyte = (uint8 *)p;
+    int      i;
+    uint64   val = 0;
+
+    if (!p || len <= 0) return 0;
+
+    for (val = 0, i = 0; i < len; i++) {
+        if (pbyte[i] >= '0' && pbyte[i] <= '9')
+            val = val * 10 + (pbyte[i] - '0');
+        else
+            break;
+    }
+
+    if (pval) *pval = val;
+    return i;
+}
+
 int str_hextoi (void * p, int len, int * pval)
 {
     uint8  * pbyte = (uint8 *)p;
@@ -701,25 +760,6 @@ int str_hextoi (void * p, int len, int * pval)
     }
 
     val *= valsign;
-
-    if (pval) *pval = val;
-    return i;
-}
-
-int str_atou (void * p, int len, uint32 * pval)
-{
-    uint8  * pbyte = (uint8 *)p;
-    int      i;
-    uint32   val = 0;
-
-    if (!p || len <= 0) return 0;
-
-    for (val = 0, i = 0; i < len; i++) {
-        if (pbyte[i] >= '0' && pbyte[i] <= '9')
-            val = val * 10 + (pbyte[i] - '0');
-        else
-            break;
-    }
 
     if (pval) *pval = val;
     return i;
@@ -2897,4 +2937,582 @@ int conv_charset (void * srcst, void * dstst,
 }
 
 #endif
+
+
+/* supported formats as following:
+    %[flags][width][.precision][length]specifier
+
+  5 Flags: The character % is followed by zero or more of the following flags:
+     #  For o,x,X conversion, output string of non-zero result is prepended 0 or 0x or 0X.
+        For a,A,e,E,f,F,g,G conversions, the result will always contain a decimal point,
+        even if no digits follow it.
+        For g,G conversions, trailing zeros are not removed from the result
+     0  For d,i,o,u,x,X,a,A,e,E,f,F,g,G conversions, the converted value is padded on the
+        left with zeros rather than blanks. If the 0 and - flags both appear, the 0 flag
+        is ignored. If a precision is given with a numeric conversion (d,i,o,u,x,and X), 
+        the 0 flag is ignored.
+     -  The  converted  value is to be left adjusted on the field boundary.
+    ' ' (a space) A blank should be  left  before  a  positive  number.
+     +  A sign (+ or -) should be placed before a number produced by a signed conversion.
+
+  The Width field:
+    number  It specifies a minimum field width. The value of fewer characters is padded
+            with spaces on the left or right.
+    *       The width is given in the next argument.
+
+  The precision:
+    .number It is in the form of a period '.' followed by decimal digit string or *. 
+    .*      If * is followed, the precision is given in the next argument.
+            For d,i,o,u,x,X conversions, the minimum number of digits is to be appeared.
+            For a,A,e,E,f,F conversions, the number of digits is appeared after the radix
+            character
+            For g,G conversion, the maximum number of significant digits is appeared.
+            For s,S conversion, the maximum number of characters are printed from string.
+
+  The Length field:
+    h   Integer conversion corresponds to a short int or unsigned short int argument
+    l   (ell)Integer conversion corresponds to a long int or unsigned long int argument
+    ll  Integer conversion corresponds to a long long int or unsigned long long int argument
+    L   A following a,A,e,E,f,F,g,G conversion corresponds to a long double argument
+
+  The conversion specifier:
+    c        the int argument is converted to an unsigned char
+    d,i      The int argument is converted to signed decimal notation
+    o,u,x,X  The unsigned int argument is converted to unsigned octal(o), unsigned
+             decimal(u), or unsigned hexadecimal (x and X) notation
+    e,E      The double argument is rounded and converted in the style [-]d.ddde±dd
+             where there is one digit before the decimal-point character and the number
+             of digits after it is equal to the precision; if the precision is missing,
+             it is taken as 6; if the precision is  zero, no decimal-point  character
+             appears. An E conversion uses the letter E (rather than e) to introduce
+             the exponent. The exponent always contains at least two  digits; if the
+             value is zero, the exponent is 00.
+    f,F      The double argument is rounded and converted to decimal notation in the
+             style [-]ddd.ddd, where the number of digits after the decimal-point char-
+             acter is equal to the precision specification. If the precision is miss-
+             ing, it is taken as 6; if the precision is explicitly  zero,  no  decimal-
+             point  character  appears. If a decimal point appears, at least one digit
+             appears before it.
+    g,G      The double argument is converted in style f,e (or F,E,G  convesions).
+             The precision specifies the number of significant digits.If the precision
+             is missing, 6 digits are given; if the precision is zero, it is treated as
+             1. Style e is used if the exponent from its conversion is less than -4 or
+             greater than or equal to the  precision.   Trailing  zeros  are removed
+             from the fractional part of the result; a decimal point appears only if it
+             is followed by at least one digit.
+    s        The char * argument is expected to be a pointer to a string
+    p        The void * pointer argument is printed in hexadecimal
+    %        A '%' is written
+    V        The ckstr_t * argument is printed as string
+    W        The frame_t * argument is printed as string.
+ */
+
+int fmt_mem_cpy (uint8 * pdst, int dstlen, uint8 * psrc, int srclen, int width, int leftalg)
+{
+    int i, ret = 0;
+
+    if (!pdst) return 0;
+    if (!psrc || srclen <= 0) return 0;
+
+    if (leftalg) {
+        ret += str_secpy(pdst, dstlen, psrc, srclen);
+        for (i = srclen; ret < dstlen && i < width; i++) {
+            pdst[ret++] = ' ';
+        }
+    } else {
+        for (i = 0; ret < dstlen && i < width - srclen; i++) {
+            pdst[ret++] = ' ';
+        }
+        if (ret < dstlen)
+            ret += str_secpy(pdst + ret, dstlen - ret, psrc, srclen);
+    }
+
+    return ret;
+}
+
+int fmt_file_cpy (FILE * fp, uint8 * psrc, int srclen, int width, int leftalg)
+{
+    int i, ret = 0;
+    int ch = 32;
+
+    if (!fp) return 0;
+    if (!psrc || srclen <= 0) return 0;
+
+    if (leftalg) {
+        ret += fwrite(psrc, 1, srclen, fp);
+        if (srclen < width) {
+            for (i = srclen; i < width; i++) ret += fputc(ch, fp);
+            //ret += fwrite(" ", 1, width - srclen, fp);
+        }
+    } else {
+        if (srclen < width) {
+            for (i = srclen; i < width; i++) ret += fputc(ch, fp);
+            //ret += fwrite(" ", 1, width - srclen, fp);
+        }
+        ret += fwrite(psrc, 1, srclen, fp);
+    }
+
+    return ret;
+}
+
+int fmt_conv_numval (uint8 * buf, int len, uint64 val, uint8 dectype, uint8 ** ppval)
+{
+    static uint8 hex[] = "0123456789abcdef";
+    static uint8 HEX[] = "0123456789ABCDEF";
+    int num = 0;
+    uint8 * p = NULL;
+
+    if (ppval) *ppval = buf;
+
+    if (!buf || len < 32) return 0;
+
+    p = buf + len - 1; *p = '\0';
+
+
+    if (dectype == 1) { //octet
+        do {
+            *--p = (uint8)( (val & 0x07) + '0'); num++;
+        } while(val >>= 3);
+
+    } else if (dectype == 2) { //hex-lower case
+        do {
+            *--p = hex[(uint32)(val & 0x0F)]; num++;
+        } while(val >>= 4);
+
+    } else if (dectype == 3) { //hex-upper case
+        do {
+            *--p = HEX[(uint32)(val & 0x0F)]; num++;
+        } while(val >>= 4);
+
+    } else { //decimal
+        do {
+            *--p = (uint8)((val % 10) + '0'); num++;
+        } while(val /= 10);
+    }
+
+    if (ppval) *ppval = p;
+
+    return num;
+}
+
+
+int kvsnprintf (void * vdst, int dstlen, FILE * fp, void * vfmt, va_list ap)
+{
+    uint8   * pdst = (uint8 *)vdst;
+    uint8   * fmt = (uint8 *)vfmt;
+    uint8     flag = 0;
+    int       width = 0;
+    int       prec = 0;
+    uint8     lenfld = 0;
+    uint8     nega = 0;
+
+    int       ival = 0;
+    uint64    ulval = 0;
+    uint64    ulval2 = 0;
+    int64     lval = 0;
+    double    fval = 0.0;
+    int       expval = 0;
+    uint8     expnega = 0;
+
+    frame_p   frm = NULL;
+    ckstr_t * cks = NULL;
+    uint8   * ptr = NULL;
+    uint8     buf[256];
+    int       wlen = 0;
+    int       slen = 0;
+    uint8     dectype = 0;
+
+    int       wmlen = 0;
+    int       fplen = 0;
+
+    if (dstlen < 0) dstlen = 1024*1024*1024;
+    if (!fmt) return -1;
+
+    while (*fmt) {
+        if (pdst && !fp && dstlen >= wmlen) break;
+
+        if (*fmt != '%') {
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, fmt, 1, 1, 0);
+            fplen += fmt_file_cpy(fp, fmt, 1, 1, 0);
+
+            fmt++;
+            continue;
+        }
+        fmt++;
+
+        flag = 0; width = 0; prec = -1; lenfld = 0; nega = 0;
+        ival = ulval = lval = 0;
+
+        /* the flag field */
+        if (*fmt == '0') { flag = 1; fmt++; }
+        else if (*fmt == '-') { flag = 2; fmt++; }
+        else if (*fmt == '+') { flag = 3; fmt++; }
+        else if (*fmt == '#') { flag = 4; fmt++; }
+        else if (*fmt == ' ') { flag = 5; fmt++; }
+
+        /* the width field */
+        if (*fmt == '*') {
+            width = va_arg(ap, int);
+            fmt++;
+        } else {
+            while (*fmt >= '0' && *fmt <= '9') {
+                width = width * 10 + (*fmt++ - '0');
+            }
+        }
+
+        /* the precision field */
+        if (*fmt == '.') {
+            fmt++;
+            if (*fmt == '*') {
+                prec = va_arg(ap, int);
+                fmt++;
+            } else {
+                if (*fmt >= '0' && *fmt <= '9') {
+                    prec = 0;
+                    while (*fmt >= '0' && *fmt <= '9') {
+                        prec = prec * 10 + (*fmt++ - '0');
+                    }
+                }
+            }
+        }
+
+        /* the length field */
+        if (*fmt == 'h') { lenfld = 1; fmt++; }
+        else  if (*fmt == 'l') {
+            lenfld = 2; fmt++;
+            if (*fmt == 'l') { lenfld = 3; fmt++; }
+        } else if (*fmt == 'L') {
+            lenfld = 4; fmt++;
+        }
+
+        /* the conversion specified */
+        switch (*fmt) {
+        case 'W':   /* frame_p  */
+            fmt++;
+            frm = va_arg(ap, frame_p);
+            if (!frm) continue;
+
+            slen = wlen = frm->len;
+            ptr = (uint8 *)frameP(frm);
+
+            if (prec > 0) slen = min(prec, slen);
+            if (width > 0) wlen = max(width, wlen);
+
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, ptr, slen, wlen, flag == 2);
+            fplen += fmt_file_cpy(fp, ptr, slen, wlen, flag == 2);
+            continue;
+
+        case 'V':  /* ckstr_t *  */
+            fmt++;
+            cks = va_arg(ap, ckstr_t *);
+            if (!cks) continue;
+
+            slen = wlen = cks->len;
+            ptr = (uint8 *)cks->p;
+
+            if (prec > 0) slen = min(prec, slen);
+            if (width > 0) wlen = max(width, wlen);
+
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, ptr, slen, wlen, flag == 2);
+            fplen += fmt_file_cpy(fp, ptr, slen, wlen, flag == 2);
+            continue;
+
+        case 's':  /* char * */
+            fmt++;
+            ptr = va_arg(ap, uint8 *);
+            if (!ptr) continue;
+
+            slen = wlen = str_len(ptr);
+
+            if (prec > 0) {
+                slen = min(prec, slen);
+            }
+            wlen = max(width, slen);
+
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, ptr, slen, wlen, flag == 2);
+            fplen += fmt_file_cpy(fp, ptr, slen, wlen, flag == 2);
+            continue;
+
+        case 'c':
+            ival = va_arg(ap, int);
+            dectype = ival & 0xFF;
+
+            ptr = &dectype;
+            wlen = slen = 1;
+            if (width > 0) wlen = max(width, 1);
+
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, ptr, slen, wlen, flag == 2);
+            fplen += fmt_file_cpy(fp, ptr, slen, wlen, flag == 2);
+            fmt++;
+            continue;
+
+        case 'd':
+        case 'i':
+            fmt++;
+            if (lenfld == 1) lval = va_arg(ap, int);
+            else if (lenfld == 2) lval = va_arg(ap, long);
+            else if (lenfld == 3) lval = va_arg(ap, int64);
+            else lval = va_arg(ap, int);
+
+            if (lval < 0) ulval = -lval;
+            else ulval = lval;
+
+            slen = fmt_conv_numval(buf, sizeof(buf), ulval, 0, &ptr);
+            if (prec >= 0) { // precision field exist
+                while (slen < prec && ptr > buf) { *--ptr = '0'; slen++; }
+            } else { //precision field not exist
+                if (flag == 1) { // flag is 0
+                    if (lval < 0)
+                        while (slen < width - 1 && ptr > buf + 1) { *--ptr = '0'; slen++; }
+                    else
+                        while (slen < width && ptr > buf + 1) { *--ptr = '0'; slen++; }
+                }
+            }
+
+            if (lval < 0) { *--ptr = '-'; slen++; }
+            else if (flag == 3) { *--ptr = '+';  slen++; } //flag is +
+
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, ptr, slen, width, flag == 2);
+            fplen += fmt_file_cpy(fp, ptr, slen, width, flag == 2);
+            continue;
+
+        case 'u':
+        case 'o':
+        case 'x':
+        case 'X':
+            if (*fmt == 'o') dectype = 1;
+            else if (*fmt == 'x') dectype = 2;
+            else if (*fmt == 'X') dectype = 3;
+            else dectype = 0;
+
+            fmt++;
+
+            if (lenfld == 1) ulval = va_arg(ap, uint32);
+            else if (lenfld == 2) ulval = va_arg(ap, ulong);
+            else if (lenfld == 3) ulval = va_arg(ap, uint64);
+            else ulval = va_arg(ap, uint32);
+
+            slen = fmt_conv_numval(buf, sizeof(buf), ulval, dectype, &ptr);
+            if (prec >= 0) { // precision field exist
+                while (slen < prec && ptr > buf + 2) { *--ptr = '0'; slen++; }
+            } else { //precision field not exist
+                if (flag == 1) { // flag is 0
+                    while (slen < width && ptr > buf + 2) { *--ptr = '0'; slen++; }
+                }
+            }
+
+            if (flag == 4) {  //flag is #
+                if (dectype == 1) { *--ptr = '0'; slen++; }
+                else if (dectype == 2) { *--ptr = 'x'; *--ptr = '0'; slen += 2; }
+                else if (dectype == 3) { *--ptr = 'X'; *--ptr = '0'; slen += 2; }
+            }
+
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, ptr, slen, width, flag == 2);
+            fplen += fmt_file_cpy(fp, ptr, slen, width, flag == 2);
+            continue;
+
+        case 'p':
+            ulval = (uint64)va_arg(ap, void *);
+            fmt++;
+
+            slen = fmt_conv_numval(buf, sizeof(buf), ulval, 2, &ptr);
+            if (prec >= 0) { // precision field exist
+                while (slen < prec && ptr > buf + 3) { *--ptr = '0'; slen++; }
+            } else { //precision field not exist
+                if (flag == 1) { // flag is 0
+                    while (slen < width - 2 && ptr > buf + 3) { *--ptr = '0'; slen++; }
+                }
+            }
+
+            *--ptr = 'x'; *--ptr = '0'; slen += 2;
+
+            if (flag == 3) { *--ptr = '+';  slen++; } //flag is +
+            else if (flag == 5) { *--ptr = ' ';  slen++; } //flag is ' '
+
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, ptr, slen, width, flag == 2);
+            fplen += fmt_file_cpy(fp, ptr, slen, width, flag == 2);
+            continue;
+
+        case 'f':
+        case 'F':
+            fmt++;
+            fval = va_arg(ap, double);
+            if (prec < 0) prec = 6;
+
+            if (fval < 0) {
+                nega = 1; fval = -fval;
+            }
+
+            ulval = (uint64)fval;
+
+            if (prec > 0) {
+                uint64  scale = 1;
+
+                for (ival = 0; ival < prec; ival++) scale *= 10;
+                ulval2 = (uint64)( (fval - (double)ulval) * scale + 0.5);
+                if (ulval2 == scale) {
+                    ulval++; ulval2 = 0;
+                }
+            }
+
+            slen = fmt_conv_numval(buf, sizeof(buf), ulval2, 0, &ptr);
+            if (prec >= 0) { // precision field exist
+                while (slen < prec && ptr > buf + 3) { *--ptr = '0'; slen++; }
+            }
+            wlen = fmt_conv_numval(buf, ptr - buf, ulval, 0, &ptr);
+            *(ptr + wlen) = '.';
+            slen += wlen + 1;
+
+            if (flag == 1) { // flag is 0
+                if (nega)
+                    while (slen < width - 1 && ptr > buf + 1) { *--ptr = '0'; slen++; }
+                else
+                    while (slen < width && ptr > buf + 1) { *--ptr = '0'; slen++; }
+            }
+
+            if (nega) { *--ptr = '-'; slen++; }
+            else if (flag == 3) { *--ptr = '+';  slen++; } //flag is +
+
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, ptr, slen, width, flag == 2);
+            fplen += fmt_file_cpy(fp, ptr, slen, width, flag == 2);
+            continue;
+
+        case 'e':
+        case 'E':
+            fval = va_arg(ap, double);
+            if (prec < 0) prec = 6;
+
+            if (fval < 0) {
+                nega = 1; fval = -fval;
+            }
+
+            expval = 0;
+            expnega = 0;
+
+            if (fval >= 10.0) {
+                expnega = 0;
+                for (expval = 0; fval >= 10.0; expval++) fval /= 10.0;
+            } else if (fval < 1.0) {
+                expnega = 1;
+                for (expval = 0; fval < 1.0; expval++) fval *= 10.0;
+            }
+
+            ulval = (uint64)fval;
+
+            if (prec > 0) {
+                uint64  scale = 1;
+
+                for (ival = 0; ival < prec; ival++) scale *= 10;
+                ulval2 = (uint64)( ((long double)fval - (long double)ulval) * scale + 0.5);
+                if (ulval2 == scale) {
+                    ulval++; ulval2 = 0;
+                    if (ulval >= 10) {
+                        ulval /= 10;
+                        if (expnega) expval--;
+                        else expval++;
+                    }
+                }
+            }
+
+            slen = fmt_conv_numval(buf, sizeof(buf), (uint64)expval, 0, &ptr);
+            if (slen < 2) {
+                while (slen < 2 && ptr > buf + 3) { *--ptr = '0'; slen++; }
+            }
+            if (expnega > 0) { *--ptr = '-'; slen++; }  //1.2345667e-04
+            else { *--ptr = '+'; slen++; } //1.2345678e+04
+
+            wlen = fmt_conv_numval(buf, ptr - buf, ulval2, 0, &ptr); //2345678'\0'-04
+            if (prec >= 0) { // precision field exist
+                while (wlen < prec && ptr > buf + 3) { *--ptr = '0'; wlen++; }
+            }
+
+            *(ptr + wlen) = *fmt;  //e or E
+            slen += wlen + 1;
+
+            wlen = fmt_conv_numval(buf, ptr - buf, ulval, 0, &ptr);
+            *(ptr + wlen) = '.';
+            slen += wlen + 1;
+
+            if (flag == 1) { // flag is 0
+                if (nega)
+                    while (slen < width - 1 && ptr > buf + 1) { *--ptr = '0'; slen++; }
+                else
+                    while (slen < width && ptr > buf + 1) { *--ptr = '0'; slen++; }
+            }
+
+            if (nega) { *--ptr = '-'; slen++; }
+            else if (flag == 3) { *--ptr = '+';  slen++; } //flag is +
+
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, ptr, slen, width, flag == 2);
+            fplen += fmt_file_cpy(fp, ptr, slen, width, flag == 2);
+            fmt++;
+            continue;
+
+        case 'g':
+        case 'G':
+            fval = va_arg(ap, double);
+            if (prec < 0) prec = 6;
+            fmt++;
+            break;
+
+        case '%':
+        default:
+            wmlen += fmt_mem_cpy(pdst, dstlen - wmlen, fmt, 1, 1, 0);
+            fplen += fmt_file_cpy(fp, fmt, 1, 1, 0);
+            fmt++;
+            continue;
+        }
+    }
+
+    if (fp) return fplen;
+    return wmlen;
+}
+
+int ksnprintf (void * buf, int len, char * fmt, ...)
+{
+    int ret = 0;
+    va_list vap;
+
+    va_start(vap, fmt);
+    ret = kvsnprintf(buf, len, NULL, fmt, vap);
+    va_end(vap);
+
+    return ret;
+}
+
+int ksprintf (void * buf, char * fmt, ...)
+{
+    int ret = 0;
+    va_list vap;
+
+    va_start(vap, fmt);
+    ret = kvsnprintf(buf, -1, NULL, fmt, vap);
+    va_end(vap);
+
+    return ret;
+}
+
+int kfprintf (FILE * fp, char * fmt, ...)
+{
+    int ret = 0;
+    va_list vap;
+
+    va_start(vap, fmt);
+    ret = kvsnprintf(NULL, -1, fp, fmt, vap);
+    va_end(vap);
+
+    return ret;
+}
+
+int kprintf (char * fmt, ...)
+{
+    int ret = 0;
+    va_list vap;
+
+    va_start(vap, fmt);
+    ret = kvsnprintf(NULL, -1, stdout, fmt, vap);
+    va_end(vap);
+
+    return ret;
+}
 

@@ -33,7 +33,6 @@
 #include "btype.h"
 #include "memory.h"
 #include "fileop.h"
-#include "frame.h"
 #include "strutil.h"
  
 #ifdef UNIX
