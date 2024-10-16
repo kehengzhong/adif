@@ -763,7 +763,7 @@ int64 chunk_read_ptr (void * vck, int64 offset, int64 length, void ** ppbyte, in
                 native_file_seek(ent->u.filename.hfile, ent->u.filename.offset + curpos);
                 if (curlen > ck->lbsize) curlen = ck->lbsize;
 
-                if (!ck->loadbuf) ck->loadbuf = kalloc(ck->lbsize);
+                if (!ck->loadbuf) ck->loadbuf = k_mem_alloc(ck->lbsize, ck->alloctype, ck->mpool);
                 ret = native_file_read(ent->u.filename.hfile, ck->loadbuf, curlen);
                 if (ret >= 0) curlen = ret;
 
@@ -776,7 +776,7 @@ int64 chunk_read_ptr (void * vck, int64 offset, int64 length, void ** ppbyte, in
                 file_seek(ent->u.fileptr.fp, ent->u.fileptr.offset + curpos, SEEK_SET);
                 if (curlen > ck->lbsize) curlen = ck->lbsize;
 
-                if (!ck->loadbuf) ck->loadbuf = kalloc(ck->lbsize);
+                if (!ck->loadbuf) ck->loadbuf = k_mem_alloc(ck->lbsize, ck->alloctype, ck->mpool);
                 ret = file_read(ent->u.fileptr.fp, ck->loadbuf, curlen);
                 if (ret >= 0) curlen = ret;
 
@@ -789,7 +789,7 @@ int64 chunk_read_ptr (void * vck, int64 offset, int64 length, void ** ppbyte, in
                 lseek(ent->u.filefd.fd, ent->u.filefd.offset + curpos, SEEK_SET);
                 if (curlen > ck->lbsize) curlen = ck->lbsize;
 
-                if (!ck->loadbuf) ck->loadbuf = kalloc(ck->lbsize);
+                if (!ck->loadbuf) ck->loadbuf = k_mem_alloc(ck->lbsize, ck->alloctype, ck->mpool);
                 ret = filefd_read(ent->u.filefd.fd, ck->loadbuf, curlen);
                 if (ret >= 0) curlen = ret;
 
