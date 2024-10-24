@@ -2396,7 +2396,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
         if (httpchunk) {
             if (ent->lenstrlen > 0 && readpos < accentlen + ent->lenstrlen) {
                 if (pvec->vectype != 0 && pvec->vectype != 1)
-                    return (int)pvec->size;
+                    return 101;
     
                 curpos = readpos - accentlen;
                 curlen = ent->lenstrlen - curpos;
@@ -2419,7 +2419,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
  
             if (ent->cktype == CKT_CHAR_ARRAY) {
                 if (pvec->vectype != 0 && pvec->vectype != 1)
-                    return (int)pvec->size;
+                    return 11;
  
                 pvec->iovs[pvec->iovcnt].iov_base = ent->u.charr.pbyte + curpos;
                 pvec->iovs[pvec->iovcnt].iov_len = curlen;
@@ -2431,7 +2431,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
 
             } else if (ent->cktype == CKT_BUFFER) {
                 if (pvec->vectype != 0 && pvec->vectype != 1)
-                    return (int)pvec->size;
+                    return 12;
 
                 pvec->iovs[pvec->iovcnt].iov_base = (uint8 *)ent->u.buf.pbyte + curpos;
                 pvec->iovs[pvec->iovcnt].iov_len = curlen;
@@ -2443,7 +2443,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
  
             } else if (ent->cktype == CKT_BUFFER_PTR) {
                 if (pvec->vectype != 0 && pvec->vectype != 1)
-                    return (int)pvec->size;
+                    return 13;
 
                 pvec->iovs[pvec->iovcnt].iov_base = (uint8 *)ent->u.bufptr.pbyte + curpos;
                 pvec->iovs[pvec->iovcnt].iov_len = curlen;
@@ -2455,7 +2455,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
  
             } else if (ent->cktype == CKT_FILE_NAME) {
                 if (pvec->vectype != 0 && pvec->vectype != 2)
-                    return (int)pvec->size;
+                    return 21;
 
                 if (ent->u.filename.hfile == NULL) {
                     ent->u.filename.hfile = native_file_open(ent->u.filename.fname, NF_READ);
@@ -2489,11 +2489,11 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
 
                 pvec->vectype = 2; //file
 
-                return (int)pvec->size;
+                return 22;
  
             } else if (ent->cktype == CKT_FILE_PTR) {
                 if (pvec->vectype != 0 && pvec->vectype != 2)
-                    return (int)pvec->size;
+                    return 31;
 
                 pvec->filefd = fileno(ent->u.fileptr.fp);
 #if defined(_WIN32) || defined(_WIN64)
@@ -2508,11 +2508,11 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
 
                 pvec->vectype = 2; //file
 
-                return (int)pvec->size;
+                return 32;
 
             } else if (ent->cktype == CKT_FILE_DESC) {
                 if (pvec->vectype != 0 && pvec->vectype != 2)
-                    return (int)pvec->size;
+                    return 41;
 
                 pvec->filefd = ent->u.filefd.fd;
 #if defined(_WIN32) || defined(_WIN64)
@@ -2526,12 +2526,12 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
                  
                 pvec->vectype = 2; //file
  
-                return (int)pvec->size;
+                return 42;
 
             } else if (ent->cktype == CKT_CALLBACK) {
                 if (ent->u.callback.fetchfunc) {
                     if (pvec->vectype != 0 && pvec->vectype != 1)
-                        return (int)pvec->size;
+                        return 51;
 
                     pbyte = NULL;
                     bytelen = 0;
@@ -2556,7 +2556,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
         if (httpchunk) {
             if (ent->trailerlen > 0 && readpos < accentlen + ent->trailerlen) {
                 if (pvec->vectype != 0 && pvec->vectype != 1)
-                    return (int)pvec->size;
+                    return 102;
  
                 curpos = readpos - accentlen;
                 curlen = ent->trailerlen - curpos;
@@ -2577,7 +2577,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
     if (httpchunk && ck->chunkendsize > 0 && readpos + 5 >= ck->chunkendsize) {
         if (readpos < accentlen + 5) { //0\r\n\r\n
             if (pvec->vectype != 0 && pvec->vectype != 1)
-                return (int)pvec->size;
+                return 103;
 
             curpos = readpos - accentlen;
             curlen = 5 - curpos;
@@ -2594,7 +2594,7 @@ int chunk_vec_get (void * vck, int64 offset, chunk_vec_t * pvec, int httpchunk)
         accentlen += 5;
     }
 
-    return (int)pvec->size;
+    return 1;
 }
 
 int chunk_writev (void * vck, int fd, int64 offset, int64 * actnum, int httpchunk)
